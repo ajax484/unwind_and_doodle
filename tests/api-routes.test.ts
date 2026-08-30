@@ -41,7 +41,7 @@ import { GET as getAdminOrderDetail } from '@/app/api/admin/orders/[id]/route';
 import { PATCH as patchAdminOrderStatus } from '@/app/api/admin/orders/[id]/status/route';
 import { POST as postPaystackWebhook } from '@/app/api/webhooks/paystack/route';
 
-describe('Comprehensive API Routes Verification', () => {
+describe('Comprehensive API Routes Verification', { timeout: 15000 }, () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });

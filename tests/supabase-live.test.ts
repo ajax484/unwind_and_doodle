@@ -38,7 +38,7 @@ if (typeof globalThis.WebSocket === 'undefined') {
 
 const isLiveConfigured = Boolean(supabaseUrl && serviceRoleKey && !supabaseUrl.includes('placeholder'));
 
-describe('Live Supabase Schema & RPC Verification', () => {
+describe('Live Supabase Schema & RPC Verification', { timeout: 30000 }, () => {
   it.runIf(isLiveConfigured)('connects and queries core tables successfully', async () => {
     const supabase = createClient<Database>(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },

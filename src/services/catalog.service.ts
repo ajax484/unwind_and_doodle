@@ -79,7 +79,8 @@ export async function getPublishedCatalog(
   // Filter for published / active products
   let products = (rawProducts || []).filter((p) => {
     if (p.status) return p.status === 'published';
-    if ((p as Record<string, unknown>).is_active !== undefined) return (p as Record<string, unknown>).is_active as boolean;
+    const legacyActive = (p as { is_active?: boolean }).is_active;
+    if (legacyActive !== undefined) return legacyActive;
     return true;
   });
 
@@ -163,8 +164,9 @@ export async function getPublishedCatalog(
   // Aggregate available inventory across warehouses
   const stockByProduct = new Map<string, number>();
   for (const inv of inventory || []) {
-    const onHand = Number((inv as Record<string, unknown>).quantity_on_hand ?? inv.quantity ?? 0);
-    const reserved = Number((inv as Record<string, unknown>).quantity_reserved ?? inv.reserved_quantity ?? 0);
+    const invExt = inv as typeof inv & { quantity_on_hand?: number; quantity_reserved?: number };
+    const onHand = Number(invExt.quantity_on_hand ?? inv.quantity ?? 0);
+    const reserved = Number(invExt.quantity_reserved ?? inv.reserved_quantity ?? 0);
     const avail = Math.max(0, onHand - reserved);
     const curr = stockByProduct.get(inv.product_id) || 0;
     stockByProduct.set(inv.product_id, curr + avail);
@@ -199,30 +201,18 @@ export async function getPublishedCatalog(
   let catalog: CatalogProductItem[] = products.map((p) => {
     const prodImages = imagesByProduct.get(p.id) || [];
     const sortedImages = [...prodImages].sort((a, b) => {
-      const aOrder =
-        (a as Record<string, unknown>).sort_order !== undefined
-          ? Number((a as Record<string, unknown>).sort_order)
-          : (a as Record<string, unknown>).is_primary
-          ? 0
-          : 1;
-      const bOrder =
-        (b as Record<string, unknown>).sort_order !== undefined
-          ? Number((b as Record<string, unknown>).sort_order)
-          : (b as Record<string, unknown>).is_primary
-          ? 0
-          : 1;
+      const imgA = a as typeof a & { is_primary?: boolean };
+      const imgB = b as typeof b & { is_primary?: boolean };
+      const aOrder = a.sort_order !== undefined && a.sort_order !== null ? Number(a.sort_order) : imgA.is_primary ? 0 : 1;
+      const bOrder = b.sort_order !== undefined && b.sort_order !== null ? Number(b.sort_order) : imgB.is_primary ? 0 : 1;
       return aOrder - bOrder;
     });
-    const primaryImage =
-      ((sortedImages[0] as Record<string, unknown>)?.storage_path as string) ||
-      ((sortedImages[0] as Record<string, unknown>)?.image_url as string) ||
-      null;
+    const primaryImgObj = sortedImages[0] as (typeof sortedImages[0] & { image_url?: string }) | undefined;
+    const primaryImage = primaryImgObj?.storage_path || primaryImgObj?.image_url || null;
     const stock = stockByProduct.get(p.id) || 0;
     const cats = categoriesByProduct.get(p.id) || [];
-    const effectivePrice =
-      p.selling_price !== undefined && p.selling_price !== null
-        ? p.selling_price
-        : ((p as Record<string, unknown>).price as number) || 0;
+    const prodExt = p as typeof p & { price?: number };
+    const effectivePrice = p.selling_price ?? prodExt.price ?? 0;
 
     const bComponents = bundleItemsByBundle.get(p.id) || [];
 

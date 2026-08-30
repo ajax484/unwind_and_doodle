@@ -233,8 +233,9 @@ export async function listAdminProducts(
   const stockMap = new Map<string, { onHand: number; reserved: number; available: number }>();
   for (const inv of inventory || []) {
     const curr = stockMap.get(inv.product_id) || { onHand: 0, reserved: 0, available: 0 };
-    const onHand = Number((inv as Record<string, unknown>).quantity_on_hand ?? inv.quantity ?? 0);
-    const reserved = Number((inv as Record<string, unknown>).quantity_reserved ?? inv.reserved_quantity ?? 0);
+    const invExt = inv as typeof inv & { quantity_on_hand?: number; quantity_reserved?: number };
+    const onHand = Number(invExt.quantity_on_hand ?? inv.quantity ?? 0);
+    const reserved = Number(invExt.quantity_reserved ?? inv.reserved_quantity ?? 0);
     curr.onHand += onHand;
     curr.reserved += reserved;
     curr.available += Math.max(0, onHand - reserved);
