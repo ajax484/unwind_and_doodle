@@ -1,0 +1,631 @@
+import { SupabaseClient } from '@supabase/supabase-js';
+import { Database } from '../lib/supabase/types';
+
+export interface CartAddonInput {
+  addonProductId: string;
+  quantity: number;
+}
+
+export interface CartCustomizationInput {
+  notes?: string;
+  assetUrls?: string[];
+}
+
+export interface AddToCartInput {
+  productId: string;
+  quantity: number;
+  addons?: CartAddonInput[];
+  customization?: CartCustomizationInput;
+}
+
+export interface CartItemDetail {
+  id: string;
+  productId: string;
+  productName: string;
+  slug: string;
+  sku: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  primaryImage: string | null;
+  requiresCustomization: boolean;
+  productType?: 'physical' | 'custom' | 'bundle';
+  bundleComponents?: {
+    componentProductId: string;
+    name: string;
+    quantity: number;
+  }[];
+  customization?: {
+    id: string;
+    notes: string | null;
+    status: string;
+    assets: string[];
+  } | null;
+  addons: {
+    id: string;
+    addonProductId: string;
+    addonName: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    primaryImage: string | null;
+  }[];
+}
+
+export interface CartResponse {
+  cartId: string;
+  sessionId: string;
+  items: CartItemDetail[];
+  totalItemCount: number;
+  subtotal: number;
+  currency: string;
+}
+
+/**
+ * Retrieves an existing cart or creates a new guest cart session.
+ */
+export async function getOrCreateCart(
+  supabase: SupabaseClient<Database>,
+  sessionId: string
+): Promise<{ id: string; session_id: string | null }> {
+  const { data: existingCart } = await supabase
+    .from('carts')
+    .select('id, session_id')
+    .eq('session_id', sessionId)
+    .maybeSingle();
+
+  if (existingCart) {
+    return existingCart;
+  }
+
+  // Resolve default organization ID
+  let orgId = '88c7af2e-afd4-4504-a43f-b14cc45d6263';
+  try {
+    const { data: org } = await supabase.from('organizations').select('id').limit(1).maybeSingle();
+    if (org?.id) {
+      orgId = org.id;
+    }
+  } catch {
+    // use default
+  }
+
+  const { data: newCart, error } = await supabase
+    .from('carts')
+    .insert({
+      session_id: sessionId,
+      organization_id: orgId,
+    })
+    .select('id, session_id')
+    .single();
+
+  if (error || !newCart) {
+    throw new Error(`Failed to create cart session: ${error?.message}`);
+  }
+
+  return newCart;
+}
+
+/**
+ * Fetches full cart details including product information, add-ons, customization assets, and prices.
+ */
+export async function getCartDetails(
+  supabase: SupabaseClient<Database>,
+  sessionId: string
+): Promise<CartResponse> {
+  const cart = await getOrCreateCart(supabase, sessionId);
+
+  const { data: rawItems, error: itemsErr } = await supabase
+    .from('cart_items')
+    .select('*')
+    .eq('cart_id', cart.id);
+
+  if (itemsErr) {
+    throw new Error(`Failed to fetch cart items: ${itemsErr.message}`);
+  }
+
+  if (!rawItems || rawItems.length === 0) {
+    return {
+      cartId: cart.id,
+      sessionId,
+      items: [],
+      totalItemCount: 0,
+      subtotal: 0,
+      currency: 'NGN',
+    };
+  }
+
+  // Separate parent items from legacy child add-on items (if any in mock)
+  const parentItems = rawItems.filter(
+    (i) => !(i as Record<string, unknown>).parent_cart_item_id
+  );
+  const childAddonItems = rawItems.filter(
+    (i) => Boolean((i as Record<string, unknown>).parent_cart_item_id)
+  );
+
+  // Group child addons by parent_cart_item_id for mock backwards compatibility
+  const childAddonsByParent = new Map<string, typeof childAddonItems>();
+  for (const child of childAddonItems) {
+    const parentId = (child as Record<string, unknown>).parent_cart_item_id as string;
+    if (!childAddonsByParent.has(parentId)) {
+      childAddonsByParent.set(parentId, []);
+    }
+    childAddonsByParent.get(parentId)!.push(child);
+  }
+
+  // Extract all product IDs (main products + embedded addons in customization_data + child items)
+  const allProductIds = new Set<string>();
+  for (const item of rawItems) {
+    allProductIds.add(item.product_id);
+    const custData =
+      item.customization_data && typeof item.customization_data === 'object'
+        ? (item.customization_data as { addons?: CartAddonInput[] })
+        : null;
+    if (custData?.addons && Array.isArray(custData.addons)) {
+      for (const a of custData.addons) {
+        if (a.addonProductId) allProductIds.add(a.addonProductId);
+      }
+    }
+  }
+
+  const legacyCustIds = Array.from(
+    new Set(
+      rawItems
+        .map((i) => (i as Record<string, unknown>).customization_id as string | undefined)
+        .filter(Boolean) as string[]
+    )
+  );
+
+  const [
+    { data: products },
+    { data: images },
+    { data: productAddonConfigsByParent },
+    { data: productAddonConfigsByProd },
+    { data: legacyCusts },
+    { data: legacyAssets },
+  ] = await Promise.all([
+    supabase.from('products').select('*').in('id', Array.from(allProductIds)),
+    supabase.from('product_images').select('*').in('product_id', Array.from(allProductIds)),
+    supabase.from('product_addons').select('*'),
+    supabase.from('product_addons').select('*'),
+    legacyCustIds.length > 0
+      ? supabase.from('customizations').select('*').in('id', legacyCustIds)
+      : Promise.resolve({ data: [] }),
+    legacyCustIds.length > 0
+      ? supabase.from('customization_assets').select('*').in('customization_id', legacyCustIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const productMap = new Map((products || []).map((p) => [p.id, p]));
+
+  const imageMap = new Map<string, string>();
+  for (const img of images || []) {
+    const isPrimary = (img as Record<string, unknown>).sort_order === 0 || img.is_primary;
+    const url = ((img as Record<string, unknown>).storage_path as string) || img.image_url;
+    if (isPrimary || !imageMap.has(img.product_id)) {
+      imageMap.set(img.product_id, url);
+    }
+  }
+
+  // Map addon price overrides: `${productId}:${addonProductId}` -> price_override
+  const addonOverrideMap = new Map<string, number | null>();
+  const allAddonConfigs = [
+    ...(productAddonConfigsByParent || []),
+    ...(productAddonConfigsByProd || []),
+  ];
+  for (const a of allAddonConfigs) {
+    const parentId = a.parent_product_id || (a as Record<string, unknown>).product_id;
+    if (parentId && a.addon_product_id) {
+      addonOverrideMap.set(`${parentId}:${a.addon_product_id}`, a.price_override);
+    }
+  }
+
+  const legacyCustMap = new Map((legacyCusts || []).map((c) => [c.id, c]));
+  const legacyAssetsMap = new Map<string, string[]>();
+  for (const asset of legacyAssets || []) {
+    const url = ((asset as Record<string, unknown>).storage_path as string) || asset.asset_url;
+    if (!legacyAssetsMap.has(asset.customization_id)) {
+      legacyAssetsMap.set(asset.customization_id, []);
+    }
+    legacyAssetsMap.get(asset.customization_id)!.push(url);
+  }
+
+  // Fetch bundle components for any bundle items in cart
+  const bundleProductIds = (products || []).filter((p) => p.product_type === 'bundle').map((p) => p.id);
+  const bundleComponentsMap = new Map<string, { componentProductId: string; name: string; quantity: number }[]>();
+
+  if (bundleProductIds.length > 0) {
+    const { data: bItems } = await supabase
+      .from('bundle_items')
+      .select('*')
+      .in('bundle_product_id', bundleProductIds);
+
+    const compProductIds = (bItems || []).map((bi) => bi.component_product_id);
+    if (compProductIds.length > 0) {
+      const { data: compProducts } = await supabase
+        .from('products')
+        .select('id, name')
+        .in('id', compProductIds);
+
+      const compNameMap = new Map((compProducts || []).map((p) => [p.id, p.name]));
+
+      for (const bi of bItems || []) {
+        if (!bundleComponentsMap.has(bi.bundle_product_id)) {
+          bundleComponentsMap.set(bi.bundle_product_id, []);
+        }
+        bundleComponentsMap.get(bi.bundle_product_id)!.push({
+          componentProductId: bi.component_product_id,
+          name: compNameMap.get(bi.component_product_id) || 'Component Product',
+          quantity: bi.quantity,
+        });
+      }
+    }
+  }
+
+  let subtotal = 0;
+  let totalCount = 0;
+
+  const itemDetails: CartItemDetail[] = parentItems.map((parent) => {
+    const product = productMap.get(parent.product_id);
+    const unitPrice =
+      product?.selling_price !== undefined && product.selling_price !== null
+        ? product.selling_price
+        : ((product as Record<string, unknown>)?.price as number) || 0;
+    const parentTotal = unitPrice * parent.quantity;
+
+    subtotal += parentTotal;
+    totalCount += parent.quantity;
+
+    // Parse customization data from JSON column or fallback to legacy join
+    const custData =
+      parent.customization_data && typeof parent.customization_data === 'object'
+        ? (parent.customization_data as {
+            notes?: string;
+            assetUrls?: string[];
+            addons?: CartAddonInput[];
+          })
+        : null;
+
+    const legacyCustId = (parent as Record<string, unknown>).customization_id as string | undefined;
+    const legacyCust = legacyCustId ? legacyCustMap.get(legacyCustId) : null;
+    const legacyAssets = legacyCust ? legacyAssetsMap.get(legacyCust.id) || [] : [];
+
+    let customization: CartItemDetail['customization'] = null;
+    if (custData && (custData.notes || (custData.assetUrls && custData.assetUrls.length > 0))) {
+      customization = {
+        id: `cust_${parent.id}`,
+        notes: custData.notes || null,
+        status: 'draft',
+        assets: custData.assetUrls || [],
+      };
+    } else if (legacyCust) {
+      customization = {
+        id: legacyCust.id,
+        notes: ((legacyCust as Record<string, unknown>).notes as string) || null,
+        status: legacyCust.status,
+        assets: legacyAssets,
+      };
+    }
+
+    // Format add-ons (from customization_data JSON or legacy child rows)
+    const formattedAddons: CartItemDetail['addons'] = [];
+
+    if (custData?.addons && Array.isArray(custData.addons)) {
+      for (const addon of custData.addons) {
+        const addonProd = productMap.get(addon.addonProductId);
+        const overrideKey = `${parent.product_id}:${addon.addonProductId}`;
+        const priceOverride = addonOverrideMap.get(overrideKey);
+        const rawAddonPrice =
+          addonProd?.selling_price !== undefined && addonProd.selling_price !== null
+            ? addonProd.selling_price
+            : ((addonProd as Record<string, unknown>)?.price as number) || 0;
+        const addonUnitPrice =
+          priceOverride !== null && priceOverride !== undefined
+            ? priceOverride
+            : rawAddonPrice;
+        const addonTotal = addonUnitPrice * addon.quantity;
+
+        subtotal += addonTotal;
+        totalCount += addon.quantity;
+
+        formattedAddons.push({
+          id: `addon_${parent.id}_${addon.addonProductId}`,
+          addonProductId: addon.addonProductId,
+          addonName: addonProd?.name || 'Add-on Product',
+          quantity: addon.quantity,
+          unitPrice: addonUnitPrice,
+          totalPrice: addonTotal,
+          primaryImage: imageMap.get(addon.addonProductId) || null,
+        });
+      }
+    } else {
+      // Legacy child items mapping
+      const children = childAddonsByParent.get(parent.id) || [];
+      for (const child of children) {
+        const addonProd = productMap.get(child.product_id);
+        const overrideKey = `${parent.product_id}:${child.product_id}`;
+        const priceOverride = addonOverrideMap.get(overrideKey);
+        const rawAddonPrice =
+          addonProd?.selling_price !== undefined && addonProd.selling_price !== null
+            ? addonProd.selling_price
+            : ((addonProd as Record<string, unknown>)?.price as number) || 0;
+        const addonUnitPrice =
+          priceOverride !== null && priceOverride !== undefined
+            ? priceOverride
+            : rawAddonPrice;
+        const addonTotal = addonUnitPrice * child.quantity;
+
+        subtotal += addonTotal;
+        totalCount += child.quantity;
+
+        formattedAddons.push({
+          id: child.id,
+          addonProductId: child.product_id,
+          addonName: addonProd?.name || 'Add-on Product',
+          quantity: child.quantity,
+          unitPrice: addonUnitPrice,
+          totalPrice: addonTotal,
+          primaryImage: imageMap.get(child.product_id) || null,
+        });
+      }
+    }
+
+    return {
+      id: parent.id,
+      productId: parent.product_id,
+      productName: product?.name || 'Product',
+      slug: product?.slug || '',
+      sku: product?.sku || '',
+      quantity: parent.quantity,
+      unitPrice,
+      totalPrice: parentTotal,
+      primaryImage: imageMap.get(parent.product_id) || null,
+      requiresCustomization: product?.requires_customization ?? false,
+      productType: product?.product_type || 'physical',
+      bundleComponents: bundleComponentsMap.get(parent.product_id) || [],
+      customization,
+      addons: formattedAddons,
+    };
+  });
+
+  return {
+    cartId: cart.id,
+    sessionId,
+    items: itemDetails,
+    totalItemCount: totalCount,
+    subtotal,
+    currency: 'NGN',
+  };
+}
+
+/**
+ * Helper to check if two cart item customization/addon configurations are identical.
+ */
+function areCustomizationsEqual(
+  aData: unknown,
+  bData: Record<string, unknown>
+): boolean {
+  const hasA = Boolean(aData && typeof aData === 'object' && Object.keys(aData as object).length > 0);
+  const hasB = Boolean(bData && Object.keys(bData).length > 0);
+
+  if (!hasA && !hasB) return true;
+  if (!hasA || !hasB) return false;
+
+  const a = aData as Record<string, unknown>;
+
+  // Compare notes
+  const aNotes = (a.notes as string) || '';
+  const bNotes = (bData.notes as string) || '';
+  if (aNotes.trim() !== bNotes.trim()) return false;
+
+  // Compare assetUrls
+  const aAssets = Array.isArray(a.assetUrls) ? a.assetUrls : [];
+  const bAssets = Array.isArray(bData.assetUrls) ? bData.assetUrls : [];
+  if (aAssets.length !== bAssets.length) return false;
+  if (JSON.stringify([...aAssets].sort()) !== JSON.stringify([...bAssets].sort())) return false;
+
+  // Compare addons
+  const aAddons = Array.isArray(a.addons) ? a.addons : [];
+  const bAddons = Array.isArray(bData.addons) ? bData.addons : [];
+  if (aAddons.length !== bAddons.length) return false;
+
+  const normalizeAddons = (addons: any[]) =>
+    [...addons]
+      .map((ad) => ({ id: ad.addonProductId || ad.id, qty: ad.quantity || 1 }))
+      .sort((x, y) => (x.id || '').localeCompare(y.id || ''));
+
+  return JSON.stringify(normalizeAddons(aAddons)) === JSON.stringify(normalizeAddons(bAddons));
+}
+
+/**
+ * Adds a product and optional add-ons/customizations to the cart.
+ * If the exact same product & configuration is already in the cart, increments quantity instead of adding a duplicate row.
+ */
+export async function addItemToCart(
+  supabase: SupabaseClient<Database>,
+  sessionId: string,
+  input: AddToCartInput
+): Promise<CartResponse> {
+  const cart = await getOrCreateCart(supabase, sessionId);
+
+  // 1. Prepare customization_data JSON payload
+  const customizationData: Record<string, unknown> = {};
+  if (input.customization) {
+    if (input.customization.notes) customizationData.notes = input.customization.notes;
+    if (input.customization.assetUrls && input.customization.assetUrls.length > 0) {
+      customizationData.assetUrls = input.customization.assetUrls;
+    }
+  }
+  if (input.addons && input.addons.length > 0) {
+    customizationData.addons = input.addons;
+  }
+
+  // 2. Check for existing cart item with same product_id and identical customizations/addons
+  const { data: existingItems } = await supabase
+    .from('cart_items')
+    .select('*')
+    .eq('cart_id', cart.id)
+    .eq('product_id', input.productId);
+
+  const matchingItem = (existingItems || []).find((item) =>
+    areCustomizationsEqual(item.customization_data, customizationData)
+  );
+
+  if (matchingItem) {
+    // Increment existing item quantity
+    const newQuantity = (matchingItem.quantity || 1) + input.quantity;
+    const { error: updateErr } = await supabase
+      .from('cart_items')
+      .update({
+        quantity: newQuantity,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', matchingItem.id)
+      .eq('cart_id', cart.id);
+
+    if (updateErr) {
+      throw new Error(`Failed to update cart item quantity: ${updateErr.message}`);
+    }
+  } else {
+    // Insert new cart item
+    const { data: item, error: itemErr } = await supabase
+      .from('cart_items')
+      .insert({
+        cart_id: cart.id,
+        product_id: input.productId,
+        quantity: input.quantity,
+        customization_data:
+          Object.keys(customizationData).length > 0
+            ? (customizationData as unknown as Database['public']['Tables']['cart_items']['Insert']['customization_data'])
+            : null,
+      })
+      .select('id')
+      .single();
+
+    if (itemErr || !item) {
+      throw new Error(`Failed to add item to cart: ${itemErr?.message}`);
+    }
+  }
+
+  return getCartDetails(supabase, sessionId);
+}
+
+/**
+ * Modifies quantity of a cart item. If quantity is 0 or less, removes the item and associated add-ons.
+ */
+export async function updateCartItemQuantity(
+  supabase: SupabaseClient<Database>,
+  sessionId: string,
+  cartItemId: string,
+  quantity: number
+): Promise<CartResponse> {
+  const cart = await getOrCreateCart(supabase, sessionId);
+
+  if (quantity <= 0) {
+    return removeCartItem(supabase, sessionId, cartItemId);
+  }
+
+  const { error } = await supabase
+    .from('cart_items')
+    .update({ quantity, updated_at: new Date().toISOString() })
+    .eq('id', cartItemId)
+    .eq('cart_id', cart.id);
+
+  if (error) {
+    throw new Error(`Failed to update cart item quantity: ${error.message}`);
+  }
+
+  return getCartDetails(supabase, sessionId);
+}
+
+/**
+ * Updates customization (photos and notes) of an existing cart item.
+ */
+export async function updateCartItemCustomization(
+  supabase: SupabaseClient<Database>,
+  sessionId: string,
+  cartItemId: string,
+  customization: CartCustomizationInput
+): Promise<CartResponse> {
+  const cart = await getOrCreateCart(supabase, sessionId);
+
+  const { data: existingItem, error: fetchErr } = await supabase
+    .from('cart_items')
+    .select('customization_data')
+    .eq('id', cartItemId)
+    .eq('cart_id', cart.id)
+    .single();
+
+  if (fetchErr || !existingItem) {
+    throw new Error('Cart item not found');
+  }
+
+  const currentData =
+    existingItem.customization_data && typeof existingItem.customization_data === 'object'
+      ? (existingItem.customization_data as Record<string, unknown>)
+      : {};
+
+  const updatedData: Record<string, unknown> = {
+    ...currentData,
+    notes: customization.notes,
+    assetUrls: customization.assetUrls,
+  };
+
+  const { error: updateErr } = await supabase
+    .from('cart_items')
+    .update({
+      customization_data: updatedData as unknown as Database['public']['Tables']['cart_items']['Insert']['customization_data'],
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', cartItemId)
+    .eq('cart_id', cart.id);
+
+  if (updateErr) {
+    throw new Error(`Failed to update cart item customization: ${updateErr.message}`);
+  }
+
+  return getCartDetails(supabase, sessionId);
+}
+
+/**
+ * Removes an item and all child add-ons from the cart.
+ */
+export async function removeCartItem(
+  supabase: SupabaseClient<Database>,
+  sessionId: string,
+  cartItemId: string
+): Promise<CartResponse> {
+  const cart = await getOrCreateCart(supabase, sessionId);
+
+  const { error } = await supabase
+    .from('cart_items')
+    .delete()
+    .eq('id', cartItemId)
+    .eq('cart_id', cart.id);
+
+  if (error) {
+    throw new Error(`Failed to remove cart item: ${error.message}`);
+  }
+
+  return getCartDetails(supabase, sessionId);
+}
+
+/**
+ * Clears all items from the current cart session.
+ */
+export async function clearCart(
+  supabase: SupabaseClient<Database>,
+  sessionId: string
+): Promise<CartResponse> {
+  const cart = await getOrCreateCart(supabase, sessionId);
+
+  const { error } = await supabase
+    .from('cart_items')
+    .delete()
+    .eq('cart_id', cart.id);
+
+  if (error) {
+    throw new Error(`Failed to clear cart: ${error.message}`);
+  }
+
+  return getCartDetails(supabase, sessionId);
+}

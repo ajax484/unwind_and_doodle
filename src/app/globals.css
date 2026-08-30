@@ -1,0 +1,292 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+
+@theme {
+  --font-heading: 'Fredoka', cursive, sans-serif;
+  --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --color-brand-blue: #A7C2D4;
+  --color-brand-blue-dark: #7FA6BF;
+  --color-brand-blue-deep: #4A7A99;
+  --color-brand-blue-light: #EBF3F8;
+  --color-brand-blue-subtle: #F4F8FA;
+
+  --color-brand-rose: #D99BA3;
+  --color-brand-rose-dark: #C67D87;
+  --color-brand-rose-deep: #9E4D58;
+  --color-brand-rose-light: #FBF0F2;
+  --color-brand-rose-subtle: #FDF7F8;
+
+  --color-brand-charcoal: #243342;
+  --color-brand-slate: #52657A;
+  --color-brand-muted: #8295A8;
+}
+
+:root {
+  --font-heading: 'Fredoka', cursive, sans-serif;
+  --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --brand-blue: #A7C2D4;
+  --brand-blue-dark: #7FA6BF;
+  --brand-blue-light: #EBF3F8;
+
+  --brand-rose: #D99BA3;
+  --brand-rose-dark: #C67D87;
+  --brand-rose-light: #FBF0F2;
+
+  --brand-charcoal: #243342;
+  --brand-slate: #52657A;
+}
+
+html, body {
+  font-family: var(--font-body);
+  background-color: #FFFFFF;
+  color: #243342;
+  line-height: 1.6;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex-grow: 1;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+h1, h2, h3, h4, h5, h6, .font-heading {
+  font-family: var(--font-heading);
+  letter-spacing: -0.01em;
+}
+
+/* Organic corner blobs matching the logo */
+.bg-blob-blue {
+  background: radial-gradient(circle at 10% 10%, rgba(167, 194, 212, 0.45) 0%, rgba(235, 243, 248, 0.25) 45%, transparent 70%);
+}
+
+.bg-blob-rose {
+  background: radial-gradient(circle at 90% 90%, rgba(217, 155, 163, 0.45) 0%, rgba(251, 240, 242, 0.25) 45%, transparent 70%);
+}
+
+.bg-brand-mesh {
+  background-color: #FFFFFF;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(167, 194, 212, 0.4) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(217, 155, 163, 0.4) 0px, transparent 50%);
+}
+
+/* Cards */
+.card-editorial, .card-soft {
+  background: #FFFFFF;
+  border-radius: 1.25rem;
+  border: 1.5px solid #EDF3F7;
+  box-shadow: 0 4px 20px -2px rgba(167, 194, 212, 0.15);
+  transition: all 0.25s ease;
+}
+
+.card-editorial:hover, .card-soft:hover {
+  transform: translateY(-2px);
+  border-color: #D9E5EE;
+  box-shadow: 0 10px 25px -4px rgba(167, 194, 212, 0.25);
+}
+
+/* Buttons */
+.btn-primary, .btn-rose {
+  background-color: #D99BA3;
+  color: #FFFFFF !important;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.75rem 1.75rem;
+  border-radius: 9999px;
+  border: 1px solid #D99BA3;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(217, 155, 163, 0.35);
+  text-decoration: none;
+}
+
+.btn-primary:hover, .btn-rose:hover {
+  background-color: #C67D87;
+  border-color: #C67D87;
+  transform: scale(1.02);
+  box-shadow: 0 6px 18px rgba(217, 155, 163, 0.45);
+}
+
+.btn-primary:disabled, .btn-rose:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-terracotta {
+  background-color: #D99BA3;
+  color: #FFFFFF !important;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  padding: 0.75rem 1.75rem;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.btn-terracotta:hover {
+  background-color: #C67D87;
+  transform: scale(1.02);
+}
+
+.btn-secondary, .btn-blue {
+  background-color: #A7C2D4;
+  color: #FFFFFF !important;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.75rem 1.75rem;
+  border-radius: 9999px;
+  border: 1px solid #A7C2D4;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(167, 194, 212, 0.35);
+  text-decoration: none;
+}
+
+.btn-secondary:hover, .btn-blue:hover {
+  background-color: #7FA6BF;
+  border-color: #7FA6BF;
+  transform: scale(1.02);
+  box-shadow: 0 6px 18px rgba(167, 194, 212, 0.45);
+}
+
+.btn-pink {
+  background-color: #D99BA3;
+  color: #FFFFFF !important;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  padding: 0.75rem 1.75rem;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.btn-pink:hover {
+  background-color: #C67D87;
+}
+
+.btn-outline {
+  background-color: #FFFFFF;
+  color: #243342;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.65rem 1.5rem;
+  border-radius: 9999px;
+  border: 1.5px solid #D9E5EE;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.btn-outline:hover {
+  background-color: #F4F8FA;
+  border-color: #A7C2D4;
+  color: #4A7A99;
+}
+
+/* Badges */
+.badge-stock {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-in-stock {
+  background-color: #EBF8F2;
+  color: #1F7A4D;
+}
+
+.badge-out-of-stock {
+  background-color: #FDF0F2;
+  color: #B33948;
+}
+
+/* Form Inputs */
+.form-input {
+  width: 100%;
+  padding: 0.75rem 1.1rem;
+  border-radius: 0.85rem;
+  border: 1.5px solid #DCE7EE;
+  background-color: #FFFFFF;
+  color: #243342;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: #A7C2D4;
+  box-shadow: 0 0 0 3px rgba(167, 194, 212, 0.25);
+}
+
+.form-input::placeholder {
+  color: #9DB0C2;
+}
+
+/* Stepper */
+.stepper-btn {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  border: 1.5px solid #DCE7EE;
+  background-color: #FFFFFF;
+  color: #243342;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.stepper-btn:hover:not(:disabled) {
+  background-color: #F4F8FA;
+  border-color: #A7C2D4;
+}
+
+.stepper-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
