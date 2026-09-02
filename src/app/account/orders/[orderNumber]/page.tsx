@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import OrderStatusTimeline from '@/components/OrderStatusTimeline';
 import ReviewModal from '@/components/ReviewModal';
+import { OrderStatus } from '@/lib/supabase/types';
 
 interface OrderItemDetail {
   id: string;
@@ -39,17 +40,26 @@ interface OrderItemDetail {
   }[];
 }
 
+interface ShippingAddress {
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+}
+
 interface OrderDetailResponse {
   id: string;
   orderNumber: string;
-  status: any;
+  status: OrderStatus;
   subtotal: number;
   discountTotal: number;
   deliveryFee: number;
   totalAmount: number;
   currency: string;
   createdAt: string;
-  shippingAddress: any;
+  shippingAddress: ShippingAddress | null;
   customer: {
     firstName: string;
     lastName?: string;
@@ -63,7 +73,7 @@ interface OrderDetailResponse {
     reference: string | null;
   } | null;
   statusHistory: {
-    status: any;
+    status: OrderStatus;
     note: string | null;
     createdAt: string;
   }[];

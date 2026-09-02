@@ -44,15 +44,15 @@ export default function AdminCreateDiscountPage() {
         const catJson = await catRes.json();
 
         if (prodJson.success && Array.isArray(prodJson.data)) {
-          setProductsList(prodJson.data.map((p: any) => ({ id: p.id, name: p.name })));
+          setProductsList(prodJson.data.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })));
         } else if (Array.isArray(prodJson)) {
-          setProductsList(prodJson.map((p: any) => ({ id: p.id, name: p.name })));
+          setProductsList(prodJson.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })));
         }
 
         if (catJson.success && Array.isArray(catJson.data)) {
-          setCategoriesList(catJson.data.map((c: any) => ({ id: c.id, name: c.name })));
+          setCategoriesList(catJson.data.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })));
         } else if (Array.isArray(catJson)) {
-          setCategoriesList(catJson.map((c: any) => ({ id: c.id, name: c.name })));
+          setCategoriesList(catJson.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })));
         }
       } catch (err) {
         console.error('Failed to load products/categories for discount scope:', err);

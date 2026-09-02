@@ -36,7 +36,7 @@ export interface PaymentWebhookVerification {
   event?: string;
   reference?: string;
   transactionId?: string | number;
-  payload?: any;
+  payload?: Record<string, unknown>;
 }
 
 export interface PaymentRefundInput {

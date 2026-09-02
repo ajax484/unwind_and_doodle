@@ -3,11 +3,20 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import OrderStatusTimeline from '@/components/OrderStatusTimeline';
+import { OrderStatus } from '@/lib/supabase/types';
+
+interface ShippingAddress {
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+}
 
 interface OrderDetailResponse {
   orderNumber: string;
-  status: any;
+  status: OrderStatus;
   subtotal: number;
   addOnsTotal?: number;
   discountTotal: number;
@@ -15,7 +24,7 @@ interface OrderDetailResponse {
   totalAmount: number;
   currency: string;
   createdAt: string;
-  shippingAddress: any;
+  shippingAddress: ShippingAddress | null;
   customer: {
     firstName: string;
     email: string;
@@ -57,7 +66,7 @@ interface OrderDetailResponse {
     reference: string | null;
   } | null;
   statusHistory: {
-    status: any;
+    status: OrderStatus;
     note: string | null;
     createdAt: string;
   }[];
