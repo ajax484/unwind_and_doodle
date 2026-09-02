@@ -179,8 +179,7 @@ export async function GET(
         totalPrice: item.total,
         primaryImage: imageMap.get(item.product_id) || null,
         hasReviewed: reviewedProductIds.has(item.product_id),
-        canReview: order.status === 'received' && !reviewedProductIds.has(item.product_id),
-        customization: cust ? { status: cust.status, notes: cust.notes } : null,
+        customization: cust ? { status: cust.status, notes: ((cust as Record<string, unknown>).notes as string | null) ?? null } : null,
         bundleComponents: itemBundleComps,
         addons: itemAddons.map((a) => ({
           name: a.product_name || addonProductMap.get(a.addon_product_id) || 'Add-on',

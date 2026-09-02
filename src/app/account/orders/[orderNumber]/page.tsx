@@ -43,6 +43,7 @@ interface OrderItemDetail {
 interface ShippingAddress {
   addressLine1?: string;
   addressLine2?: string;
+  streetAddress?: string;
   city?: string;
   state?: string;
   postalCode?: string;
@@ -424,7 +425,7 @@ export default function CustomerOrderDetailPage() {
             <p className="text-xs text-slate-600 leading-relaxed">
               <strong>{order.customer.firstName} {order.customer.lastName || ''}</strong>
               <br />
-              {shippingAddr.streetAddress || 'Address on file'}
+              {shippingAddr.streetAddress || shippingAddr.addressLine1 || 'Address on file'}
               <br />
               {shippingAddr.city && `${shippingAddr.city}, `}
               {shippingAddr.state || ''}
