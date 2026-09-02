@@ -36,19 +36,18 @@ export async function createAdminManualOrder(
     supabase,
     {
       email: validated.customer.email,
-      firstName: validated.customer.firstName,
-      lastName: validated.customer.lastName,
-      phone: validated.customer.phone,
+      firstName: validated.customer.firstName || 'Customer',
+      lastName: validated.customer.lastName || '',
+      phone: validated.customer.phone || undefined,
+      marketingConsent: false,
     },
     {
-      addressLine1: validated.shippingAddress.addressLine1,
-      addressLine2: validated.shippingAddress.addressLine2,
+      streetAddress: validated.shippingAddress.addressLine1 || validated.shippingAddress.addressLine2 || 'Address on file',
       city: validated.shippingAddress.city,
       state: validated.shippingAddress.state,
-      postalCode: validated.shippingAddress.postalCode,
-      country: validated.shippingAddress.country,
+      postalCode: validated.shippingAddress.postalCode || undefined,
     },
-    validated.locationId
+    validated.locationId || ''
   );
 
   // 3. Find capable warehouse if not provided
@@ -56,6 +55,9 @@ export async function createAdminManualOrder(
   const requiredItems = await resolveRequiredPhysicalItems(supabase, validated.items);
 
   if (!warehouseId) {
+    if (!validated.locationId) {
+      throw new Error('Either warehouseId or locationId must be provided.');
+    }
     const whResult = await findCapableWarehouse(supabase, validated.locationId, requiredItems);
     if (!whResult.capable || !whResult.warehouseId) {
       throw new Error(whResult.error || 'Insufficient inventory across available warehouses.');
@@ -123,7 +125,7 @@ export async function createAdminManualOrder(
       : null,
     p_shipping_fee: shippingFee,
     p_notes: validated.notes || null,
-    p_idempotency_key: validated.idempotencyKey || null,
+    p_idempotency_key: ((validated as Record<string, unknown>).idempotencyKey as string | null) || null,
   } as unknown as Database['public']['Functions']['create_admin_manual_order']['Args']);
 
   if (rpcErr || !rpcResult) {
@@ -136,6 +138,9 @@ export async function createAdminManualOrder(
     payment_request_id: string;
     token: string;
     total: number;
+    subtotal?: number;
+    discount_total?: number;
+    shipping_fee?: number;
   };
 
   const orderId = result.order_id;
@@ -540,6 +545,7 @@ export async function previewManualOrderPricing(
   const checkoutItems = input.items.map((i) => ({
     productId: i.productId,
     quantity: i.quantity,
+    addons: ((i as Record<string, unknown>).addons as { quantity: number; addonProductId: string }[]) || [],
   }));
 
   let warehouseId = input.warehouseId;
@@ -683,9 +689,9 @@ export async function updateCustomerOrderDetails(
     // Synchronize pending payment records
     await supabase
       .from('payments')
-      .update({ amount: newTotal, updated_at: new Date().toISOString() })
+      .update({ amount: newTotal })
       .eq('order_id', order.id)
-      .eq('status', PAYMENT_STATUS.PENDING);
+      .eq('status', PAYMENT_STATUS.PENDING as Database['public']['Enums']['payment_status']);
   }
 
   // 6. Return updated detail using getPaymentRequestByToken

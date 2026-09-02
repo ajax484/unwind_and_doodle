@@ -51,11 +51,11 @@ export const AdminProductFilterSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });
 
-export type CreateProductInput = z.infer<typeof CreateProductSchema>;
-export type UpdateProductInput = z.infer<typeof UpdateProductSchema>;
-export type ProductAddonInput = z.infer<typeof ProductAddonSchema>;
-export type UpdateProductAddonInput = z.infer<typeof UpdateProductAddonSchema>;
-export type AdminProductFilters = z.infer<typeof AdminProductFilterSchema>;
+export type CreateProductInput = z.input<typeof CreateProductSchema>;
+export type UpdateProductInput = z.input<typeof UpdateProductSchema>;
+export type ProductAddonInput = z.input<typeof ProductAddonSchema>;
+export type UpdateProductAddonInput = z.input<typeof UpdateProductAddonSchema>;
+export type AdminProductFilters = z.input<typeof AdminProductFilterSchema>;
 
 export interface AdminProductImageItem {
   id: string;

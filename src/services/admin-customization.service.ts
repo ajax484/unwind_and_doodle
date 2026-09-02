@@ -74,7 +74,7 @@ export async function listAdminCustomizations(
 
   // 4. Fetch customers and customization assets
   const customerIds = Array.from(
-    new Set((orgOrders || []).map((o) => o.customer_id).filter(Boolean))
+    new Set((orgOrders || []).map((o) => o.customer_id).filter((id): id is string => Boolean(id)))
   );
   const customizationIds = allCustomizations.map((c) => c.id);
 
@@ -104,7 +104,7 @@ export async function listAdminCustomizations(
   const mappedList: AdminCustomizationListItem[] = allCustomizations.map((c) => {
     const item = orderItemMap.get(c.order_item_id);
     const ord = item ? orgOrderMap.get(item.order_id) : undefined;
-    const cust = ord ? customerMap.get(ord.customer_id) : undefined;
+    const cust = ord && ord.customer_id ? customerMap.get(ord.customer_id) : undefined;
 
     const custName = cust
       ? `${cust.first_name || ''} ${cust.last_name || ''}`.trim() || cust.email
@@ -238,11 +238,13 @@ export async function getAdminCustomizationDetail(
 
   // 4. Fetch customer and all customization assets
   const [{ data: customer }, { data: assets }] = await Promise.all([
-    supabase
-      .from('customers')
-      .select('id, first_name, last_name, email, phone, whatsapp_number')
-      .eq('id', order.customer_id)
-      .single(),
+    order.customer_id
+      ? supabase
+          .from('customers')
+          .select('id, first_name, last_name, email, phone, whatsapp_number')
+          .eq('id', order.customer_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
     supabase
       .from('customization_assets')
       .select('*')
@@ -283,7 +285,7 @@ export async function getAdminCustomizationDetail(
     orderNumber: order.order_number || order.id.substring(0, 8).toUpperCase(),
     orderStatus: order.status,
     orderCreatedAt: order.created_at,
-    customerId: customer?.id || order.customer_id,
+    customerId: customer?.id || order.customer_id || null,
     customerName,
     customerEmail: customer?.email || 'N/A',
     customerPhone: customer?.phone || null,

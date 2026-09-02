@@ -11,6 +11,8 @@ export async function GET(req: NextRequest) {
 
     const url = new URL(req.url);
     const rawFilters = {
+      page: 1,
+      limit: 10000,
       search: url.searchParams.get('search') || undefined,
       accountType: url.searchParams.get('accountType') || undefined,
       marketingConsent: url.searchParams.get('marketingConsent') || undefined,
@@ -18,7 +20,7 @@ export async function GET(req: NextRequest) {
     };
 
     const parseResult = AdminCustomerFilterSchema.safeParse(rawFilters);
-    const filters = parseResult.success ? parseResult.data : {};
+    const filters = parseResult.success ? parseResult.data : { page: 1, limit: 10000 };
 
     const csvData = await exportAdminCustomersCsv(
       supabase,

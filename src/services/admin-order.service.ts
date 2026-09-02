@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Database, OrderStatus } from '../lib/supabase/types';
+import { Database, OrderStatus, Json } from '../lib/supabase/types';
 import {
   AdminOrderFilters,
   AdminOrderListResponse,

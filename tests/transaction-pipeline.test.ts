@@ -127,6 +127,7 @@ describe('Phase 4: Commerce Transaction Pipeline & Concurrency Controls', () => 
             firstName: 'Amaka',
             lastName: 'Okafor',
             phone: '08012345678',
+            marketingConsent: false,
           },
           shippingAddress: {
             streetAddress: '10 Awolowo Road',
@@ -134,7 +135,7 @@ describe('Phase 4: Commerce Transaction Pipeline & Concurrency Controls', () => 
             state: 'Lagos',
           },
           locationId,
-          items: [{ productId: bookId, quantity: 1 }],
+          items: [{ productId: bookId, quantity: 1, addons: [] }],
         },
         paymentProvider: provider,
       });

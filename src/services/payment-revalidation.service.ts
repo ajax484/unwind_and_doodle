@@ -295,7 +295,7 @@ export async function revalidatePayment(
             : {}),
           revalidated_at: new Date().toISOString(),
           revalidated_by: triggeredBy,
-          gateway_failure_reason: verifiedTx.gatewayResponse?.gateway_response || 'Payment failed at gateway',
+          gateway_failure_reason: ((verifiedTx.rawResponse?.gateway_response as string) || 'Payment failed at gateway'),
         } as unknown as Database['public']['Tables']['payments']['Update']['metadata'],
       } as unknown as Database['public']['Tables']['payments']['Update'])
       .eq('id', payment.id);

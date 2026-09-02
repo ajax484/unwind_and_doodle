@@ -110,11 +110,11 @@ export async function calculateOrderPricing(
   if (!params.organizationId && dbProducts && dbProducts.length > 0 && dbProducts[0].organization_id) {
     organizationId = dbProducts[0].organization_id;
   }
-
   const productsMap = new Map<string, { id: string; name: string; price: number; is_active: boolean }>();
   for (const p of dbProducts || []) {
-    const isActive = p.status ? p.status === 'published' : (p.is_active !== false);
-    const unitPrice = p.selling_price !== undefined && p.selling_price !== null ? p.selling_price : (p.price || 0);
+    const legacy = p as Record<string, unknown>;
+    const isActive = p.status ? p.status === 'published' : legacy.is_active !== false;
+    const unitPrice = p.selling_price !== undefined && p.selling_price !== null ? p.selling_price : ((legacy.price as number) || 0);
     productsMap.set(p.id, {
       id: p.id,
       name: p.name,

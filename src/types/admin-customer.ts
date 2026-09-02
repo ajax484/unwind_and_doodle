@@ -13,7 +13,7 @@ export const AdminCustomerFilterSchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(25),
 });
 
-export type AdminCustomerFilterInput = z.infer<typeof AdminCustomerFilterSchema>;
+export type AdminCustomerFilterInput = z.input<typeof AdminCustomerFilterSchema>;
 
 export const UpdateCustomerProfileSchema = z.object({
   first_name: z.string().min(1, 'First name is required').optional(),

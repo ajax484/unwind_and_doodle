@@ -24,13 +24,13 @@ export const StockReceiptItemSchema = z.object({
 
 export const CreateStockReceiptSchema = z.object({
   warehouse_id: z.string().min(1, 'Warehouse is required'),
-  reference: z.string().min(1, 'Receipt reference/GRN is required'),
+  reference: z.string().optional(),
   notes: z.string().optional().nullable(),
   received_at: z.string().optional(),
   items: z.array(StockReceiptItemSchema).min(1, 'At least one product item is required'),
 });
 
-export type CreateStockReceiptInput = z.infer<typeof CreateStockReceiptSchema>;
+export type CreateStockReceiptInput = z.input<typeof CreateStockReceiptSchema>;
 
 export const WarehouseSchema = z.object({
   name: z.string().min(1, 'Warehouse name is required'),
@@ -74,7 +74,7 @@ export const AdminInventoryFilterSchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(25),
 });
 
-export type AdminInventoryFilterInput = z.infer<typeof AdminInventoryFilterSchema>;
+export type AdminInventoryFilterInput = z.input<typeof AdminInventoryFilterSchema>;
 
 // ==========================================
 // TYPESCRIPT RESPONSE MODELS
@@ -86,7 +86,7 @@ export interface AdminInventoryItem {
   productName: string;
   productSlug: string;
   sku: string | null;
-  productType: 'physical' | 'custom';
+  productType: 'physical' | 'custom' | 'bundle';
   primaryImage: string | null;
   costPrice: number;
   sellingPrice: number;

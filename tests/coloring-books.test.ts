@@ -43,7 +43,7 @@ describe('Phase 6L: Coloring Book Themes & Cover Personalization', () => {
   beforeEach(() => {
     vi.spyOn(PaystackPaymentProvider.prototype, 'initializeTransaction').mockResolvedValue({
       authorizationUrl: 'https://checkout.paystack.com/mock-auth-url',
-      accessCode: 'mock-access-code',
+      provider: 'paystack',
       reference: 'mock-ref-123',
     });
 
@@ -529,6 +529,7 @@ describe('Phase 6L: Coloring Book Themes & Cover Personalization', () => {
             firstName: 'Amara',
             lastName: 'Okafor',
             phone: '+2348012345678',
+            marketingConsent: false,
           },
           shippingAddress: {
             streetAddress: '12 Marina Road',
@@ -539,6 +540,7 @@ describe('Phase 6L: Coloring Book Themes & Cover Personalization', () => {
             {
               productId: prodBookId,
               quantity: 1,
+              addons: [],
               themeCustomization: {
                 selectedThemeIds: [themeFloral, themeMystical],
                 coverName: 'Amara',
@@ -570,6 +572,7 @@ describe('Phase 6L: Coloring Book Themes & Cover Personalization', () => {
             email: 'snapshot.user@example.com',
             firstName: 'Historical',
             lastName: 'User',
+            marketingConsent: false,
           },
           shippingAddress: {
             streetAddress: '45 Victoria Island',
@@ -580,6 +583,7 @@ describe('Phase 6L: Coloring Book Themes & Cover Personalization', () => {
             {
               productId: prodBookId,
               quantity: 1,
+              addons: [],
               themeCustomization: {
                 selectedThemeIds: [themeFloral],
                 coverName: 'Legacy Cover',

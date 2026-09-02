@@ -20,10 +20,12 @@ export interface ManualOrderSuccessData {
 interface ManualOrderSuccessModalProps {
   isOpen: boolean;
   data: ManualOrderSuccessData | null;
-  onReset: () => void;
+  onReset?: () => void;
+  onClose?: () => void;
 }
 
-export function ManualOrderSuccessModal({ isOpen, data, onReset }: ManualOrderSuccessModalProps) {
+export function ManualOrderSuccessModal({ isOpen, data, onReset, onClose }: ManualOrderSuccessModalProps) {
+  const handleClose = onReset || onClose || (() => {});
   const [copied, setCopied] = useState(false);
 
   if (!isOpen || !data) return null;
@@ -139,7 +141,7 @@ export function ManualOrderSuccessModal({ isOpen, data, onReset }: ManualOrderSu
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end">
           <button
             type="button"
-            onClick={onReset}
+            onClick={handleClose}
             className="px-5 py-2.5 rounded-xl text-xs font-heading font-bold bg-rose-500 hover:bg-rose-600 text-white transition-colors shadow-xs cursor-pointer"
           >
             + Create Another Order

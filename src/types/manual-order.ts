@@ -135,4 +135,8 @@ export interface PaymentLinkResponse {
   orderNumber: string;
   expiresAt: string | null;
   amount: number;
+  subtotal?: number;
+  discountTotal?: number;
+  shippingFee?: number;
+  total?: number;
 }

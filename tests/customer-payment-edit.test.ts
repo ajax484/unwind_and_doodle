@@ -121,7 +121,7 @@ describe('Prompt 3: Customer Payment Page & Secure Edit Flow', () => {
 
   it('4. Rejects updates when order status is no longer editable (paid or confirmed)', async () => {
     // Mark order & payment request as paid/confirmed in mock DB
-    await mockSupabase.from('orders').update({ status: 'confirmed', payment_status: 'paid' }).eq('id', orderId);
+    await mockSupabase.from('orders').update({ status: 'confirmed' } as any).eq('id', orderId);
     await mockSupabase.from('order_payment_requests').update({ status: 'paid' }).eq('id', paymentReqId);
 
     await expect(

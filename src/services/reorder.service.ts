@@ -93,19 +93,15 @@ export async function reorderPastOrder(
   // 5. Fetch inventory availability
   const { data: inventoryLevels } = await supabase
     .from('inventory')
-    .select('product_id, quantity, quantity_on_hand, quantity_reserved, reserved_quantity')
+    .select('product_id, quantity, reserved_quantity')
     .in('product_id', productIds);
 
   // Map product stock
   const stockMap = new Map<string, number>();
   if (inventoryLevels && inventoryLevels.length > 0) {
     for (const inv of inventoryLevels) {
-      const onHand = inv.quantity_on_hand !== undefined && inv.quantity_on_hand !== null
-        ? inv.quantity_on_hand
-        : (inv.quantity || 0);
-      const reserved = inv.quantity_reserved !== undefined && inv.quantity_reserved !== null
-        ? inv.quantity_reserved
-        : (inv.reserved_quantity || 0);
+      const onHand = inv.quantity || 0;
+      const reserved = inv.reserved_quantity || 0;
       const available = Math.max(0, onHand - reserved);
       const current = stockMap.get(inv.product_id) || 0;
       stockMap.set(inv.product_id, current + available);

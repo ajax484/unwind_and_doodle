@@ -47,7 +47,7 @@ export const AdminOrderFilterSchema = z.object({
 
 export type TransitionOrderStatusInput = z.infer<typeof TransitionOrderStatusSchema>;
 export type RefundOrderInput = z.infer<typeof RefundOrderSchema>;
-export type AdminOrderFilters = z.infer<typeof AdminOrderFilterSchema>;
+export type AdminOrderFilters = z.input<typeof AdminOrderFilterSchema>;
 
 export interface AdminOrderListItem {
   id: string;

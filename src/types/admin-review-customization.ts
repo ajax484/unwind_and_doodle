@@ -13,7 +13,7 @@ export const AdminReviewFilterSchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(25),
 });
 
-export type AdminReviewFilterInput = z.infer<typeof AdminReviewFilterSchema>;
+export type AdminReviewFilterInput = z.input<typeof AdminReviewFilterSchema>;
 
 export const ModerateReviewSchema = z.object({
   action: z.enum(['approve', 'reject']),
@@ -30,7 +30,7 @@ export const AdminCustomizationFilterSchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(25),
 });
 
-export type AdminCustomizationFilterInput = z.infer<typeof AdminCustomizationFilterSchema>;
+export type AdminCustomizationFilterInput = z.input<typeof AdminCustomizationFilterSchema>;
 
 export const UploadProcessedAssetSchema = z.object({
   processedStoragePath: z.string().min(1, 'Processed storage path is required'),
@@ -169,7 +169,7 @@ export interface AdminCustomizationDetail {
   orderNumber: string;
   orderStatus: string;
   orderCreatedAt: string;
-  customerId: string;
+  customerId: string | null;
   customerName: string;
   customerEmail: string;
   customerPhone: string | null;

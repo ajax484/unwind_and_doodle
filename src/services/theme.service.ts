@@ -102,7 +102,7 @@ export async function createTheme(
   }
 
   // Call RPC create_admin_theme first
-  const { data: themeId, error: rpcErr } = await supabase.rpc('create_admin_theme', {
+  const { data: themeId, error: rpcErr } = await supabase.rpc('create_admin_theme' as any, {
     p_org_id: orgId,
     p_name: validated.name,
     p_slug: finalSlug,
@@ -149,7 +149,7 @@ export async function createTheme(
   const { data: created, error: getErr } = await supabase
     .from('themes')
     .select('*')
-    .eq('id', themeId)
+    .eq('id', themeId as string)
     .single();
 
   if (getErr || !created) {
@@ -206,12 +206,12 @@ export async function updateTheme(
     }
   }
 
-  const updateData: Record<string, unknown> = {
+  const updateData: Database['public']['Tables']['themes']['Update'] = {
     updated_at: new Date().toISOString(),
   };
 
   if (validated.name !== undefined) updateData.name = validated.name;
-  if (validated.slug !== undefined) updateData.slug = validated.slug;
+  if (validated.slug) updateData.slug = validated.slug;
   if (validated.description !== undefined) updateData.description = validated.description;
   if (validated.storagePath !== undefined) updateData.storage_path = validated.storagePath;
   if (validated.isActive !== undefined) updateData.is_active = validated.isActive;

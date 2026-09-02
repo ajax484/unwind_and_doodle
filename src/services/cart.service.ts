@@ -216,8 +216,9 @@ export async function getCartDetails(
 
   const imageMap = new Map<string, string>();
   for (const img of images || []) {
-    const isPrimary = (img as Record<string, unknown>).sort_order === 0 || img.is_primary;
-    const url = ((img as Record<string, unknown>).storage_path as string) || img.image_url;
+    const legacyImg = img as Record<string, unknown>;
+    const isPrimary = legacyImg.sort_order === 0 || Boolean(legacyImg.is_primary);
+    const url = (legacyImg.storage_path as string) || (legacyImg.image_url as string) || '';
     if (isPrimary || !imageMap.has(img.product_id)) {
       imageMap.set(img.product_id, url);
     }
@@ -239,7 +240,8 @@ export async function getCartDetails(
   const legacyCustMap = new Map((legacyCusts || []).map((c) => [c.id, c]));
   const legacyAssetsMap = new Map<string, string[]>();
   for (const asset of legacyAssets || []) {
-    const url = ((asset as Record<string, unknown>).storage_path as string) || asset.asset_url;
+    const legacyAsset = asset as Record<string, unknown>;
+    const url = (legacyAsset.storage_path as string) || (legacyAsset.asset_url as string) || '';
     if (!legacyAssetsMap.has(asset.customization_id)) {
       legacyAssetsMap.set(asset.customization_id, []);
     }
@@ -321,6 +323,7 @@ export async function getCartDetails(
             notes?: string;
             assetUrls?: string[];
             addons?: CartAddonInput[];
+            themeCustomization?: { selectedThemeIds?: string[]; coverName?: string };
           })
         : null;
 

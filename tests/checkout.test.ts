@@ -265,17 +265,18 @@ describe('Pricing & Checkout Flow Business Rules', () => {
           email: 'bundleuser@example.com',
           firstName: 'Bundle',
           lastName: 'Buyer',
+          marketingConsent: false,
         },
         shippingAddress: {
-          addressLine1: '45 Marina Street',
+          streetAddress: '45 Marina Street',
           city: 'Lagos',
           state: 'Lagos',
-          country: 'Nigeria',
         },
         items: [
           {
             productId: bundleId,
             quantity: 2,
+            addons: [],
           },
         ],
       };

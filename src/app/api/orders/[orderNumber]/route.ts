@@ -245,7 +245,7 @@ export async function GET(
         customization: cust
           ? {
               id: cust.id,
-              notes: cust.notes || null,
+              notes: ((cust as Record<string, unknown>).notes as string | null) ?? null,
               status: cust.status,
               assets: custAssetList.map((a) => ({
                 id: a.id,

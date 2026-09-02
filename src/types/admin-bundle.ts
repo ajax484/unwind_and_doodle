@@ -46,8 +46,8 @@ export const AdminBundleFilterSchema = z.object({
 });
 
 export type BundleComponentInput = z.infer<typeof BundleComponentInputSchema>;
-export type CreateBundleInput = z.infer<typeof CreateBundleSchema>;
-export type UpdateBundleInput = z.infer<typeof UpdateBundleSchema>;
+export type CreateBundleInput = z.input<typeof CreateBundleSchema>;
+export type UpdateBundleInput = z.input<typeof UpdateBundleSchema>;
 export type AdminBundleFilters = z.infer<typeof AdminBundleFilterSchema>;
 
 export interface BundleComponentDetail {

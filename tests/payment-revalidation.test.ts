@@ -235,8 +235,8 @@ describe('Payment Revalidation Subsystem', () => {
     it('POST /api/admin/payments/revalidate executes revalidation for authenticated admin', async () => {
       vi.mocked(getAuthenticatedAdmin).mockResolvedValue({
         user: { id: 'usr-admin-01', email: 'admin@unwind.com' } as any,
-        adminUser: { id: 'adm-01', role: 'admin' } as any,
-        organization: { id: orgId, name: 'Unwind & Doodle' } as any,
+        membership: { id: 'mem-01', role: 'admin', organizationId: orgId, userId: 'usr-admin-01' } as any,
+        organization: { id: orgId, name: 'Unwind & Doodle', slug: 'unwind' } as any,
       });
 
       global.fetch = vi.fn().mockResolvedValue({

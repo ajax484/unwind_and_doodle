@@ -42,7 +42,7 @@ export default function AdminProductEditPage({
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
   const [sku, setSku] = useState('');
-  const [productType, setProductType] = useState<'physical' | 'custom'>('physical');
+  const [productType, setProductType] = useState<'physical' | 'custom' | 'bundle'>('physical');
   const [sellingPrice, setSellingPrice] = useState<number>(0);
   const [costPrice, setCostPrice] = useState<number>(0);
   const [status, setStatus] = useState<'draft' | 'published' | 'archived'>('draft');

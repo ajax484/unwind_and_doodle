@@ -28,7 +28,7 @@ describe('Phase 6G: Discounts & Coupons Engine', () => {
       products: [
         { id: 'prod-book-a', name: 'Coloring Book A', selling_price: 5000, organization_id: ORG_ID, status: 'published' },
         { id: 'prod-book-b', name: 'Coloring Book B', selling_price: 5000, organization_id: ORG_ID, status: 'published' },
-        { id: 'prod-[#pencil-c]', id_clean: 'prod-pencil-c', id_real: 'prod-pencil-c', id: 'prod-pencil-c', name: 'Pencil Set C', selling_price: 3000, organization_id: ORG_ID, status: 'published' },
+        { id: 'prod-pencil-c', name: 'Pencil Set C', selling_price: 3000, organization_id: ORG_ID, status: 'published' },
       ],
       product_categories: [
         { product_id: 'prod-book-a', category_id: 'cat-books' },
@@ -402,7 +402,7 @@ describe('Phase 6G: Discounts & Coupons Engine', () => {
         supabase: mockSupabase,
         warehouseId: 'wh-01',
         locationId: 'loc-01',
-        items: [{ productId: 'prod-book-a', quantity: 1 }], // price 5,000 + shipping 2,000 = 7,000
+        items: [{ productId: 'prod-book-a', quantity: 1, addons: [] }], // price 5,000 + shipping 2,000 = 7,000
         discountCode: 'HUGE100000',
         organizationId: ORG_ID,
       });
@@ -418,7 +418,7 @@ describe('Phase 6G: Discounts & Coupons Engine', () => {
         supabase: mockSupabase,
         warehouseId: 'wh-01',
         locationId: 'loc-01',
-        items: [{ productId: 'prod-book-a', quantity: 2 }], // 10,000
+        items: [{ productId: 'prod-book-a', quantity: 2, addons: [] }], // 10,000
         discountCode: 'SUMMER20', // 20% off 10,000 = 2,000
         organizationId: ORG_ID,
       });

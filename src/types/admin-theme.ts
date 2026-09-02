@@ -19,11 +19,11 @@ export const CreateThemeSchema = z.object({
   sortOrder: z.number().int().nonnegative().default(0),
 });
 
-export type CreateThemeInput = z.infer<typeof CreateThemeSchema>;
+export type CreateThemeInput = z.input<typeof CreateThemeSchema>;
 
 export const UpdateThemeSchema = CreateThemeSchema.partial();
 
-export type UpdateThemeInput = z.infer<typeof UpdateThemeSchema>;
+export type UpdateThemeInput = z.input<typeof UpdateThemeSchema>;
 
 export const ReorderThemesSchema = z.array(
   z.object({

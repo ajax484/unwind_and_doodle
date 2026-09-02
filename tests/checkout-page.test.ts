@@ -37,11 +37,11 @@ class MockPaymentProvider implements PaymentProvider {
     };
   }
 
-  async verifyWebhookSignature(): Promise<PaymentWebhookVerification> {
+  async verifyWebhook(signature: string, payload: any): Promise<PaymentWebhookVerification> {
     return {
       isValid: true,
       event: 'charge.completed',
-      data: {},
+      payload: {},
     };
   }
 }
@@ -203,6 +203,7 @@ describe('Phase 3E: Checkout Page & Process Flow', () => {
           firstName: 'John',
           lastName: 'Doe',
           phone: '08000000000',
+          marketingConsent: false,
         },
         shippingAddress: {
           streetAddress: 'Test Address',
@@ -214,6 +215,7 @@ describe('Phase 3E: Checkout Page & Process Flow', () => {
           {
             productId: coloringBookId,
             quantity: 1000, // Exceeds stock of 25
+            addons: [],
           },
         ],
       };

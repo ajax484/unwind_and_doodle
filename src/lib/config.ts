@@ -4,6 +4,8 @@ export interface AppConfig {
   supabaseServiceRoleKey: string;
   paystackSecretKey: string;
   paystackPublicKey: string;
+  flutterwaveSecretKey?: string;
+  flutterwaveSecretHash?: string;
   appUrl: string;
   smtp: {
     host: string;
@@ -46,6 +48,8 @@ export function getConfig(): AppConfig {
     supabaseServiceRoleKey,
     paystackSecretKey,
     paystackPublicKey,
+    flutterwaveSecretKey: process.env.FLUTTERWAVE_SECRET_KEY || '',
+    flutterwaveSecretHash: process.env.FLUTTERWAVE_SECRET_HASH || '',
     appUrl,
     smtp: {
       host: smtpHost,

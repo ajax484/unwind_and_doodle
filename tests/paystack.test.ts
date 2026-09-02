@@ -461,7 +461,7 @@ describe('Paystack Payment Integration, Verification & Webhook Handling', () => 
         .single();
 
       expect(newPayment).toBeDefined();
-      expect(newPayment.provider_reference).toBe(retryReference);
+      expect(newPayment!.provider_reference).toBe(retryReference);
 
       // Verify all payment attempts remain in the database
       const orderPayments = mockSupabase._store.payments.filter((p) => p.order_id === orderId);

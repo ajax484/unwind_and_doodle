@@ -74,6 +74,7 @@ export async function listAdminCustomers(
   >();
 
   for (const o of allOrders || []) {
+    if (!o.customer_id) continue;
     const cur = customerStatsMap.get(o.customer_id) || {
       totalOrders: 0,
       completedOrders: 0,
