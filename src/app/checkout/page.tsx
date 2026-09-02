@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CartResponse, CartItemDetail } from '@/services/cart.service';
+import { getCartHeaders, setClientCartSessionId } from '@/lib/cart-client';
 
 interface DeliveryLocation {
   id: string;
@@ -48,13 +49,14 @@ export default function CheckoutPage() {
         setLoading(true);
         // Fetch cart & delivery locations in parallel
         const [cartRes, locRes] = await Promise.all([
-          fetch('/api/cart'),
+          fetch('/api/cart', { headers: getCartHeaders() }),
           fetch('/api/locations'),
         ]);
 
         if (!cartRes.ok) throw new Error('Failed to load cart');
         const cartJson = await cartRes.json();
         if (cartJson.success && cartJson.data) {
+          if (cartJson.data.sessionId) setClientCartSessionId(cartJson.data.sessionId);
           setCart(cartJson.data);
         }
 
@@ -204,6 +206,21 @@ export default function CheckoutPage() {
       return;
     }
 
+    const incompleteThemeItem = cart.items.find(
+      (item) =>
+        item.supportsThemeCustomization &&
+        (!item.themeCustomization ||
+          !item.themeCustomization.selectedThemeIds ||
+          item.themeCustomization.selectedThemeIds.length === 0)
+    );
+    if (incompleteThemeItem) {
+      setErrorMessage(
+        `"${incompleteThemeItem.productName}" requires theme selection (between 1 and 3 themes). Please return to your cart or the product page to choose your themes.`
+      );
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     try {
       setSubmitting(true);
       setErrorMessage(null);
@@ -233,6 +250,12 @@ export default function CheckoutPage() {
             ? {
                 notes: item.customization.notes || undefined,
                 assetUrls: item.customization.assets,
+              }
+            : undefined,
+          themeCustomization: item.themeCustomization
+            ? {
+                selectedThemeIds: item.themeCustomization.selectedThemeIds,
+                coverName: item.themeCustomization.coverName || undefined,
               }
             : undefined,
           addons: item.addons.map((a) => ({
@@ -636,6 +659,28 @@ export default function CheckoutPage() {
                           </span>
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Theme Customization (Coloring Books) */}
+                  {item.themeCustomization && (
+                    <div className="text-[11px] text-[#52657A] bg-amber-50/70 border border-amber-200/60 rounded px-2 py-1 space-y-0.5">
+                      {item.themeCustomization.themes && item.themeCustomization.themes.length > 0 && (
+                        <div>
+                          <span className="font-semibold text-slate-700">Themes:</span>{' '}
+                          <span className="text-slate-600">
+                            {item.themeCustomization.themes.map((t) => t.name).join(' · ')}
+                          </span>
+                        </div>
+                      )}
+                      {item.themeCustomization.coverName && (
+                        <div>
+                          <span className="font-semibold text-slate-700">Cover:</span>{' '}
+                          <span className="text-slate-600">
+                            {item.themeCustomization.coverName}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
 

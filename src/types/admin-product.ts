@@ -13,6 +13,7 @@ export const CreateProductSchema = z.object({
   selling_price: z.coerce.number().min(0, 'Selling price cannot be negative'),
   cost_price: z.coerce.number().min(0, 'Cost price cannot be negative').default(0),
   requires_customization: z.boolean().default(false),
+  supports_theme_customization: z.boolean().default(false).optional(),
   status: z.enum(['draft', 'published', 'archived']).default('draft'),
   category_ids: z.array(z.string().uuid()).optional().default([]),
   images: z
@@ -132,6 +133,7 @@ export interface AdminProductDetail {
   cost_price: number;
   status: ProductStatus;
   requires_customization: boolean;
+  supports_theme_customization?: boolean;
   organization_id: string;
   images: AdminProductImageItem[];
   categories: AdminProductCategoryItem[];

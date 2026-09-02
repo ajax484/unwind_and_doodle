@@ -244,6 +244,27 @@ export default function CustomerPaymentPage({
                       ))}
                     </div>
                   )}
+
+                  {/* Theme Customization Snapshot Display */}
+                  {item.themeCustomization && (
+                    <div className="mt-2 pt-2 border-t border-slate-800/60 pl-3 border-l-2 border-amber-500/50 space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 block">
+                        Custom Coloring Book Details:
+                      </span>
+                      {item.themeCustomization.themes && item.themeCustomization.themes.length > 0 && (
+                        <div className="text-[11px] text-slate-300">
+                          <span className="text-slate-400 font-medium">Themes:</span>{' '}
+                          {item.themeCustomization.themes.map((t) => t.themeName).join(', ')}
+                        </div>
+                      )}
+                      {item.themeCustomization.coverName && (
+                        <div className="text-[11px] text-slate-300">
+                          <span className="text-slate-400 font-medium">Cover name:</span>{' '}
+                          <span className="font-bold text-white">{item.themeCustomization.coverName}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

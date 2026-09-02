@@ -86,15 +86,18 @@ export async function GET(
     const itemIds = (orderItems || []).map((i) => i.id);
     const productIds = (orderItems || []).map((i) => i.product_id);
 
-    const [{ data: products }, { data: images }, { data: addons }, { data: customizations }] =
+    const [{ data: products }, { data: images }, { data: addons }, { data: customizations }, { data: bundleComps }] =
       await Promise.all([
-        supabase.from('products').select('id, name, slug').in('id', productIds),
+        supabase.from('products').select('id, name, slug, product_type').in('id', productIds),
         supabase.from('product_images').select('product_id, storage_path, sort_order').in('product_id', productIds),
         itemIds.length > 0
           ? supabase.from('order_item_addons').select('*').in('order_item_id', itemIds)
           : Promise.resolve({ data: [] }),
         itemIds.length > 0
           ? supabase.from('customizations').select('*').in('order_item_id', itemIds)
+          : Promise.resolve({ data: [] }),
+        itemIds.length > 0
+          ? supabase.from('order_item_bundle_components').select('*').in('order_item_id', itemIds)
           : Promise.resolve({ data: [] }),
       ]);
 
@@ -107,6 +110,58 @@ export async function GET(
     }
 
     const custMap = new Map((customizations || []).map((c) => [c.order_item_id, c]));
+
+    type BundleCompRow = Database['public']['Tables']['order_item_bundle_components']['Row'];
+    const bundleCompsByItem = new Map<string, { name: string; quantityPerBundle: number; totalQuantity: number }[]>();
+    for (const bc of (bundleComps || []) as BundleCompRow[]) {
+      if (!bundleCompsByItem.has(bc.order_item_id)) {
+        bundleCompsByItem.set(bc.order_item_id, []);
+      }
+      bundleCompsByItem.get(bc.order_item_id)!.push({
+        name: bc.product_name,
+        quantityPerBundle: bc.quantity_per_bundle,
+        totalQuantity: bc.total_quantity,
+      });
+    }
+
+    // Fallback for live/legacy bundle items without order_item_bundle_components records
+    const bundleProductIds = (products || []).filter((p) => p.product_type === 'bundle').map((p) => p.id);
+    if (bundleProductIds.length > 0) {
+      const { data: bItems } = await supabase
+        .from('bundle_items')
+        .select('*')
+        .in('bundle_product_id', bundleProductIds);
+
+      const compIds = (bItems || []).map((bi) => bi.component_product_id);
+      if (compIds.length > 0) {
+        const { data: compProds } = await supabase
+          .from('products')
+          .select('id, name')
+          .in('id', compIds);
+
+        const compNameMap = new Map((compProds || []).map((p) => [p.id, p.name]));
+        const bItemsByBundle = new Map<string, typeof bItems>();
+        for (const bi of bItems || []) {
+          if (!bItemsByBundle.has(bi.bundle_product_id)) {
+            bItemsByBundle.set(bi.bundle_product_id, []);
+          }
+          bItemsByBundle.get(bi.bundle_product_id)!.push(bi);
+        }
+
+        for (const item of orderItems || []) {
+          const prod = productMap.get(item.product_id);
+          if (prod?.product_type === 'bundle' && (!bundleCompsByItem.has(item.id) || bundleCompsByItem.get(item.id)!.length === 0)) {
+            const bis = bItemsByBundle.get(item.product_id) || [];
+            const formatted = bis.map((bi) => ({
+              name: compNameMap.get(bi.component_product_id) || 'Component Product',
+              quantityPerBundle: bi.quantity,
+              totalQuantity: item.quantity * bi.quantity,
+            }));
+            bundleCompsByItem.set(item.id, formatted);
+          }
+        }
+      }
+    }
 
     // Fetch addon products
     const addonProductIds = (addons || []).map((a) => a.addon_product_id);
@@ -124,11 +179,57 @@ export async function GET(
       }
       addonsByItem.get(a.order_item_id)!.push(a);
     }
+    // Fetch photo customization assets
+    const custIds = (customizations || []).map((c) => c.id);
+    const { data: custAssets } =
+      custIds.length > 0
+        ? await supabase.from('customization_assets').select('*').in('customization_id', custIds)
+        : { data: [] };
+
+    type AssetRow = Database['public']['Tables']['customization_assets']['Row'];
+    const assetsByCust = new Map<string, AssetRow[]>();
+    for (const a of (custAssets || []) as AssetRow[]) {
+      if (!assetsByCust.has(a.customization_id)) {
+        assetsByCust.set(a.customization_id, []);
+      }
+      assetsByCust.get(a.customization_id)!.push(a);
+    }
+
+    // Fetch theme customization snapshots for order items
+    const { data: themeCustRows } =
+      itemIds.length > 0
+        ? await supabase.from('order_item_theme_customizations').select('*').in('order_item_id', itemIds)
+        : { data: [] };
+
+    const themeCustIds = (themeCustRows || []).map((tc) => tc.id);
+    const { data: themeSnapRows } =
+      themeCustIds.length > 0
+        ? await supabase
+            .from('order_item_theme_snapshots')
+            .select('*')
+            .in('customization_id', themeCustIds)
+            .order('sort_order', { ascending: true })
+        : { data: [] };
+
+    const themeCustByItem = new Map((themeCustRows || []).map((tc) => [tc.order_item_id, tc]));
+    const themeSnapsByCust = new Map<string, { themeId: string | null; themeName: string; sortOrder: number }[]>();
+    for (const s of themeSnapRows || []) {
+      if (!themeSnapsByCust.has(s.customization_id)) {
+        themeSnapsByCust.set(s.customization_id, []);
+      }
+      themeSnapsByCust.get(s.customization_id)!.push({
+        themeId: s.theme_id,
+        themeName: s.theme_name,
+        sortOrder: s.sort_order,
+      });
+    }
 
     const formattedItems = (orderItems || []).map((item) => {
       const prod = productMap.get(item.product_id);
       const itemAddons = addonsByItem.get(item.id) || [];
       const cust = custMap.get(item.id);
+      const custAssetList = cust ? assetsByCust.get(cust.id) || [] : [];
+      const themeCustRecord = themeCustByItem.get(item.id);
 
       return {
         id: item.id,
@@ -139,7 +240,26 @@ export async function GET(
         unitPrice: item.unit_price,
         totalPrice: item.total,
         primaryImage: imageMap.get(item.product_id) || null,
-        customization: cust ? { status: cust.status } : null,
+        productType: (prod?.product_type as 'physical' | 'custom' | 'bundle') || 'physical',
+        bundleComponents: bundleCompsByItem.get(item.id) || [],
+        customization: cust
+          ? {
+              id: cust.id,
+              notes: cust.notes || null,
+              status: cust.status,
+              assets: custAssetList.map((a) => ({
+                id: a.id,
+                assetUrl: ((a as Record<string, unknown>).asset_url as string) || a.storage_path || '',
+                fileType: ((a as Record<string, unknown>).file_type as string) || a.mime_type || 'image/jpeg',
+              })),
+            }
+          : null,
+        themeCustomization: themeCustRecord
+          ? {
+              coverName: themeCustRecord.cover_name,
+              themes: themeSnapsByCust.get(themeCustRecord.id) || [],
+            }
+          : null,
         addons: itemAddons.map((a) => ({
           name: a.product_name || addonProductMap.get(a.addon_product_id) || 'Add-on',
           quantity: a.quantity,

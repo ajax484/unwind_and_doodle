@@ -6,6 +6,8 @@ import Link from 'next/link';
 import CustomizationUploader from '@/components/CustomizationUploader';
 import ProductCard from '@/components/ProductCard';
 import { ProductDetail, CatalogProductItem } from '@/services/catalog.service';
+import { PublicTheme } from '@/types/admin-theme';
+import { getCartHeaders, dispatchCartUpdated } from '@/lib/cart-client';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -19,6 +21,10 @@ export default function ProductDetailPage() {
     assetUrls: [],
     notes: '',
   });
+
+  const [availableThemes, setAvailableThemes] = useState<PublicTheme[]>([]);
+  const [selectedThemeIds, setSelectedThemeIds] = useState<string[]>([]);
+  const [coverName, setCoverName] = useState<string>('');
 
   const [relatedProducts, setRelatedProducts] = useState<CatalogProductItem[]>([]);
   const [activeTab, setActiveTab] = useState<'details' | 'shipping' | 'customization'>('details');
@@ -41,8 +47,26 @@ export default function ProductDetailPage() {
         const json = await res.json();
 
         if (json.success && json.data) {
-          setProduct(json.data);
+          const supportsThemes = Boolean(
+            json.data.supportsThemeCustomization ??
+            json.data.supports_theme_customization
+          );
+
+          setProduct({
+            ...json.data,
+            supportsThemeCustomization: supportsThemes,
+          });
           setSelectedImageIndex(0);
+
+          if (supportsThemes) {
+            const themesRes = await fetch(`/api/products/${json.data.slug || json.data.id}/themes`);
+            if (themesRes.ok) {
+              const themesJson = await themesRes.json();
+              if (themesJson.success && Array.isArray(themesJson.themes)) {
+                setAvailableThemes(themesJson.themes);
+              }
+            }
+          }
 
           // Fetch related products from same category if available
           const primaryCat = json.data.categories?.[0]?.slug;
@@ -67,6 +91,18 @@ export default function ProductDetailPage() {
     loadProduct();
   }, [slug]);
 
+  const handleToggleTheme = (themeId: string) => {
+    setSelectedThemeIds((prev) => {
+      if (prev.includes(themeId)) {
+        return prev.filter((id) => id !== themeId);
+      }
+      if (prev.length >= 3) {
+        return prev;
+      }
+      return [...prev, themeId];
+    });
+  };
+
   const handleAddonQuantityChange = (addonProductId: string, qty: number) => {
     setSelectedAddons((prev) => {
       const updated = { ...prev };
@@ -87,22 +123,38 @@ export default function ProductDetailPage() {
       return;
     }
 
+    if (product.supportsThemeCustomization) {
+      if (selectedThemeIds.length === 0) {
+        alert('Please choose between 1 and 3 themes for your coloring book.');
+        return;
+      }
+      if (selectedThemeIds.length > 3) {
+        alert('You can select a maximum of 3 themes.');
+        return;
+      }
+    }
+
     try {
       setAddingToCart(true);
 
-      const addonPayload = Object.entries(selectedAddons).map(([addonProductId, qty]) => ({
-        addonProductId,
-        quantity: qty,
-      }));
+      const addonPayload = Object.entries(selectedAddons)
+        .filter(([, qty]) => qty > 0)
+        .map(([addonProductId, qty]) => ({
+          addonProductId,
+          quantity: qty,
+        }));
 
       const res = await fetch('/api/cart', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getCartHeaders(),
         body: JSON.stringify({
           productId: product.id,
           quantity,
           addons: addonPayload,
           customization: product.requiresCustomization ? customization : undefined,
+          themeCustomization: product.supportsThemeCustomization
+            ? { selectedThemeIds, coverName: coverName.trim() || undefined }
+            : undefined,
         }),
       });
 
@@ -112,7 +164,7 @@ export default function ProductDetailPage() {
       }
 
       setAddedSuccess(true);
-      window.dispatchEvent(new Event('cart-updated'));
+      dispatchCartUpdated(json.data, true);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Error adding to cart');
     } finally {
@@ -392,9 +444,101 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          {/* Customization Upload Section (Only for customizable products) */}
+          {/* Customization Upload Section (Only for photo customizable products) */}
           {product.requiresCustomization && (
             <CustomizationUploader onCustomizationChange={setCustomization} />
+          )}
+
+          {/* Theme Selector & Cover Personalization (Only for theme customizable coloring books) */}
+          {product.supportsThemeCustomization && (
+            <div className="space-y-5 pt-5 border-t border-[#EDF3F7]">
+              <div>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-heading font-bold text-base text-[#243342] flex items-center gap-2">
+                    <span>🎨</span> Choose your themes
+                  </h3>
+                  {availableThemes.length > 0 && (
+                    <span className="text-xs font-heading font-bold text-[#D99BA3] bg-[#FBF0F2] px-3 py-1 rounded-full border border-[#D99BA3]/20">
+                      {selectedThemeIds.length} / 3 themes selected
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-[#52657A] mt-1">
+                  Pick up to 3 themes. We recommend choosing all 3 for the best variety.
+                </p>
+              </div>
+
+              {availableThemes.length === 0 ? (
+                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-xs text-amber-800 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                    <span>🎨</span> Themes Customization Active
+                  </div>
+                  <p>Themes are being configured for this coloring book. Please assign themes in the admin product editor to enable customer selection.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {availableThemes.map((theme) => {
+                    const isSelected = selectedThemeIds.includes(theme.id);
+                    const isDisabled = !isSelected && selectedThemeIds.length >= 3;
+
+                    return (
+                      <button
+                        key={theme.id}
+                        type="button"
+                        disabled={isDisabled}
+                        onClick={() => handleToggleTheme(theme.id)}
+                        className={`p-3.5 rounded-2xl border text-left transition-all relative ${
+                          isSelected
+                            ? 'border-[#D99BA3] bg-[#FBF0F2] ring-2 ring-[#D99BA3]/30 shadow-xs'
+                            : isDisabled
+                            ? 'border-[#EDF3F7] bg-[#F8FAFC] opacity-50 cursor-not-allowed'
+                            : 'border-[#EDF3F7] bg-[#F4F8FA]/60 hover:bg-white hover:border-[#D99BA3]/50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-heading font-bold text-xs sm:text-sm text-[#243342]">
+                            {theme.name}
+                          </span>
+                          <span
+                            className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                              isSelected
+                                ? 'bg-[#D99BA3] text-white shadow-xs'
+                                : 'border border-[#CBD5E1] text-transparent'
+                            }`}
+                          >
+                            ✓
+                          </span>
+                        </div>
+                        {theme.description && (
+                          <p className="text-xs text-[#52657A] mt-1 line-clamp-2">{theme.description}</p>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Cover Personalization */}
+              <div className="pt-3 space-y-2 border-t border-dashed border-[#EDF3F7]">
+                <label className="block font-heading font-bold text-sm text-[#243342]">
+                  Personalize your cover
+                </label>
+                <p className="text-xs text-[#8295A8]">
+                  Enter a name to be printed/generated on the coloring book cover.
+                </p>
+                <input
+                  type="text"
+                  maxLength={100}
+                  value={coverName}
+                  onChange={(e) => setCoverName(e.target.value)}
+                  placeholder="Enter a name (e.g. Amara)"
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#CBD5E1] focus:border-[#D99BA3] focus:ring-2 focus:ring-[#D99BA3]/20 text-sm text-[#243342] transition-all bg-white"
+                />
+                <div className="text-right text-[11px] font-heading text-[#8295A8]">
+                  {coverName.length} / 100 characters
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Add-ons Section */}

@@ -388,8 +388,9 @@ export async function getAdminOrderDetail(
     { data: addons },
     { data: custsByItem },
     { data: custsById },
+    { data: bundleComps },
   ] = await Promise.all([
-    supabase.from('products').select('id, name, sku').in('id', productIds),
+    supabase.from('products').select('id, name, sku, product_type').in('id', productIds),
     itemIds.length > 0
       ? supabase.from('order_item_addons').select('*').in('order_item_id', itemIds)
       : Promise.resolve({ data: [] }),
@@ -398,6 +399,9 @@ export async function getAdminOrderDetail(
       : Promise.resolve({ data: [] }),
     legacyCustIds.length > 0
       ? supabase.from('customizations').select('*').in('id', legacyCustIds)
+      : Promise.resolve({ data: [] }),
+    itemIds.length > 0
+      ? supabase.from('order_item_bundle_components').select('*').in('order_item_id', itemIds)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -423,6 +427,59 @@ export async function getAdminOrderDetail(
 
   type AddonRow = Database['public']['Tables']['order_item_addons']['Row'];
   type CustAssetRow = Database['public']['Tables']['customization_assets']['Row'];
+  type BundleCompRow = Database['public']['Tables']['order_item_bundle_components']['Row'];
+
+  // Map bundle components by order_item_id
+  const bundleCompsByItem = new Map<string, { name: string; quantityPerBundle: number; totalQuantity: number }[]>();
+  for (const bc of (bundleComps || []) as BundleCompRow[]) {
+    if (!bundleCompsByItem.has(bc.order_item_id)) {
+      bundleCompsByItem.set(bc.order_item_id, []);
+    }
+    bundleCompsByItem.get(bc.order_item_id)!.push({
+      name: bc.product_name,
+      quantityPerBundle: bc.quantity_per_bundle,
+      totalQuantity: bc.total_quantity,
+    });
+  }
+
+  // Fallback for bundle items where order_item_bundle_components was not created
+  const bundleProductIds = (products || []).filter((p) => p.product_type === 'bundle').map((p) => p.id);
+  if (bundleProductIds.length > 0) {
+    const { data: bItems } = await supabase
+      .from('bundle_items')
+      .select('*')
+      .in('bundle_product_id', bundleProductIds);
+
+    const compIds = (bItems || []).map((bi) => bi.component_product_id);
+    if (compIds.length > 0) {
+      const { data: compProds } = await supabase
+        .from('products')
+        .select('id, name')
+        .in('id', compIds);
+
+      const compNameMap = new Map((compProds || []).map((p) => [p.id, p.name]));
+      const bItemsByBundle = new Map<string, typeof bItems>();
+      for (const bi of bItems || []) {
+        if (!bItemsByBundle.has(bi.bundle_product_id)) {
+          bItemsByBundle.set(bi.bundle_product_id, []);
+        }
+        bItemsByBundle.get(bi.bundle_product_id)!.push(bi);
+      }
+
+      for (const item of orderItems || []) {
+        const prod = productMap.get(item.product_id);
+        if (prod?.product_type === 'bundle' && (!bundleCompsByItem.has(item.id) || bundleCompsByItem.get(item.id)!.length === 0)) {
+          const bis = bItemsByBundle.get(item.product_id) || [];
+          const formatted = bis.map((bi) => ({
+            name: compNameMap.get(bi.component_product_id) || 'Component Product',
+            quantityPerBundle: bi.quantity,
+            totalQuantity: item.quantity * bi.quantity,
+          }));
+          bundleCompsByItem.set(item.id, formatted);
+        }
+      }
+    }
+  }
 
   // Group add-ons by order_item_id
   const addonsByItem = new Map<string, AddonRow[]>();
@@ -442,12 +499,37 @@ export async function getAdminOrderDetail(
     assetsByCust.get(asset.customization_id)!.push(asset);
   }
 
+  // Fetch theme customization snapshots for order items
+  const { data: themeCustRows } = itemIds.length > 0
+    ? await supabase.from('order_item_theme_customizations').select('*').in('order_item_id', itemIds)
+    : { data: [] };
+
+  const themeCustIds = (themeCustRows || []).map((tc) => tc.id);
+  const { data: themeSnapRows } = themeCustIds.length > 0
+    ? await supabase.from('order_item_theme_snapshots').select('*').in('customization_id', themeCustIds).order('sort_order', { ascending: true })
+    : { data: [] };
+
+  const themeCustByItem = new Map((themeCustRows || []).map((tc) => [tc.order_item_id, tc]));
+  const themeSnapsByCust = new Map<string, { themeId: string | null; themeName: string; sortOrder: number }[]>();
+
+  for (const s of themeSnapRows || []) {
+    if (!themeSnapsByCust.has(s.customization_id)) {
+      themeSnapsByCust.set(s.customization_id, []);
+    }
+    themeSnapsByCust.get(s.customization_id)!.push({
+      themeId: s.theme_id,
+      themeName: s.theme_name,
+      sortOrder: s.sort_order,
+    });
+  }
+
   const detailedItems: AdminOrderDetailItem[] = (orderItems || []).map((item) => {
     const product = productMap.get(item.product_id);
     const itemAddons = addonsByItem.get(item.id) || [];
     const legacyId = (item as Record<string, unknown>).customization_id as string | undefined;
     const cust = custMapByItem.get(item.id) || (legacyId ? custMapById.get(legacyId) : null);
     const assets = cust ? assetsByCust.get(cust.id) || [] : [];
+    const themeCustRecord = themeCustByItem.get(item.id);
 
     return {
       id: item.id,
@@ -457,6 +539,8 @@ export async function getAdminOrderDetail(
       quantity: item.quantity,
       unitPrice: item.unit_price,
       totalPrice: item.total,
+      productType: (product?.product_type as 'physical' | 'custom' | 'bundle') || 'physical',
+      bundleComponents: bundleCompsByItem.get(item.id) || [],
       customization: cust
         ? {
             id: cust.id,
@@ -467,6 +551,12 @@ export async function getAdminOrderDetail(
               assetUrl: ((a as Record<string, unknown>).asset_url as string) || a.storage_path,
               fileType: ((a as Record<string, unknown>).file_type as string) || a.mime_type || 'image/png',
             })),
+          }
+        : null,
+      themeCustomization: themeCustRecord
+        ? {
+            coverName: themeCustRecord.cover_name,
+            themes: themeSnapsByCust.get(themeCustRecord.id) || [],
           }
         : null,
       addons: itemAddons.map((a) => ({

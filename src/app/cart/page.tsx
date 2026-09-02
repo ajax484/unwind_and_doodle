@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CartResponse, CartItemDetail } from '@/services/cart.service';
+import { getCartHeaders, setClientCartSessionId, dispatchCartUpdated } from '@/lib/cart-client';
 
 export default function CartPage() {
   const router = useRouter();
@@ -24,10 +25,11 @@ export default function CartPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch('/api/cart');
+      const res = await fetch('/api/cart', { headers: getCartHeaders() });
       if (!res.ok) throw new Error('Failed to load cart');
       const json = await res.json();
       if (json.success && json.data) {
+        if (json.data.sessionId) setClientCartSessionId(json.data.sessionId);
         setCart(json.data);
       }
     } catch (err: unknown) {
@@ -40,8 +42,16 @@ export default function CartPage() {
   useEffect(() => {
     fetchCart();
 
-    const handleCartUpdated = () => {
-      fetchCart();
+    const handleCartUpdated = (e: Event) => {
+      const customEvt = e as CustomEvent<{ cart?: CartResponse }>;
+      if (customEvt.detail?.cart) {
+        if (customEvt.detail.cart.sessionId) {
+          setClientCartSessionId(customEvt.detail.cart.sessionId);
+        }
+        setCart(customEvt.detail.cart);
+      } else {
+        fetchCart();
+      }
     };
     window.addEventListener('cart-updated', handleCartUpdated);
     return () => window.removeEventListener('cart-updated', handleCartUpdated);
@@ -52,13 +62,13 @@ export default function CartPage() {
       setUpdatingItemId(cartItemId);
       const res = await fetch('/api/cart', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getCartHeaders(),
         body: JSON.stringify({ cartItemId, quantity: newQty }),
       });
       const json = await res.json();
       if (json.success && json.data) {
         setCart(json.data);
-        window.dispatchEvent(new Event('cart-updated'));
+        dispatchCartUpdated(json.data, false);
       }
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Error updating quantity');
@@ -72,11 +82,12 @@ export default function CartPage() {
       setUpdatingItemId(cartItemId);
       const res = await fetch(`/api/cart?cartItemId=${cartItemId}`, {
         method: 'DELETE',
+        headers: getCartHeaders(),
       });
       const json = await res.json();
       if (json.success && json.data) {
         setCart(json.data);
-        window.dispatchEvent(new Event('cart-updated'));
+        dispatchCartUpdated(json.data, false);
       }
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Error removing item');
@@ -186,9 +197,14 @@ export default function CartPage() {
   const items = cart?.items || [];
   const isEmpty = items.length === 0;
 
-  // Check if any customizable product is missing required photos
+  // Check if any customizable product is missing required photos or themes
   const hasIncompleteCustomization = items.some(
-    (item) => item.requiresCustomization && (!item.customization || item.customization.assets.length === 0)
+    (item) =>
+      (item.requiresCustomization && (!item.customization || item.customization.assets.length === 0)) ||
+      (item.supportsThemeCustomization &&
+        (!item.themeCustomization ||
+          !item.themeCustomization.selectedThemeIds ||
+          item.themeCustomization.selectedThemeIds.length === 0))
   );
 
   const formattedSubtotal = new Intl.NumberFormat('en-NG', {
@@ -349,11 +365,57 @@ export default function CartPage() {
                               </span>
                             </div>
                           ) : (
-                            <p className="text-[11px] font-medium">
-                              ⚠ No photos attached yet. Please upload photos before checkout.
+                            <p className="text-[11px] font-medium text-[#B33948]">
+                              No photos added yet. Upload custom photos to proceed.
                             </p>
                           )}
                         </div>
+                      )}
+
+                      {/* Coloring Book Theme Customization Details */}
+                      {item.supportsThemeCustomization && (
+                        item.themeCustomization && item.themeCustomization.selectedThemeIds.length > 0 ? (
+                          <div className="p-3.5 rounded-2xl text-xs space-y-1 bg-[#FBF0F2] border border-[#D99BA3]/20 text-[#243342]">
+                            <div className="font-heading font-bold flex items-center gap-1.5 text-[#D99BA3]">
+                              <span>🎨</span>
+                              <span>Coloring Book Customization</span>
+                            </div>
+                            {item.themeCustomization.themes && item.themeCustomization.themes.length > 0 && (
+                              <div>
+                                <span className="font-heading font-bold text-[#243342]">Themes:</span>{' '}
+                                <span className="font-medium text-[#52657A]">
+                                  {item.themeCustomization.themes.map((t) => t.name).join(' · ')}
+                                </span>
+                              </div>
+                            )}
+                            {item.themeCustomization.coverName && (
+                              <div>
+                                <span className="font-heading font-bold text-[#243342]">Cover:</span>{' '}
+                                <span className="font-medium text-[#52657A]">
+                                  {item.themeCustomization.coverName}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="p-3.5 rounded-2xl text-xs space-y-2 bg-[#FDF0F2] border border-[#F0DCE0] text-[#B33948]">
+                            <div className="flex items-center justify-between">
+                              <span className="font-heading font-bold flex items-center gap-1.5">
+                                <span>🎨</span>
+                                <span>Themes Required (1–3 Themes)</span>
+                              </span>
+                              <Link
+                                href={`/products/${item.slug || item.productId}`}
+                                className="text-[11px] font-heading font-bold text-[#D99BA3] hover:text-[#C67D87] underline"
+                              >
+                                Select Themes →
+                              </Link>
+                            </div>
+                            <p className="text-[11px] font-medium">
+                              This coloring book requires theme customization. Please choose your themes on the product page before checking out.
+                            </p>
+                          </div>
+                        )
                       )}
 
                       {/* Bundle Component Summary */}
@@ -479,7 +541,7 @@ export default function CartPage() {
                   Customization Required
                 </button>
                 <p className="text-[11px] text-center text-[#B33948]">
-                  Please attach required photos before continuing.
+                  Please attach required photos or choose coloring book themes before continuing.
                 </p>
               </div>
             ) : (

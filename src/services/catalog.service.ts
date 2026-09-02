@@ -19,6 +19,7 @@ export interface CatalogProductItem {
   price: number;
   sku: string;
   requiresCustomization: boolean;
+  supportsThemeCustomization?: boolean;
   productType?: 'physical' | 'custom' | 'bundle';
   bundleComponentsCount?: number;
   isAvailable: boolean;
@@ -224,6 +225,7 @@ export async function getPublishedCatalog(
       price: effectivePrice,
       sku: p.sku || '',
       requiresCustomization: p.requires_customization ?? false,
+      supportsThemeCustomization: Boolean((p as Record<string, unknown>).supports_theme_customization),
       productType: p.product_type || 'physical',
       bundleComponentsCount: p.product_type === 'bundle' ? bComponents.length : undefined,
       isAvailable: stock > 0,

@@ -9,6 +9,12 @@ export interface CartAddonInput {
 export interface CartCustomizationInput {
   notes?: string;
   assetUrls?: string[];
+  themeCustomization?: CartThemeCustomizationInput;
+}
+
+export interface CartThemeCustomizationInput {
+  selectedThemeIds: string[];
+  coverName?: string;
 }
 
 export interface AddToCartInput {
@@ -16,6 +22,7 @@ export interface AddToCartInput {
   quantity: number;
   addons?: CartAddonInput[];
   customization?: CartCustomizationInput;
+  themeCustomization?: CartThemeCustomizationInput;
 }
 
 export interface CartItemDetail {
@@ -29,6 +36,7 @@ export interface CartItemDetail {
   totalPrice: number;
   primaryImage: string | null;
   requiresCustomization: boolean;
+  supportsThemeCustomization?: boolean;
   productType?: 'physical' | 'custom' | 'bundle';
   bundleComponents?: {
     componentProductId: string;
@@ -40,6 +48,15 @@ export interface CartItemDetail {
     notes: string | null;
     status: string;
     assets: string[];
+  } | null;
+  themeCustomization?: {
+    selectedThemeIds: string[];
+    coverName: string | null;
+    themes: {
+      id: string;
+      name: string;
+      sortOrder: number;
+    }[];
   } | null;
   addons: {
     id: string;
@@ -261,6 +278,28 @@ export async function getCartDetails(
     }
   }
 
+  // Collect referenced theme IDs for cart items
+  const allThemeIds = new Set<string>();
+  for (const item of parentItems) {
+    const cd = item.customization_data && typeof item.customization_data === 'object' ? (item.customization_data as Record<string, unknown>) : null;
+    const tc = cd?.themeCustomization as { selectedThemeIds?: string[] } | undefined;
+    if (tc && Array.isArray(tc.selectedThemeIds)) {
+      tc.selectedThemeIds.forEach((id) => allThemeIds.add(id));
+    }
+  }
+
+  const themeNameMap = new Map<string, { id: string; name: string; sortOrder: number }>();
+  if (allThemeIds.size > 0) {
+    const { data: themeRecords } = await supabase
+      .from('themes')
+      .select('id, name, sort_order')
+      .in('id', Array.from(allThemeIds));
+
+    for (const tr of themeRecords || []) {
+      themeNameMap.set(tr.id, { id: tr.id, name: tr.name, sortOrder: tr.sort_order });
+    }
+  }
+
   let subtotal = 0;
   let totalCount = 0;
 
@@ -303,6 +342,19 @@ export async function getCartDetails(
         notes: ((legacyCust as Record<string, unknown>).notes as string) || null,
         status: legacyCust.status,
         assets: legacyAssets,
+      };
+    }
+
+    // Format theme customization if present
+    let themeCustomization: CartItemDetail['themeCustomization'] = null;
+    const tcData = custData?.themeCustomization as { selectedThemeIds?: string[]; coverName?: string } | undefined;
+    if (tcData && Array.isArray(tcData.selectedThemeIds) && tcData.selectedThemeIds.length > 0) {
+      themeCustomization = {
+        selectedThemeIds: tcData.selectedThemeIds,
+        coverName: tcData.coverName || null,
+        themes: tcData.selectedThemeIds
+          .map((tid) => themeNameMap.get(tid))
+          .filter((t): t is { id: string; name: string; sortOrder: number } => Boolean(t)),
       };
     }
 
@@ -380,9 +432,11 @@ export async function getCartDetails(
       totalPrice: parentTotal,
       primaryImage: imageMap.get(parent.product_id) || null,
       requiresCustomization: product?.requires_customization ?? false,
+      supportsThemeCustomization: Boolean((product as Record<string, unknown>)?.supports_theme_customization),
       productType: product?.product_type || 'physical',
       bundleComponents: bundleComponentsMap.get(parent.product_id) || [],
       customization,
+      themeCustomization,
       addons: formattedAddons,
     };
   });
@@ -405,32 +459,46 @@ function areCustomizationsEqual(
   bData: Record<string, unknown>
 ): boolean {
   const hasA = Boolean(aData && typeof aData === 'object' && Object.keys(aData as object).length > 0);
-  const hasB = Boolean(bData && Object.keys(bData).length > 0);
+  const hasB = Boolean(bData && typeof bData === 'object' && Object.keys(bData).length > 0);
 
   if (!hasA && !hasB) return true;
   if (!hasA || !hasB) return false;
 
   const a = aData as Record<string, unknown>;
+  const b = bData as Record<string, unknown>;
 
   // Compare notes
   const aNotes = (a.notes as string) || '';
-  const bNotes = (bData.notes as string) || '';
+  const bNotes = (b.notes as string) || '';
   if (aNotes.trim() !== bNotes.trim()) return false;
 
   // Compare assetUrls
   const aAssets = Array.isArray(a.assetUrls) ? a.assetUrls : [];
-  const bAssets = Array.isArray(bData.assetUrls) ? bData.assetUrls : [];
+  const bAssets = Array.isArray(b.assetUrls) ? b.assetUrls : [];
   if (aAssets.length !== bAssets.length) return false;
   if (JSON.stringify([...aAssets].sort()) !== JSON.stringify([...bAssets].sort())) return false;
 
+  // Compare themeCustomization
+  const aTheme = (a.themeCustomization || a.theme_customization) as { selectedThemeIds?: string[]; coverName?: string } | undefined;
+  const bTheme = (b.themeCustomization || b.theme_customization) as { selectedThemeIds?: string[]; coverName?: string } | undefined;
+
+  const aThemeIds = Array.isArray(aTheme?.selectedThemeIds) ? aTheme!.selectedThemeIds : [];
+  const bThemeIds = Array.isArray(bTheme?.selectedThemeIds) ? bTheme!.selectedThemeIds : [];
+  if (aThemeIds.length !== bThemeIds.length) return false;
+  if (JSON.stringify([...aThemeIds].sort()) !== JSON.stringify([...bThemeIds].sort())) return false;
+
+  const aCover = ((aTheme?.coverName as string) || '').trim();
+  const bCover = ((bTheme?.coverName as string) || '').trim();
+  if (aCover !== bCover) return false;
+
   // Compare addons
-  const aAddons = Array.isArray(a.addons) ? a.addons : [];
-  const bAddons = Array.isArray(bData.addons) ? bData.addons : [];
+  const aAddons = Array.isArray(a.addons) ? (a.addons as Record<string, unknown>[]) : [];
+  const bAddons = Array.isArray(b.addons) ? (b.addons as Record<string, unknown>[]) : [];
   if (aAddons.length !== bAddons.length) return false;
 
-  const normalizeAddons = (addons: any[]) =>
+  const normalizeAddons = (addons: Record<string, unknown>[]) =>
     [...addons]
-      .map((ad) => ({ id: ad.addonProductId || ad.id, qty: ad.quantity || 1 }))
+      .map((ad) => ({ id: (ad.addonProductId || ad.id) as string, qty: (ad.quantity || 1) as number }))
       .sort((x, y) => (x.id || '').localeCompare(y.id || ''));
 
   return JSON.stringify(normalizeAddons(aAddons)) === JSON.stringify(normalizeAddons(bAddons));
@@ -455,8 +523,17 @@ export async function addItemToCart(
       customizationData.assetUrls = input.customization.assetUrls;
     }
   }
+  if (input.themeCustomization && input.themeCustomization.selectedThemeIds.length > 0) {
+    customizationData.themeCustomization = {
+      selectedThemeIds: input.themeCustomization.selectedThemeIds,
+      coverName: input.themeCustomization.coverName ? input.themeCustomization.coverName.trim() : undefined,
+    };
+  }
   if (input.addons && input.addons.length > 0) {
-    customizationData.addons = input.addons;
+    const validAddons = input.addons.filter((a) => a.quantity > 0);
+    if (validAddons.length > 0) {
+      customizationData.addons = validAddons;
+    }
   }
 
   // 2. Check for existing cart item with same product_id and identical customizations/addons
@@ -566,9 +643,22 @@ export async function updateCartItemCustomization(
 
   const updatedData: Record<string, unknown> = {
     ...currentData,
-    notes: customization.notes,
-    assetUrls: customization.assetUrls,
   };
+
+  if (customization.notes !== undefined) {
+    updatedData.notes = customization.notes;
+  }
+  if (customization.assetUrls !== undefined) {
+    updatedData.assetUrls = customization.assetUrls;
+  }
+  if (customization.themeCustomization) {
+    updatedData.themeCustomization = {
+      selectedThemeIds: customization.themeCustomization.selectedThemeIds,
+      coverName: customization.themeCustomization.coverName
+        ? customization.themeCustomization.coverName.trim()
+        : undefined,
+    };
+  }
 
   const { error: updateErr } = await supabase
     .from('cart_items')

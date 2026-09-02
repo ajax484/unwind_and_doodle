@@ -1,8 +1,17 @@
 import { z } from 'zod';
 
+export const ManualOrderCustomizationSchema = z.object({
+  theme_ids: z.array(z.string().uuid({ message: 'Invalid theme ID' })).min(1, 'At least 1 theme ID is required').max(3, 'At most 3 theme IDs are allowed').optional(),
+  themeIds: z.array(z.string().uuid({ message: 'Invalid theme ID' })).min(1, 'At least 1 theme ID is required').max(3, 'At most 3 theme IDs are allowed').optional(),
+  cover_name: z.string().optional(),
+  coverName: z.string().optional(),
+});
+
 export const ManualOrderItemSchema = z.object({
   productId: z.string().uuid({ message: 'Invalid product ID' }),
+  product_id: z.string().uuid().optional(),
   quantity: z.number().int().min(1, { message: 'Quantity must be at least 1' }),
+  customization: ManualOrderCustomizationSchema.optional(),
 });
 
 export const ManualOrderCustomerSchema = z.object({
@@ -65,6 +74,14 @@ export interface PaymentRequestDetail {
       quantityPerBundle: number;
       totalQuantity: number;
     }>;
+    themeCustomization?: {
+      coverName: string | null;
+      themes: Array<{
+        themeId: string | null;
+        themeName: string;
+        sortOrder: number;
+      }>;
+    } | null;
   }>;
   pricing: {
     subtotal: number;

@@ -225,4 +225,19 @@ describe('Phase 3D: Cart Drawer & Main Cart Operations', () => {
       expect(item.customization?.assets).toContain('https://storage.example.com/photo2.jpg');
     });
   });
+
+  describe('5. Zero-Quantity Add-on Sanitization', () => {
+    it('filters out zero-quantity add-on items when adding to cart', async () => {
+      const cart = await addItemToCart(mockSupabase, sessionId, {
+        productId: coloringBookId,
+        quantity: 1,
+        addons: [
+          { addonProductId: pencilsAddonId, quantity: 0 },
+        ],
+      });
+
+      expect(cart.items.length).toBe(1);
+      expect(cart.items[0].addons.length).toBe(0);
+    });
+  });
 });

@@ -1515,6 +1515,160 @@ export type Database = {
           },
         ];
       };
+      product_themes: {
+        Row: {
+          created_at: string;
+          product_id: string;
+          theme_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          product_id: string;
+          theme_id: string;
+        };
+        Update: {
+          created_at?: string;
+          product_id?: string;
+          theme_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_themes_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_themes_theme_id_fkey";
+            columns: ["theme_id"];
+            isOneToOne: false;
+            referencedRelation: "themes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      themes: {
+        Row: {
+          created_at: string;
+          description: string | null;
+          id: string;
+          is_active: boolean;
+          name: string;
+          organization_id: string;
+          slug: string;
+          sort_order: number;
+          storage_path: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          is_active?: boolean;
+          name: string;
+          organization_id: string;
+          slug: string;
+          sort_order?: number;
+          storage_path?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          is_active?: boolean;
+          name?: string;
+          organization_id?: string;
+          slug?: string;
+          sort_order?: number;
+          storage_path?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "themes_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      order_item_theme_customizations: {
+        Row: {
+          cover_name: string | null;
+          created_at: string;
+          id: string;
+          order_item_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          cover_name?: string | null;
+          created_at?: string;
+          id?: string;
+          order_item_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          cover_name?: string | null;
+          created_at?: string;
+          id?: string;
+          order_item_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "order_item_theme_customizations_order_item_id_fkey";
+            columns: ["order_item_id"];
+            isOneToOne: true;
+            referencedRelation: "order_items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      order_item_theme_snapshots: {
+        Row: {
+          created_at: string;
+          customization_id: string;
+          id: string;
+          sort_order: number;
+          theme_id: string | null;
+          theme_name: string;
+        };
+        Insert: {
+          created_at?: string;
+          customization_id: string;
+          id?: string;
+          sort_order?: number;
+          theme_id?: string | null;
+          theme_name: string;
+        };
+        Update: {
+          created_at?: string;
+          customization_id?: string;
+          id?: string;
+          sort_order?: number;
+          theme_id?: string | null;
+          theme_name?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "order_item_theme_snapshots_customization_id_fkey";
+            columns: ["customization_id"];
+            isOneToOne: false;
+            referencedRelation: "order_item_theme_customizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "order_item_theme_snapshots_theme_id_fkey";
+            columns: ["theme_id"];
+            isOneToOne: false;
+            referencedRelation: "themes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       product_images: {
         Row: {
           alt_text: string | null;
@@ -1564,6 +1718,7 @@ export type Database = {
           sku: string | null;
           slug: string;
           status: Database["public"]["Enums"]["product_status"];
+          supports_theme_customization: boolean;
           updated_at: string;
         };
         Insert: {
@@ -1579,6 +1734,7 @@ export type Database = {
           sku?: string | null;
           slug: string;
           status?: Database["public"]["Enums"]["product_status"];
+          supports_theme_customization?: boolean;
           updated_at?: string;
         };
         Update: {
@@ -1594,6 +1750,7 @@ export type Database = {
           sku?: string | null;
           slug?: string;
           status?: Database["public"]["Enums"]["product_status"];
+          supports_theme_customization?: boolean;
           updated_at?: string;
         };
         Relationships: [

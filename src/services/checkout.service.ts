@@ -2,12 +2,13 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../lib/supabase/types';
 import { CheckoutRequest, CheckoutResult } from '../types/checkout';
 import { resolveOrCreateCustomer } from './customer.service';
-import { findCapableWarehouse, RequiredProductItem } from './warehouse.service';
+import { findCapableWarehouse, resolveRequiredPhysicalItems } from './warehouse.service';
 import { calculateOrderPricing } from './pricing.service';
 import { reserveOrderInventory, releaseOrderReservations } from './inventory.service';
 import { PaymentProvider } from './payment/provider.interface';
 import { PaystackPaymentProvider } from './payment/paystack.provider';
 import { publishDomainEvent } from './events.service';
+import { validateThemeCustomization, persistThemeCustomizationSnapshot } from './theme.service';
 import { ORDER_STATUS, PAYMENT_STATUS, DOMAIN_EVENT_TYPES, CURRENCY } from '../lib/constants';
 
 export interface ProcessCheckoutOptions {
@@ -19,13 +20,14 @@ export interface ProcessCheckoutOptions {
 /**
  * Orchestrates the atomic server-side checkout process:
  * 1. Resolves/creates customer and address
- * 2. Finds single warehouse satisfying all stock requirements
- * 3. Calculates authoritative prices, discounts, and delivery rates
- * 4. Creates order and line items with historical prices
- * 5. Atomically reserves inventory for 45 minutes
- * 6. Creates pending payment record and publishes domain event
- * 7. Initializes payment transaction via the configured PaymentProvider (Paystack)
- * 8. Returns payment checkout authorization URL
+ * 2. Resolves required physical component items (expanding bundle products into component items)
+ * 3. Finds single warehouse satisfying all physical stock requirements
+ * 4. Calculates authoritative prices, discounts, and delivery rates
+ * 5. Creates order and line items with historical prices
+ * 6. Atomically reserves inventory for physical component items for 45 minutes
+ * 7. Creates pending payment record and publishes domain event
+ * 8. Initializes payment transaction via the configured PaymentProvider (Paystack)
+ * 9. Returns payment checkout authorization URL
  */
 export async function processCheckout(options: ProcessCheckoutOptions): Promise<CheckoutResult> {
   const { supabase, request } = options;
@@ -39,20 +41,8 @@ export async function processCheckout(options: ProcessCheckoutOptions): Promise<
     request.locationId
   );
 
-  // 2. Flatten items to verify warehouse capability
-  const requiredProductItems: RequiredProductItem[] = [];
-  for (const item of request.items) {
-    requiredProductItems.push({
-      productId: item.productId,
-      quantity: item.quantity,
-    });
-    for (const addon of item.addons || []) {
-      requiredProductItems.push({
-        productId: addon.addonProductId,
-        quantity: addon.quantity,
-      });
-    }
-  }
+  // 2. Resolve required physical product items (expanding bundles into component items)
+  const requiredProductItems = await resolveRequiredPhysicalItems(supabase, request.items);
 
   // 3. Find a warehouse that serves the location and has sufficient stock
   const warehouseResult = await findCapableWarehouse(supabase, request.locationId, requiredProductItems);
@@ -88,6 +78,21 @@ export async function processCheckout(options: ProcessCheckoutOptions): Promise<
     }
   } catch {
     // fallback to default
+  }
+
+  // 5.5. Server-side validation of theme customization requirements
+  const validatedThemeCusts = new Map<number, Awaited<ReturnType<typeof validateThemeCustomization>>>();
+  for (let i = 0; i < request.items.length; i++) {
+    const item = request.items[i];
+    const valResult = await validateThemeCustomization(
+      supabase,
+      orgId,
+      item.productId,
+      item.themeCustomization
+    );
+    if (valResult) {
+      validatedThemeCusts.set(i, valResult);
+    }
   }
 
   // 6. Create order record
@@ -143,6 +148,12 @@ export async function processCheckout(options: ProcessCheckoutOptions): Promise<
         throw new Error(`Failed to create order line item: ${oiError?.message}`);
       }
 
+      // Handle theme customization snapshot
+      const validatedThemeCust = validatedThemeCusts.get(i);
+      if (validatedThemeCust) {
+        await persistThemeCustomizationSnapshot(supabase, orderItem.id, validatedThemeCust);
+      }
+
       // Handle customization linked to order_item_id
       if (item.customization) {
         const { data: custRecord } = await supabase
@@ -162,6 +173,32 @@ export async function processCheckout(options: ProcessCheckoutOptions): Promise<
               original_filename: url.split('/').pop() || 'custom-image.jpg',
             } as Database['public']['Tables']['customization_assets']['Insert']);
           }
+        }
+      }
+
+      // Handle bundle component snapshots linked to order_item_id
+      const { data: bItems } = await supabase
+        .from('bundle_items')
+        .select('component_product_id, quantity')
+        .eq('bundle_product_id', item.productId);
+
+      if (bItems && bItems.length > 0) {
+        const compProductIds = bItems.map((bi) => bi.component_product_id);
+        const { data: compProducts } = await supabase
+          .from('products')
+          .select('id, name')
+          .in('id', compProductIds);
+
+        const compNameMap = new Map((compProducts || []).map((cp) => [cp.id, cp.name]));
+
+        for (const bi of bItems) {
+          await supabase.from('order_item_bundle_components').insert({
+            order_item_id: orderItem.id,
+            component_product_id: bi.component_product_id,
+            product_name: compNameMap.get(bi.component_product_id) || 'Component Product',
+            quantity_per_bundle: bi.quantity,
+            total_quantity: item.quantity * bi.quantity,
+          } as Database['public']['Tables']['order_item_bundle_components']['Insert']);
         }
       }
 

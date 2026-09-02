@@ -64,6 +64,25 @@ export default function AdminProductEditPage({
   const [addonMaxQty, setAddonMaxQty] = useState(5);
   const [addonSaving, setAddonSaving] = useState(false);
 
+  // Themes Subsystem
+  const [supportsThemeCustomization, setSupportsThemeCustomization] = useState(false);
+  const [availableThemes, setAvailableThemes] = useState<{ id: string; name: string; slug: string; is_active?: boolean; isActive?: boolean }[]>([]);
+  const [assignedThemeIds, setAssignedThemeIds] = useState<string[]>([]);
+  const [showNewThemeModal, setShowNewThemeModal] = useState(false);
+  const [newThemeName, setNewThemeName] = useState('');
+  const [newThemeSlug, setNewThemeSlug] = useState('');
+  const [isThemeSlugEdited, setIsThemeSlugEdited] = useState(false);
+  const [newThemeDescription, setNewThemeDescription] = useState('');
+  const [themeSaving, setThemeSaving] = useState(false);
+
+  const openNewThemeModal = () => {
+    setNewThemeName('');
+    setNewThemeSlug('');
+    setIsThemeSlugEdited(false);
+    setNewThemeDescription('');
+    setShowNewThemeModal(true);
+  };
+
   // Uploading Image
   const [uploadingImage, setUploadingImage] = useState(false);
 
@@ -87,6 +106,7 @@ export default function AdminProductEditPage({
         setCostPrice(p.cost_price || 0);
         setStatus(p.status);
         setRequiresCustomization(p.requires_customization);
+        setSupportsThemeCustomization(p.supports_theme_customization || false);
         setSelectedCategoryIds(p.categories.map((c) => c.id));
         setImages(p.images || []);
       } else {
@@ -99,30 +119,40 @@ export default function AdminProductEditPage({
     }
   }, [productId]);
 
-  const fetchAuxiliaryData = async () => {
+  const fetchAuxiliaryData = useCallback(async () => {
     try {
-      const [catsRes, prodsRes] = await Promise.all([
+      const [catsRes, prodsRes, themesRes, prodThemesRes] = await Promise.all([
         fetch('/api/admin/categories'),
         fetch('/api/admin/products?limit=100'),
+        fetch('/api/admin/themes'),
+        fetch(`/api/admin/products/${productId}/themes`),
       ]);
       const catsJson = await catsRes.json();
       const prodsJson = await prodsRes.json();
+      const themesJson = await themesRes.json();
+      const prodThemesJson = await prodThemesRes.json();
 
       if (catsRes.ok && catsJson.success) {
-        setAvailableCategories(catsJson.data || []);
+        setAvailableCategories(catsJson.data || catsJson.categories || []);
       }
       if (prodsRes.ok && prodsJson.success) {
-        setCatalogProducts(prodsJson.data.products || []);
+        setCatalogProducts(prodsJson.data.products || prodsJson.data || []);
+      }
+      if (themesRes.ok && themesJson.success) {
+        setAvailableThemes(themesJson.themes || themesJson.data || []);
+      }
+      if (prodThemesRes.ok && prodThemesJson.success && Array.isArray(prodThemesJson.themes)) {
+        setAssignedThemeIds(prodThemesJson.themes.map((t: { id: string }) => t.id));
       }
     } catch {
       // Non-blocking
     }
-  };
+  }, [productId]);
 
   useEffect(() => {
     fetchProduct();
     fetchAuxiliaryData();
-  }, [fetchProduct]);
+  }, [fetchProduct, fetchAuxiliaryData]);
 
   const handleCategoryToggle = (catId: string) => {
     setSelectedCategoryIds((prev) =>
@@ -199,6 +229,67 @@ export default function AdminProductEditPage({
     );
   };
 
+  const handleThemeToggle = async (themeId: string) => {
+    const updatedIds = assignedThemeIds.includes(themeId)
+      ? assignedThemeIds.filter((id) => id !== themeId)
+      : [...assignedThemeIds, themeId];
+
+    setAssignedThemeIds(updatedIds);
+
+    try {
+      await fetch(`/api/admin/products/${productId}/themes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ themeIds: updatedIds }),
+      });
+    } catch {
+      alert('Error updating assigned product themes');
+    }
+  };
+
+  const handleCreateTheme = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newThemeName.trim()) return;
+
+    try {
+      setThemeSaving(true);
+      const res = await fetch('/api/admin/themes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newThemeName.trim(),
+          slug: newThemeSlug.trim() || undefined,
+          description: newThemeDescription.trim() || null,
+          isActive: true,
+        }),
+      });
+
+      const json = await res.json();
+      if (res.ok && json.success && json.theme) {
+        setAvailableThemes((prev) => [...prev, json.theme]);
+        const updatedAssigned = [...assignedThemeIds, json.theme.id];
+        setAssignedThemeIds(updatedAssigned);
+
+        await fetch(`/api/admin/products/${productId}/themes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ themeIds: updatedAssigned }),
+        });
+
+        setNewThemeName('');
+        setNewThemeSlug('');
+        setNewThemeDescription('');
+        setShowNewThemeModal(false);
+      } else {
+        alert(json.error || 'Failed to create theme');
+      }
+    } catch {
+      alert('Error creating theme');
+    } finally {
+      setThemeSaving(false);
+    }
+  };
+
   const handleSaveChanges = async (overrideStatus?: 'draft' | 'published' | 'archived') => {
     if (!name.trim()) {
       setError('Product name is required');
@@ -220,6 +311,7 @@ export default function AdminProductEditPage({
         cost_price: Number(costPrice) || 0,
         status: overrideStatus || status,
         requires_customization: requiresCustomization,
+        supports_theme_customization: supportsThemeCustomization,
         category_ids: selectedCategoryIds,
         images: images.map((img, idx) => ({
           storage_path: img.storage_path,
@@ -551,6 +643,23 @@ export default function AdminProductEditPage({
                 className="w-4 h-4 rounded text-rose-500"
               />
             </div>
+
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+              <div className="space-y-0.5">
+                <span className="font-semibold text-slate-800 block">
+                  Supports Customizable Coloring Book Content Themes
+                </span>
+                <span className="text-slate-400 text-[11px]">
+                  Enables customer 1–3 theme selection and cover name personalization on the storefront.
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={supportsThemeCustomization}
+                onChange={(e) => setSupportsThemeCustomization(e.target.checked)}
+                className="w-4 h-4 rounded text-rose-500"
+              />
+            </div>
           </div>
         </div>
 
@@ -633,6 +742,79 @@ export default function AdminProductEditPage({
               );
             })}
           </div>
+        </div>
+
+        {/* Section 4: Coloring Book Content Themes */}
+        <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h3 className="font-heading font-bold text-base text-slate-900 flex items-center gap-2">
+                <span>🎨</span> Content Themes ({assignedThemeIds.length} Assigned)
+              </h3>
+              <p className="text-xs text-slate-500">
+                Select which content themes are available for customers to choose when customizing this coloring book.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={openNewThemeModal}
+              className="text-xs font-semibold text-rose-500 hover:text-rose-600 cursor-pointer"
+            >
+              + Create New Theme
+            </button>
+          </div>
+
+          {!supportsThemeCustomization ? (
+            <div className="p-4 bg-amber-50/60 rounded-2xl border border-amber-200/80 text-xs text-amber-800 flex items-center justify-between">
+              <span>Theme customization is currently disabled for this product. Enable the toggle above to activate theme picker for customers.</span>
+              <button
+                type="button"
+                onClick={() => setSupportsThemeCustomization(true)}
+                className="px-3 py-1 bg-amber-600 text-white font-bold rounded-lg hover:bg-amber-700 transition-colors ml-3 shrink-0 cursor-pointer"
+              >
+                Enable Now
+              </button>
+            </div>
+          ) : availableThemes.length === 0 ? (
+            <div className="py-6 border-2 border-dashed border-slate-200 rounded-2xl text-center space-y-2">
+              <p className="text-xs text-slate-500">No themes created in your organization yet.</p>
+              <button
+                type="button"
+                onClick={openNewThemeModal}
+                className="text-xs font-bold text-rose-500 hover:underline cursor-pointer"
+              >
+                + Create your first theme
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2.5">
+              {availableThemes.map((theme) => {
+                const isAssigned = assignedThemeIds.includes(theme.id);
+                const isActive = theme.is_active ?? theme.isActive ?? true;
+
+                return (
+                  <button
+                    key={theme.id}
+                    type="button"
+                    onClick={() => handleThemeToggle(theme.id)}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      isAssigned
+                        ? 'bg-[#FBF0F2] text-[#D99BA3] border border-[#D99BA3]/30 shadow-2xs font-bold'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/60'
+                    }`}
+                  >
+                    <span>{isAssigned ? '✓' : '+'}</span>
+                    <span>{theme.name}</span>
+                    {!isActive && (
+                      <span className="text-[10px] text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded font-normal">
+                        Inactive
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Section 4: Product Images */}
@@ -938,6 +1120,88 @@ export default function AdminProductEditPage({
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Create New Theme Modal */}
+      {showNewThemeModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-heading font-bold text-base text-slate-900 flex items-center gap-2">
+                <span>🎨</span> Create New Content Theme
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowNewThemeModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateTheme} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700 block">Theme Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Mystical Celestial"
+                  value={newThemeName}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setNewThemeName(val);
+                    if (!isThemeSlugEdited) {
+                      setNewThemeSlug(slugify(val));
+                    }
+                  }}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-hidden focus:border-rose-400"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700 block">Slug</label>
+                <input
+                  type="text"
+                  placeholder="e.g. mystical-celestial"
+                  value={newThemeSlug}
+                  onChange={(e) => {
+                    setIsThemeSlugEdited(true);
+                    setNewThemeSlug(slugify(e.target.value));
+                  }}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-mono text-slate-800 focus:outline-hidden focus:border-rose-400"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700 block">Description (Optional)</label>
+                <textarea
+                  rows={2}
+                  placeholder="Short description of artwork theme..."
+                  value={newThemeDescription}
+                  onChange={(e) => setNewThemeDescription(e.target.value)}
+                  className="w-full p-3 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-hidden focus:border-rose-400"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowNewThemeModal(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={themeSaving || !newThemeName.trim()}
+                  className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold disabled:opacity-50 cursor-pointer"
+                >
+                  {themeSaving ? 'Creating...' : 'Create & Assign Theme'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

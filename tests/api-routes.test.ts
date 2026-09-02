@@ -216,6 +216,38 @@ describe('Comprehensive API Routes Verification', { timeout: 15000 }, () => {
       expect(delJson.data.items.length).toBe(0);
     });
 
+    it('adds product with theme customization to cart and preserves theme selections', async () => {
+      const liveProductId = '3741d987-e674-4317-90a2-8c635a7c6aa9';
+      const testSessionId = `cart_theme_flow_${Date.now()}`;
+      const dummyThemeId = '88c7af2e-afd4-4504-a43f-b14cc45d6263';
+
+      const addReq = new NextRequest('http://localhost:3000/api/cart', {
+        method: 'POST',
+        headers: {
+          'x-cart-session': testSessionId,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId: liveProductId,
+          quantity: 1,
+          themeCustomization: {
+            selectedThemeIds: [dummyThemeId],
+            coverName: 'Zainab & Kemi',
+          },
+        }),
+      });
+      const addRes = await postCart(addReq);
+      const addJson = await addRes.json();
+
+      expect(addRes.status).toBe(200);
+      expect(addJson.success).toBe(true);
+      expect(addJson.data.items.length).toBe(1);
+      const addedItem = addJson.data.items[0];
+      expect(addedItem.productId).toBe(liveProductId);
+      expect(addedItem.themeCustomization?.selectedThemeIds).toEqual([dummyThemeId]);
+      expect(addedItem.themeCustomization?.coverName).toBe('Zainab & Kemi');
+    });
+
     it('DELETE /api/cart validates missing query parameter', async () => {
       const req = new NextRequest('http://localhost:3000/api/cart', {
         method: 'DELETE',

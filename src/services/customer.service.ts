@@ -55,7 +55,6 @@ export async function resolveOrCreateCustomer(
         last_name: customerInfo.lastName,
         phone: customerInfo.phone || null,
         email_marketing_consent: customerInfo.marketingConsent ?? false,
-        marketing_consent: customerInfo.marketingConsent ?? false,
         updated_at: new Date().toISOString(),
       } as unknown as Database['public']['Tables']['customers']['Update'])
       .eq('id', customerId);
@@ -71,7 +70,6 @@ export async function resolveOrCreateCustomer(
         phone: customerInfo.phone || null,
         user_id: customerInfo.userId || null,
         email_marketing_consent: customerInfo.marketingConsent ?? false,
-        marketing_consent: customerInfo.marketingConsent ?? false,
       } as unknown as Database['public']['Tables']['customers']['Insert'])
       .select('id')
       .single();

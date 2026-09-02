@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     const { sessionId } = getOrCreateSessionId(req);
     const body = await req.json();
 
-    const { productId, quantity, addons, customization } = body;
+    const { productId, quantity, addons, customization, themeCustomization } = body;
     if (!productId || typeof quantity !== 'number' || quantity < 1) {
       return NextResponse.json(
         { success: false, error: 'Valid productId and quantity (>= 1) are required' },
@@ -75,6 +75,7 @@ export async function POST(req: NextRequest) {
       quantity,
       addons,
       customization,
+      themeCustomization,
     });
 
     const res = NextResponse.json({ success: true, data: updatedCart }, { status: 200 });
@@ -92,7 +93,7 @@ export async function PATCH(req: NextRequest) {
     const { sessionId } = getOrCreateSessionId(req);
     const body = await req.json();
 
-    const { cartItemId, quantity, customization } = body;
+    const { cartItemId, quantity, customization, themeCustomization } = body;
     if (!cartItemId) {
       return NextResponse.json(
         { success: false, error: 'cartItemId is required' },
@@ -103,11 +104,14 @@ export async function PATCH(req: NextRequest) {
     let updatedCart;
     if (typeof quantity === 'number') {
       updatedCart = await updateCartItemQuantity(supabase, sessionId, cartItemId, quantity);
-    } else if (customization) {
-      updatedCart = await updateCartItemCustomization(supabase, sessionId, cartItemId, customization);
+    } else if (customization || themeCustomization) {
+      updatedCart = await updateCartItemCustomization(supabase, sessionId, cartItemId, {
+        ...customization,
+        ...(themeCustomization ? { themeCustomization } : {}),
+      });
     } else {
       return NextResponse.json(
-        { success: false, error: 'Either quantity or customization is required' },
+        { success: false, error: 'Either quantity, customization, or themeCustomization is required' },
         { status: 400 }
       );
     }

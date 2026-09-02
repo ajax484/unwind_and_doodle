@@ -83,6 +83,10 @@ export function createMockSupabaseClient(initialData?: {
     reviews: [...(initialData?.reviews || [])],
     review_images: [...(initialData?.review_images || [])],
     stock_notifications: [...(initialData?.stock_notifications || [])],
+    themes: [...(initialData?.themes || [])],
+    product_themes: [...(initialData?.product_themes || [])],
+    order_item_theme_customizations: [...(initialData?.order_item_theme_customizations || [])],
+    order_item_theme_snapshots: [...(initialData?.order_item_theme_snapshots || [])],
   };
 
   const rpcHandlers: Record<string, Function> = {

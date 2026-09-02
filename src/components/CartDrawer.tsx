@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CartResponse, CartItemDetail } from '@/services/cart.service';
+import { getCartHeaders, setClientCartSessionId, dispatchCartUpdated } from '@/lib/cart-client';
 
 export default function CartDrawer() {
   const pathname = usePathname();
@@ -16,10 +17,11 @@ export default function CartDrawer() {
   const fetchCart = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/cart');
+      const res = await fetch('/api/cart', { headers: getCartHeaders() });
       if (!res.ok) return;
       const json = await res.json();
       if (json.success && json.data) {
+        if (json.data.sessionId) setClientCartSessionId(json.data.sessionId);
         setCart(json.data);
       }
     } catch {
@@ -33,13 +35,29 @@ export default function CartDrawer() {
   useEffect(() => {
     fetchCart();
 
-    const handleOpenDrawer = () => {
-      fetchCart();
+    const handleOpenDrawer = (e: Event) => {
+      const customEvt = e as CustomEvent<{ cart?: CartResponse }>;
+      if (customEvt.detail?.cart) {
+        if (customEvt.detail.cart.sessionId) {
+          setClientCartSessionId(customEvt.detail.cart.sessionId);
+        }
+        setCart(customEvt.detail.cart);
+      } else {
+        fetchCart();
+      }
       setIsOpen(true);
     };
 
-    const handleCartUpdated = () => {
-      fetchCart();
+    const handleCartUpdated = (e: Event) => {
+      const customEvt = e as CustomEvent<{ cart?: CartResponse }>;
+      if (customEvt.detail?.cart) {
+        if (customEvt.detail.cart.sessionId) {
+          setClientCartSessionId(customEvt.detail.cart.sessionId);
+        }
+        setCart(customEvt.detail.cart);
+      } else {
+        fetchCart();
+      }
     };
 
     window.addEventListener('open-cart-drawer', handleOpenDrawer);
@@ -79,13 +97,13 @@ export default function CartDrawer() {
       setUpdatingItemId(cartItemId);
       const res = await fetch('/api/cart', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getCartHeaders(),
         body: JSON.stringify({ cartItemId, quantity: newQty }),
       });
       const json = await res.json();
       if (json.success && json.data) {
         setCart(json.data);
-        window.dispatchEvent(new Event('cart-updated'));
+        dispatchCartUpdated(json.data, false);
       }
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Error updating quantity');
@@ -99,11 +117,12 @@ export default function CartDrawer() {
       setUpdatingItemId(cartItemId);
       const res = await fetch(`/api/cart?cartItemId=${cartItemId}`, {
         method: 'DELETE',
+        headers: getCartHeaders(),
       });
       const json = await res.json();
       if (json.success && json.data) {
         setCart(json.data);
-        window.dispatchEvent(new Event('cart-updated'));
+        dispatchCartUpdated(json.data, false);
       }
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Error removing item');
@@ -243,6 +262,41 @@ export default function CartDrawer() {
                               </span>
                             )}
                           </div>
+                        )}
+
+                        {/* Coloring Book Theme Customization Summary */}
+                        {item.supportsThemeCustomization && (
+                          item.themeCustomization && item.themeCustomization.selectedThemeIds.length > 0 ? (
+                            <div className="mt-2 text-[11px] space-y-1 text-[#52657A] bg-[#FBF0F2]/70 p-2.5 rounded-xl border border-[#D99BA3]/20">
+                              {item.themeCustomization.themes && item.themeCustomization.themes.length > 0 && (
+                                <div>
+                                  <span className="font-heading font-bold text-[#243342]">Themes:</span>{' '}
+                                  <span className="font-medium text-[#243342]">
+                                    {item.themeCustomization.themes.map((t) => t.name).join(' · ')}
+                                  </span>
+                                </div>
+                              )}
+                              {item.themeCustomization.coverName && (
+                                <div>
+                                  <span className="font-heading font-bold text-[#243342]">Cover:</span>{' '}
+                                  <span className="font-medium text-[#243342]">
+                                    {item.themeCustomization.coverName}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="mt-2 text-[11px] text-[#B33948] bg-[#FDF0F2] p-2 rounded-xl border border-[#F0DCE0] flex items-center justify-between">
+                              <span>⚠ Themes required</span>
+                              <Link
+                                href={`/products/${item.slug || item.productId}`}
+                                onClick={() => setIsOpen(false)}
+                                className="font-heading font-bold text-[#D99BA3] hover:text-[#C67D87] underline"
+                              >
+                                Select
+                              </Link>
+                            </div>
+                          )
                         )}
 
                         {/* Bundle Component Summary */}

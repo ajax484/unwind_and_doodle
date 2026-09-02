@@ -6,6 +6,12 @@ export interface RequiredProductItem {
   quantity: number;
 }
 
+export interface InputCheckoutItem {
+  productId: string;
+  quantity: number;
+  addons?: { addonProductId: string; quantity: number }[];
+}
+
 export interface WarehouseResolutionResult {
   capable: boolean;
   warehouseId?: string;
@@ -16,6 +22,89 @@ export interface WarehouseResolutionResult {
     required: number;
     available: number;
   }[];
+}
+
+/**
+ * Resolves checkout items into physical component requirements.
+ * If an item is a product bundle (product_type === 'bundle'), it queries `bundle_items`
+ * and expands the required quantity into the underlying physical component items.
+ */
+export async function resolveRequiredPhysicalItems(
+  supabase: SupabaseClient<Database>,
+  items: InputCheckoutItem[]
+): Promise<RequiredProductItem[]> {
+  if (!items || items.length === 0) return [];
+
+  const mainProductIds = Array.from(new Set(items.map((i) => i.productId)));
+
+  const { data: products, error: prodErr } = await supabase
+    .from('products')
+    .select('id, product_type')
+    .in('id', mainProductIds);
+
+  if (prodErr) {
+    throw new Error(`Failed to query product types for warehouse allocation: ${prodErr.message}`);
+  }
+
+  const bundleProductIds = (products || [])
+    .filter((p) => p.product_type === 'bundle')
+    .map((p) => p.id);
+
+  const bundleComponentsMap = new Map<string, { componentProductId: string; quantity: number }[]>();
+
+  if (bundleProductIds.length > 0) {
+    const { data: bItems, error: biErr } = await supabase
+      .from('bundle_items')
+      .select('bundle_product_id, component_product_id, quantity')
+      .in('bundle_product_id', bundleProductIds);
+
+    if (biErr) {
+      throw new Error(`Failed to query bundle components for warehouse allocation: ${biErr.message}`);
+    }
+
+    for (const bi of bItems || []) {
+      if (!bundleComponentsMap.has(bi.bundle_product_id)) {
+        bundleComponentsMap.set(bi.bundle_product_id, []);
+      }
+      bundleComponentsMap.get(bi.bundle_product_id)!.push({
+        componentProductId: bi.component_product_id,
+        quantity: bi.quantity,
+      });
+    }
+  }
+
+  const result: RequiredProductItem[] = [];
+
+  for (const item of items) {
+    const components = bundleComponentsMap.get(item.productId);
+    if (components && components.length > 0) {
+      // Expand bundle into physical component requirements
+      for (const comp of components) {
+        result.push({
+          productId: comp.componentProductId,
+          quantity: item.quantity * comp.quantity,
+        });
+      }
+    } else {
+      // Standard physical / custom item
+      result.push({
+        productId: item.productId,
+        quantity: item.quantity,
+      });
+    }
+
+    // Process add-ons
+    for (const addon of item.addons || []) {
+      if (addon.quantity > 0) {
+        result.push({
+          productId: addon.addonProductId,
+          quantity: addon.quantity,
+        });
+      }
+    }
+  }
+
+  return result;
 }
 
 /**

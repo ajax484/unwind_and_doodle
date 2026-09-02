@@ -28,7 +28,22 @@ interface OrderDetailResponse {
     unitPrice: number;
     totalPrice: number;
     primaryImage: string | null;
-    customization?: { notes: string | null; status: string } | null;
+    productType?: 'physical' | 'custom' | 'bundle';
+    bundleComponents?: {
+      name: string;
+      quantityPerBundle: number;
+      totalQuantity: number;
+    }[];
+    customization?: {
+      id?: string;
+      notes: string | null;
+      status: string;
+      assets?: { id: string; assetUrl: string; fileType: string }[];
+    } | null;
+    themeCustomization?: {
+      coverName: string | null;
+      themes: { themeId: string | null; themeName: string; sortOrder: number }[];
+    } | null;
     addons: {
       name: string;
       quantity: number;
@@ -269,10 +284,97 @@ export default function OrderStatusPage() {
                     </span>
                   </div>
 
+                  {/* Coloring Book Theme Customization */}
+                  {item.themeCustomization && (
+                    <div className="text-xs text-[#243342] bg-[#FBF0F2] p-3 rounded-2xl border border-[#D99BA3]/20 space-y-1.5 my-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-heading font-bold text-xs text-[#D99BA3] flex items-center gap-1.5">
+                          <span>🎨</span> Coloring Book Customization
+                        </span>
+                        {item.themeCustomization.coverName && (
+                          <span className="text-[10px] font-heading font-bold px-2 py-0.5 rounded-full bg-white text-[#D99BA3] border border-[#D99BA3]/30">
+                            Cover: {item.themeCustomization.coverName}
+                          </span>
+                        )}
+                      </div>
+
+                      {item.themeCustomization.themes && item.themeCustomization.themes.length > 0 && (
+                        <div className="text-[11px] text-[#52657A]">
+                          <span className="font-semibold text-[#243342]">Themes:</span>{' '}
+                          {item.themeCustomization.themes.map((t) => t.themeName).join(' · ')}
+                        </div>
+                      )}
+
+                      {item.themeCustomization.coverName && (
+                        <div className="text-[11px] text-[#52657A]">
+                          <span className="font-semibold text-[#243342]">Personalized Name:</span>{' '}
+                          <span className="font-medium text-slate-800">"{item.themeCustomization.coverName}"</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Photo & Dedication Customization */}
                   {item.customization && (
-                    <span className="text-[11px] text-[#D99BA3] font-semibold block">
-                      ✨ Custom photo &amp; dedication included
-                    </span>
+                    <div className="text-xs text-[#243342] bg-rose-50/60 p-3 rounded-2xl border border-rose-100 space-y-1.5 my-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-heading font-bold text-xs text-rose-700 flex items-center gap-1.5">
+                          <span>✨</span> Custom Keepsake Artwork
+                        </span>
+                        <span className="text-[10px] font-heading font-bold uppercase px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
+                          {item.customization.status}
+                        </span>
+                      </div>
+
+                      {item.customization.notes && (
+                        <p className="text-[11px] text-slate-600 italic bg-white/80 p-2 rounded-xl border border-rose-100/60">
+                          "{item.customization.notes}"
+                        </p>
+                      )}
+
+                      {item.customization.assets && item.customization.assets.length > 0 && (
+                        <div className="flex items-center gap-2 pt-1 flex-wrap">
+                          {item.customization.assets.map((asset, idx) => (
+                            <a
+                              key={asset.id || idx}
+                              href={asset.assetUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="group w-12 h-12 rounded-xl overflow-hidden bg-white border border-rose-200/80 flex-shrink-0 shadow-2xs relative"
+                              title={`View Photo #${idx + 1}`}
+                            >
+                              <img
+                                src={asset.assetUrl}
+                                alt={`Custom Photo ${idx + 1}`}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              />
+                            </a>
+                          ))}
+                          <span className="text-[11px] text-slate-500 font-medium ml-1">
+                            ({item.customization.assets.length} photo{item.customization.assets.length === 1 ? '' : 's'} attached)
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {item.bundleComponents && item.bundleComponents.length > 0 && (
+                    <div className="text-[11px] text-purple-900 bg-purple-50/70 p-2.5 rounded-xl border border-purple-100/80 space-y-1 my-1">
+                      <div className="font-heading font-bold text-[10px] uppercase tracking-wider text-purple-800 flex items-center justify-between">
+                        <span>📦 Bundle Includes</span>
+                        <span>{item.bundleComponents.length} component products</span>
+                      </div>
+                      <div className="space-y-0.5 pt-1 border-t border-purple-100">
+                        {item.bundleComponents.map((comp, idx) => (
+                          <div key={idx} className="flex justify-between items-center text-purple-900">
+                            <span>• {comp.name}</span>
+                            <span className="font-bold">
+                              {comp.quantityPerBundle} per bundle ({comp.totalQuantity} total)
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
 
                   {item.addons && item.addons.length > 0 && (

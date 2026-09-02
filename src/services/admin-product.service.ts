@@ -439,6 +439,7 @@ export async function getAdminProductDetail(
     cost_price: product.cost_price || 0,
     status: product.status,
     requires_customization: product.requires_customization || false,
+    supports_theme_customization: Boolean((product as Record<string, unknown>).supports_theme_customization),
     organization_id: product.organization_id,
     images: sortedImages.map((img) => ({
       id: img.id,
@@ -640,6 +641,9 @@ export async function updateAdminProduct(
   if (input.selling_price !== undefined) updatePayload.selling_price = input.selling_price;
   if (input.cost_price !== undefined) updatePayload.cost_price = input.cost_price;
   if (input.requires_customization !== undefined) updatePayload.requires_customization = input.requires_customization;
+  if ((input as Record<string, unknown>).supports_theme_customization !== undefined) {
+    updatePayload.supports_theme_customization = (input as Record<string, unknown>).supports_theme_customization;
+  }
   if (input.status !== undefined) updatePayload.status = input.status;
 
   const { error: updateErr } = await supabase
@@ -981,12 +985,18 @@ export async function removeProductAddon(
  */
 export async function listCategories(
   supabase: SupabaseClient<Database>,
-  organizationId: string
+  organizationId?: string
 ) {
-  const { data, error } = await supabase
-    .from('categories')
-    .select('*')
-    .eq('organization_id', organizationId);
+  let query = supabase.from('categories').select('*');
+  if (organizationId) {
+    if (typeof (query as any).or === 'function') {
+      query = query.or(`organization_id.eq.${organizationId},organization_id.is.null`);
+    } else {
+      query = query.eq('organization_id', organizationId);
+    }
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     throw new Error(`Failed to list categories: ${error.message}`);

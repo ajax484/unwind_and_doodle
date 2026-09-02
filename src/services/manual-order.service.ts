@@ -7,11 +7,13 @@ import {
   PaymentRequestDetail,
 } from '../types/manual-order';
 import { resolveOrCreateCustomer } from './customer.service';
-import { findCapableWarehouse, RequiredProductItem } from './warehouse.service';
+import { findCapableWarehouse, RequiredProductItem, resolveRequiredPhysicalItems } from './warehouse.service';
 import { reserveOrderInventory, releaseOrderReservations } from './inventory.service';
 import { PaystackPaymentProvider } from './payment/paystack.provider';
 import { publishDomainEvent } from './events.service';
+import { validateThemeCustomization, persistThemeCustomizationSnapshot } from './theme.service';
 import { ORDER_STATUS, PAYMENT_STATUS, DOMAIN_EVENT_TYPES, CURRENCY } from '../lib/constants';
+import { PaymentProvider } from './payment/provider.interface';
 
 /**
  * Creates an admin manual order atomically, reserves inventory, and generates a payment link token.
@@ -48,18 +50,31 @@ export async function createAdminManualOrder(
 
   // 3. Find capable warehouse if not provided
   let warehouseId = validated.warehouseId;
-  if (!warehouseId) {
-    const requiredItems: RequiredProductItem[] = validated.items.map((i) => ({
-      productId: i.productId,
-      quantity: i.quantity,
-    }));
+  const requiredItems = await resolveRequiredPhysicalItems(supabase, validated.items);
 
+  if (!warehouseId) {
     const whResult = await findCapableWarehouse(supabase, validated.locationId, requiredItems);
     if (!whResult.capable || !whResult.warehouseId) {
       throw new Error(whResult.error || 'Insufficient inventory across available warehouses.');
     }
     warehouseId = whResult.warehouseId;
   }
+
+  // Pre-validate theme customizations if present
+  const validatedThemeCustomizations = await Promise.all(
+    validated.items.map(async (item) => {
+      const customPayload = item.customization;
+      const themeIds = customPayload?.theme_ids || customPayload?.themeIds;
+      const coverName = customPayload?.cover_name || customPayload?.coverName;
+
+      if (!themeIds && !coverName) return null;
+
+      return validateThemeCustomization(supabase, organizationId, item.productId, {
+        selectedThemeIds: themeIds,
+        coverName,
+      });
+    })
+  );
 
   // 4. Call atomic RPC create_admin_manual_order
   const { data: rpcResult, error: rpcErr } = await supabase.rpc('create_admin_manual_order' as unknown as keyof Database['public']['Functions'], {
@@ -107,17 +122,31 @@ export async function createAdminManualOrder(
   const token = result.token;
   const totalAmount = Number(result.total);
 
+  // Persist theme customization snapshots for created order items
+  const { data: createdOrderItems } = await supabase
+    .from('order_items')
+    .select('id, product_id')
+    .eq('order_id', orderId);
+
+  if (createdOrderItems) {
+    for (let idx = 0; idx < validated.items.length; idx++) {
+      const itemInput = validated.items[idx];
+      const validatedCustom = validatedThemeCustomizations[idx];
+      if (validatedCustom) {
+        const matchingOrderItem = createdOrderItems.find((oi) => oi.product_id === itemInput.productId);
+        if (matchingOrderItem) {
+          await persistThemeCustomizationSnapshot(supabase, matchingOrderItem.id, validatedCustom);
+        }
+      }
+    }
+  }
+
   try {
     // 5. Reserve inventory atomically
-    const reservationItems: RequiredProductItem[] = validated.items.map((i) => ({
-      productId: i.productId,
-      quantity: i.quantity,
-    }));
-
     await reserveOrderInventory(supabase, {
       warehouseId,
       orderId,
-      items: reservationItems,
+      items: requiredItems,
     });
 
     // 6. Create payment record
@@ -267,13 +296,31 @@ export async function getPaymentRequestByToken(
     .select('*')
     .eq('order_id', order.id);
 
-  // Fetch Bundle Components if any
+  // Fetch Bundle Components & Theme Customizations if any
   const itemsWithComponents = await Promise.all(
     (orderItems || []).map(async (item) => {
-      const { data: components } = await supabase
-        .from('order_item_bundle_components')
-        .select('*')
-        .eq('order_item_id', item.id);
+      const [{ data: components }, { data: themeCust }] = await Promise.all([
+        supabase.from('order_item_bundle_components').select('*').eq('order_item_id', item.id),
+        supabase.from('order_item_theme_customizations').select('*').eq('order_item_id', item.id).maybeSingle(),
+      ]);
+
+      let themeCustomizationDetail: PaymentRequestDetail['items'][number]['themeCustomization'] = null;
+      if (themeCust) {
+        const { data: snapshots } = await supabase
+          .from('order_item_theme_snapshots')
+          .select('*')
+          .eq('customization_id', themeCust.id)
+          .order('sort_order', { ascending: true });
+
+        themeCustomizationDetail = {
+          coverName: themeCust.cover_name,
+          themes: (snapshots || []).map((s) => ({
+            themeId: s.theme_id,
+            themeName: s.theme_name,
+            sortOrder: s.sort_order,
+          })),
+        };
+      }
 
       return {
         id: item.id,
@@ -286,6 +333,7 @@ export async function getPaymentRequestByToken(
           quantityPerBundle: c.quantity_per_bundle,
           totalQuantity: c.total_quantity,
         })),
+        themeCustomization: themeCustomizationDetail,
       };
     })
   );

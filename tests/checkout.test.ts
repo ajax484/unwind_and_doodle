@@ -244,5 +244,83 @@ describe('Pricing & Checkout Flow Business Rules', () => {
         })
       ).rejects.toThrow(/Insufficient stock/);
     });
+
+    it('executes bundle checkout by resolving physical component inventory at warehouse', async () => {
+      const bundleId = 'prod-bundle-01';
+      mockSupabase._store.products.push({
+        id: bundleId,
+        name: 'Complete Mindful Kit Bundle',
+        price: 5500,
+        product_type: 'bundle',
+        is_active: true,
+      });
+      mockSupabase._store.bundle_items.push(
+        { id: 'bi-1', bundle_product_id: bundleId, component_product_id: bookId, quantity: 1 },
+        { id: 'bi-2', bundle_product_id: bundleId, component_product_id: pencilId, quantity: 1 }
+      );
+
+      const bundleCheckoutReq: CheckoutRequest = {
+        locationId,
+        customer: {
+          email: 'bundleuser@example.com',
+          firstName: 'Bundle',
+          lastName: 'Buyer',
+        },
+        shippingAddress: {
+          addressLine1: '45 Marina Street',
+          city: 'Lagos',
+          state: 'Lagos',
+          country: 'Nigeria',
+        },
+        items: [
+          {
+            productId: bundleId,
+            quantity: 2,
+          },
+        ],
+      };
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: true,
+          message: 'Authorization URL created',
+          data: {
+            authorization_url: 'https://checkout.paystack.com/auth_bundle_123',
+            access_code: 'acc_bundle_123',
+            reference: 'UAD_BUNDLE_123',
+          },
+        }),
+      });
+
+      const provider = new PaystackPaymentProvider({
+        secretKey: 'sk_test_paystack_mock',
+        fetchFn: mockFetch as any,
+      });
+
+      const result = await processCheckout({
+        supabase: mockSupabase,
+        request: bundleCheckoutReq,
+        paymentProvider: provider,
+      });
+
+      expect(result.orderId).toBeDefined();
+      expect(result.warehouseId).toBe(warehouseId);
+
+      const reservations = mockSupabase._store.inventory_reservations.filter(
+        (r) => r.reference_id === result.orderId
+      );
+      expect(reservations.length).toBe(2);
+      expect(reservations.map((r) => r.product_id).sort()).toEqual([bookId, pencilId].sort());
+      expect(reservations.find((r) => r.product_id === bookId)?.quantity).toBe(2);
+      expect(reservations.find((r) => r.product_id === pencilId)?.quantity).toBe(2);
+
+      const bundleComps = mockSupabase._store.order_item_bundle_components.filter(
+        (bc) => bc.order_item_id === mockSupabase._store.order_items.find((oi) => oi.order_id === result.orderId)?.id
+      );
+      expect(bundleComps.length).toBe(2);
+      expect(bundleComps.find((bc) => bc.component_product_id === bookId)?.total_quantity).toBe(2);
+      expect(bundleComps.find((bc) => bc.component_product_id === pencilId)?.total_quantity).toBe(2);
+    });
   });
 });

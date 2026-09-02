@@ -5,6 +5,13 @@ export const CheckoutItemAddonSchema = z.object({
   quantity: z.number().int().positive('Addon quantity must be at least 1').default(1),
 });
 
+export const ThemeCustomizationPayloadSchema = z.object({
+  selectedThemeIds: z.array(z.string().uuid('Invalid theme ID format')),
+  coverName: z.string().optional(),
+});
+
+export type ThemeCustomizationPayload = z.infer<typeof ThemeCustomizationPayloadSchema>;
+
 export const CheckoutItemSchema = z.object({
   productId: z.string().uuid('Invalid product ID'),
   quantity: z.number().int().positive('Quantity must be at least 1'),
@@ -15,6 +22,7 @@ export const CheckoutItemSchema = z.object({
       assetUrls: z.array(z.string().url()).optional(),
     })
     .optional(),
+  themeCustomization: ThemeCustomizationPayloadSchema.optional(),
 });
 
 export const CustomerInfoSchema = z.object({

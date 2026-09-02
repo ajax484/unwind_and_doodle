@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { getCartHeaders, setClientCartSessionId } from '@/lib/cart-client';
+
 export default function Navbar() {
   const pathname = usePathname();
   const [cartCount, setCartCount] = useState<number>(0);
@@ -13,10 +15,11 @@ export default function Navbar() {
 
   const fetchCartCount = async () => {
     try {
-      const res = await fetch('/api/cart');
+      const res = await fetch('/api/cart', { headers: getCartHeaders() });
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
+          if (json.data.sessionId) setClientCartSessionId(json.data.sessionId);
           setCartCount(json.data.totalItemCount || 0);
         }
       }
@@ -48,7 +51,17 @@ export default function Navbar() {
     fetchCartCount();
     fetchSession();
 
-    const handleCartUpdate = () => fetchCartCount();
+    const handleCartUpdate = (e: Event) => {
+      const customEvt = e as CustomEvent<{ cart?: { totalItemCount?: number; sessionId?: string } }>;
+      if (customEvt.detail?.cart) {
+        if (customEvt.detail.cart.sessionId) {
+          setClientCartSessionId(customEvt.detail.cart.sessionId);
+        }
+        setCartCount(customEvt.detail.cart.totalItemCount || 0);
+      } else {
+        fetchCartCount();
+      }
+    };
     const handleAuthUpdate = () => fetchSession();
 
     window.addEventListener('cart-updated', handleCartUpdate);

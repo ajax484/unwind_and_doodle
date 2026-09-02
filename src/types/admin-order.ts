@@ -96,6 +96,12 @@ export interface AdminOrderDetailItem {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  productType?: 'physical' | 'custom' | 'bundle';
+  bundleComponents?: {
+    name: string;
+    quantityPerBundle: number;
+    totalQuantity: number;
+  }[];
   customization?: {
     id: string;
     notes: string | null;
@@ -104,6 +110,14 @@ export interface AdminOrderDetailItem {
       id: string;
       assetUrl: string;
       fileType: string;
+    }[];
+  } | null;
+  themeCustomization?: {
+    coverName: string | null;
+    themes: {
+      themeId: string | null;
+      themeName: string;
+      sortOrder: number;
     }[];
   } | null;
   addons: {
