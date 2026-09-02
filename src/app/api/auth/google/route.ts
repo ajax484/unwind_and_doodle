@@ -5,11 +5,12 @@ import { getConfig } from '@/lib/config';
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
-    const next = url.searchParams.get('next') || '/account';
+    const intent = url.searchParams.get('intent') || 'auto';
+    const next = url.searchParams.get('next') || (intent === 'admin' ? '/admin' : '/account');
 
     const { appUrl } = getConfig();
     const supabase = getServiceSupabaseClient();
-    const redirectTo = `${appUrl}/api/auth/callback?next=${encodeURIComponent(next)}`;
+    const redirectTo = `${appUrl}/api/auth/callback?intent=${encodeURIComponent(intent)}&next=${encodeURIComponent(next)}`;
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',

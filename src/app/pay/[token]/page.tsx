@@ -3,6 +3,14 @@
 import React, { useEffect, useState, use } from 'react';
 import { PaymentRequestDetail } from '@/types/manual-order';
 
+interface LocationOption {
+  id: string;
+  name: string;
+  state?: string;
+  lga?: string;
+  deliveryFee?: number;
+}
+
 export default function CustomerPaymentPage({
   params,
 }: {
@@ -12,20 +20,58 @@ export default function CustomerPaymentPage({
   const token = resolvedParams.token;
 
   const [detail, setDetail] = useState<PaymentRequestDetail | null>(null);
+  const [locations, setLocations] = useState<LocationOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Editable Customer Form State
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [selectedLocationId, setSelectedLocationId] = useState('');
+
+  // Update & Action States
+  const [saving, setSaving] = useState(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+  const [saveErrorMsg, setSaveErrorMsg] = useState<string | null>(null);
+  const [feeChangeNotice, setFeeChangeNotice] = useState<string | null>(null);
   const [payLoading, setPayLoading] = useState(false);
 
+  // Fetch Payment Details and Locations
   const fetchPaymentDetail = async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`/api/pay/${token}`);
-      const json = await res.json();
-      if (res.ok && json.success) {
-        setDetail(json.data);
-      } else {
-        throw new Error(json.error || 'Payment link unavailable. This link is invalid or no longer active.');
+
+      const [payRes, locRes] = await Promise.all([
+        fetch(`/api/pay/${token}`),
+        fetch('/api/locations'),
+      ]);
+
+      const payJson = await payRes.json();
+      if (!payRes.ok || !payJson.success) {
+        throw new Error(payJson.error || 'Payment link unavailable. This link is invalid or no longer active.');
+      }
+
+      const detailData: PaymentRequestDetail = payJson.data;
+      setDetail(detailData);
+
+      // Pre-fill editable fields
+      setFirstName(detailData.customer.firstName || '');
+      setLastName(detailData.customer.lastName || '');
+      setPhone(detailData.customer.phone || '');
+      if (detailData.customer.locationId) {
+        setSelectedLocationId(detailData.customer.locationId);
+      }
+
+      if (locRes.ok) {
+        const locJson = await locRes.json();
+        if (locJson.success && Array.isArray(locJson.data)) {
+          setLocations(locJson.data);
+          if (!detailData.customer.locationId && locJson.data.length > 0) {
+            setSelectedLocationId(locJson.data[0].id);
+          }
+        }
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error loading payment details');
@@ -40,6 +86,57 @@ export default function CustomerPaymentPage({
     }
   }, [token]);
 
+  // Handle Save Changes
+  const handleSaveChanges = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaveErrorMsg(null);
+    setSaveSuccessMsg(null);
+    setFeeChangeNotice(null);
+
+    if (!detail) return;
+
+    const previousFee = detail.pricing.shippingFee;
+
+    try {
+      setSaving(true);
+      const res = await fetch(`/api/pay/${token}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: firstName.trim() || undefined,
+          lastName: lastName.trim() || undefined,
+          phone: phone.trim() || undefined,
+          locationId: selectedLocationId || undefined,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to update order details');
+      }
+
+      const updatedDetail: PaymentRequestDetail = json.data;
+      setDetail(updatedDetail);
+      setSaveSuccessMsg('Information updated successfully');
+
+      // Check if delivery fee changed
+      const newFee = updatedDetail.pricing.shippingFee;
+      if (newFee !== previousFee) {
+        setFeeChangeNotice(
+          `Delivery fee updated: ${formatCurrency(previousFee)} → ${formatCurrency(newFee)}`
+        );
+      }
+    } catch (err: unknown) {
+      setSaveErrorMsg(
+        err instanceof Error ? err.message : 'An error occurred while saving your details.'
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Handle Pay Now
   const handlePayNow = async () => {
     try {
       setPayLoading(true);
@@ -105,7 +202,7 @@ export default function CustomerPaymentPage({
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
         <div className="text-center space-y-3 bg-slate-900/80 p-8 rounded-3xl border border-slate-800 shadow-2xl max-w-sm w-full">
           <div className="w-10 h-10 rounded-full border-3 border-rose-500 border-t-transparent animate-spin mx-auto" />
-          <p className="text-xs font-bold tracking-wide text-slate-300">Retrieving order details...</p>
+          <p className="text-xs font-bold tracking-wide text-slate-300">Retrieving payment details...</p>
         </div>
       </div>
     );
@@ -120,7 +217,9 @@ export default function CustomerPaymentPage({
             ⚠️
           </div>
           <h1 className="text-xl font-heading font-extrabold text-white">Payment Link Unavailable</h1>
-          <p className="text-xs text-slate-400 leading-relaxed">This payment link is invalid or no longer available.</p>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            {error || 'This payment link is invalid or no longer available.'}
+          </p>
         </div>
       </div>
     );
@@ -183,35 +282,132 @@ export default function CustomerPaymentPage({
           </div>
         )}
 
+        {/* Feedback Notifications */}
+        {saveSuccessMsg && (
+          <div className="bg-emerald-500/15 border-b border-emerald-500/30 p-3.5 px-6 text-xs font-bold text-emerald-400 flex items-center justify-between animate-fadeIn">
+            <span>✓ {saveSuccessMsg}</span>
+            <button type="button" onClick={() => setSaveSuccessMsg(null)} className="text-emerald-400 hover:text-emerald-300">
+              ✕
+            </button>
+          </div>
+        )}
+
+        {feeChangeNotice && (
+          <div className="bg-blue-500/15 border-b border-blue-500/30 p-3.5 px-6 text-xs font-bold text-blue-300 flex items-center justify-between animate-fadeIn">
+            <span>🚚 {feeChangeNotice}</span>
+            <button type="button" onClick={() => setFeeChangeNotice(null)} className="text-blue-300 hover:text-blue-200">
+              ✕
+            </button>
+          </div>
+        )}
+
+        {saveErrorMsg && (
+          <div className="bg-rose-500/15 border-b border-rose-500/30 p-3.5 px-6 text-xs font-bold text-rose-400 flex items-center justify-between animate-fadeIn">
+            <span>⚠️ {saveErrorMsg}</span>
+            <button type="button" onClick={() => setSaveErrorMsg(null)} className="text-rose-400 hover:text-rose-300">
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Content Body */}
-        <div className="p-6 space-y-5">
-          {/* Customer & Shipping Summary */}
-          <div className="bg-slate-850 rounded-2xl p-4 border border-slate-800/80 space-y-3 text-xs">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <span className="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Customer Information</span>
-              <span className="text-slate-500 text-[10px]">{detail.customer.email}</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-200">
+        <div className="p-6 space-y-6">
+          {/* Editable Customer Information & Delivery Location Section */}
+          <form onSubmit={handleSaveChanges} className="bg-slate-850 rounded-2xl p-5 border border-slate-800 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
-                <span className="text-slate-400 text-[11px] block">Customer Name</span>
-                <span className="font-bold">{detail.customer.name}</span>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-rose-400">Your Information</h3>
+                <p className="text-[11px] text-slate-400">Edit contact details &amp; delivery location</p>
               </div>
-              {detail.customer.phone && (
-                <div>
-                  <span className="text-slate-400 text-[11px] block">Phone</span>
-                  <span className="font-semibold text-slate-300">{detail.customer.phone}</span>
-                </div>
-              )}
+              <span className="text-[11px] text-slate-500">{detail.customer.email}</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="text-[11px] text-slate-400 font-medium mb-1 block">First Name</label>
+                <input
+                  type="text"
+                  disabled={!isPending}
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="First name"
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-hidden focus:border-rose-500 disabled:opacity-50 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] text-slate-400 font-medium mb-1 block">Last Name</label>
+                <input
+                  type="text"
+                  disabled={!isPending}
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Last name"
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-hidden focus:border-rose-500 disabled:opacity-50 transition-all"
+                />
+              </div>
+
               <div className="sm:col-span-2">
-                <span className="text-slate-400 text-[11px] block">Delivery Address</span>
-                <span className="font-medium text-slate-300 leading-snug block">
+                <label className="text-[11px] text-slate-400 font-medium mb-1 block">Phone Number</label>
+                <input
+                  type="tel"
+                  disabled={!isPending}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+234 801 234 5678"
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-hidden focus:border-rose-500 disabled:opacity-50 transition-all"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="text-[11px] text-slate-400 font-medium mb-1 block">Delivery Location</label>
+                <select
+                  disabled={!isPending}
+                  value={selectedLocationId}
+                  onChange={(e) => setSelectedLocationId(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 focus:outline-hidden focus:border-rose-500 disabled:opacity-50 transition-all"
+                >
+                  <option value="">Select Delivery Location</option>
+                  {locations.map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.name} {loc.state ? `(${loc.state})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-[10px] text-slate-400 block mt-1">
+                  Changing delivery location automatically recalculates your delivery fee and order total.
+                </span>
+              </div>
+
+              <div className="sm:col-span-2">
+                <span className="text-[11px] text-slate-400 block">Shipping Address Line</span>
+                <span className="font-medium text-slate-300 text-[11px] leading-snug block">
                   {formatAddress(detail.customer.shippingAddress)}
                 </span>
               </div>
             </div>
-          </div>
 
-          {/* Items Breakdown Table */}
+            {isPending && (
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold text-xs rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {saving ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-rose-400 border-t-transparent rounded-full animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <span>Save changes</span>
+                  )}
+                </button>
+              </div>
+            )}
+          </form>
+
+          {/* Immutable Items Breakdown Table */}
           <div className="space-y-2.5">
             <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Order Items ({detail.items.length})</h3>
 
@@ -270,7 +466,7 @@ export default function CustomerPaymentPage({
             </div>
           </div>
 
-          {/* Pricing Summary */}
+          {/* Pricing Breakdown Summary */}
           <div className="bg-slate-950/80 rounded-2xl p-5 border border-slate-800 space-y-2.5 text-xs">
             <div className="flex justify-between text-slate-400">
               <span>Subtotal</span>
@@ -285,7 +481,7 @@ export default function CustomerPaymentPage({
             )}
 
             <div className="flex justify-between text-slate-400">
-              <span>Shipping Fee</span>
+              <span>Delivery Fee</span>
               <span className="font-semibold text-slate-200">
                 {detail.pricing.shippingFee > 0 ? formatCurrency(detail.pricing.shippingFee) : 'Free'}
               </span>

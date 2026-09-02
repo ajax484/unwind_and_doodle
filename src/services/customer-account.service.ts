@@ -119,10 +119,18 @@ export async function linkOrCreateCustomerAccount(
   }
 
   // 3. Create a brand new customer record for this authenticated user
+  let orgId = '88c7af2e-afd4-4504-a43f-b14cc45d6263';
+  try {
+    const { data: primaryOrg } = await supabase.from('organizations').select('id').limit(1).maybeSingle();
+    if (primaryOrg?.id) {
+      orgId = primaryOrg.id;
+    }
+  } catch {}
+
   const { data: newCustomer, error: createError } = await supabase
     .from('customers')
     .insert({
-      organization_id: '88c7af2e-afd4-4504-a43f-b14cc45d6263',
+      organization_id: orgId,
       email,
       user_id: user.id,
       first_name: firstName,

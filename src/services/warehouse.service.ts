@@ -182,7 +182,7 @@ export async function findCapableWarehouse(
   // 3. Fetch inventory for all active candidate warehouses and product IDs
   const { data: inventoryRecords, error: invError } = await supabase
     .from('inventory')
-    .select('warehouse_id, product_id, quantity, reserved_quantity')
+    .select('*')
     .in('warehouse_id', activeWhIds)
     .in('product_id', productIds);
 
@@ -193,11 +193,16 @@ export async function findCapableWarehouse(
   // Map inventory by warehouse_id -> product_id -> available_quantity
   const inventoryMap = new Map<string, Map<string, number>>();
   for (const inv of inventoryRecords || []) {
-    if (!inventoryMap.has(inv.warehouse_id)) {
-      inventoryMap.set(inv.warehouse_id, new Map());
+    const rec = inv as Record<string, unknown>;
+    const whId = String(rec.warehouse_id);
+    const prodId = String(rec.product_id);
+    if (!inventoryMap.has(whId)) {
+      inventoryMap.set(whId, new Map());
     }
-    const available = Math.max(0, (inv.quantity || 0) - (inv.reserved_quantity || 0));
-    inventoryMap.get(inv.warehouse_id)!.set(inv.product_id, available);
+    const qty = rec.quantity !== undefined && rec.quantity !== null ? Number(rec.quantity) : Number(rec.quantity_on_hand || 0);
+    const reserved = rec.reserved_quantity !== undefined && rec.reserved_quantity !== null ? Number(rec.reserved_quantity) : Number(rec.quantity_reserved || 0);
+    const available = Math.max(0, qty - reserved);
+    inventoryMap.get(whId)!.set(prodId, available);
   }
 
   // 4. Evaluate each active warehouse to check if it satisfies ALL required items

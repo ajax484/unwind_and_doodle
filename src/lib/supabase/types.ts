@@ -1205,6 +1205,7 @@ export type Database = {
           customer_id: string | null;
           discount_code: string | null;
           discount_id: string | null;
+          discount_source: string | null;
           discount_total: number;
           email: string;
           first_name: string | null;
@@ -1238,6 +1239,7 @@ export type Database = {
           customer_id?: string | null;
           discount_code?: string | null;
           discount_id?: string | null;
+          discount_source?: string | null;
           discount_total?: number;
           email: string;
           first_name?: string | null;
@@ -1271,6 +1273,7 @@ export type Database = {
           customer_id?: string | null;
           discount_code?: string | null;
           discount_id?: string | null;
+          discount_source?: string | null;
           discount_total?: number;
           email?: string;
           first_name?: string | null;
@@ -1330,6 +1333,53 @@ export type Database = {
             columns: ["warehouse_id"];
             isOneToOne: false;
             referencedRelation: "warehouses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      organization_invitations: {
+        Row: {
+          accepted_at: string | null;
+          created_at: string;
+          email: string;
+          expires_at: string;
+          id: string;
+          invited_by: string | null;
+          organization_id: string;
+          role: string;
+          token: string;
+          updated_at: string;
+        };
+        Insert: {
+          accepted_at?: string | null;
+          created_at?: string;
+          email: string;
+          expires_at: string;
+          id?: string;
+          invited_by?: string | null;
+          organization_id: string;
+          role?: string;
+          token: string;
+          updated_at?: string;
+        };
+        Update: {
+          accepted_at?: string | null;
+          created_at?: string;
+          email?: string;
+          expires_at?: string;
+          id?: string;
+          invited_by?: string | null;
+          organization_id?: string;
+          role?: string;
+          token?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_invitations_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
         ];
@@ -2112,6 +2162,7 @@ export type Database = {
           p_idempotency_key?: string;
           p_items: Json;
           p_location_id?: string;
+          p_manual_discount?: Json;
           p_manual_order_channel?: string;
           p_notes?: string;
           p_org_id: string;

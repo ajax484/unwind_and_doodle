@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState, useCallback, use } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { AdminOrderDetail } from '@/types/admin-order';
-import OrderStatusBadge from '@/components/admin/OrderStatusBadge';
+import React, { useEffect, useState, useCallback, use } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { AdminOrderDetail } from "@/types/admin-order";
+import OrderStatusBadge from "@/components/admin/OrderStatusBadge";
 
 export default function AdminOrderDetailPage({
   params,
@@ -28,10 +28,10 @@ export default function AdminOrderDetailPage({
   const [revalidating, setRevalidating] = useState(false);
 
   // Modal form inputs
-  const [trackingNumber, setTrackingNumber] = useState('');
-  const [carrier, setCarrier] = useState('GIG Logistics');
-  const [cancelReason, setCancelReason] = useState('');
-  const [refundReason, setRefundReason] = useState('');
+  const [trackingNumber, setTrackingNumber] = useState("");
+  const [carrier, setCarrier] = useState("GIG Logistics");
+  const [cancelReason, setCancelReason] = useState("");
+  const [refundReason, setRefundReason] = useState("");
 
   const fetchOrderDetail = useCallback(async () => {
     try {
@@ -42,10 +42,10 @@ export default function AdminOrderDetailPage({
       if (res.ok && json.success) {
         setOrder(json.data);
       } else {
-        throw new Error(json.error || 'Failed to load order details');
+        throw new Error(json.error || "Failed to load order details");
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error loading order');
+      setError(err instanceof Error ? err.message : "Error loading order");
     } finally {
       setLoading(false);
     }
@@ -61,9 +61,9 @@ export default function AdminOrderDetailPage({
       setError(null);
       setActionSuccess(null);
 
-      const res = await fetch('/api/admin/payments/revalidate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/admin/payments/revalidate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           paymentId: targetPaymentId,
           orderId: orderId,
@@ -73,32 +73,41 @@ export default function AdminOrderDetailPage({
       const json = await res.json();
       if (res.ok && json.success) {
         if (json.data?.verified) {
-          setActionSuccess('✓ Payment revalidated and confirmed with gateway! Order updated.');
-        } else if (json.data?.status === 'failed') {
-          setError('Gateway confirmed this transaction failed.');
+          setActionSuccess(
+            "✓ Payment revalidated and confirmed with gateway! Order updated.",
+          );
+        } else if (json.data?.status === "failed") {
+          setError("Gateway confirmed this transaction failed.");
         } else {
-          setActionSuccess('ℹ️ Payment recheck completed: Still awaiting completion at gateway.');
+          setActionSuccess(
+            "ℹ️ Payment recheck completed: Still awaiting completion at gateway.",
+          );
         }
         await fetchOrderDetail();
       } else {
-        throw new Error(json.error || 'Failed to revalidate payment');
+        throw new Error(json.error || "Failed to revalidate payment");
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Payment revalidation failed');
+      setError(
+        err instanceof Error ? err.message : "Payment revalidation failed",
+      );
     } finally {
       setRevalidating(false);
     }
   };
 
-  const handleTransition = async (targetStatus: string, payload: Record<string, unknown> = {}) => {
+  const handleTransition = async (
+    targetStatus: string,
+    payload: Record<string, unknown> = {},
+  ) => {
     try {
       setActionLoading(true);
       setError(null);
       setActionSuccess(null);
 
       const res = await fetch(`/api/admin/orders/${orderId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status: targetStatus,
           ...payload,
@@ -113,10 +122,12 @@ export default function AdminOrderDetailPage({
         setShowCancelModal(false);
         await fetchOrderDetail();
       } else {
-        throw new Error(json.error || `Failed to transition order to ${targetStatus}`);
+        throw new Error(
+          json.error || `Failed to transition order to ${targetStatus}`,
+        );
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Status transition failed');
+      setError(err instanceof Error ? err.message : "Status transition failed");
     } finally {
       setActionLoading(false);
     }
@@ -129,32 +140,32 @@ export default function AdminOrderDetailPage({
       setActionSuccess(null);
 
       const res = await fetch(`/api/admin/orders/${orderId}/refund`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          reason: refundReason.trim() || 'Admin initiated full refund',
+          reason: refundReason.trim() || "Admin initiated full refund",
         }),
       });
 
       const json = await res.json();
       if (res.ok && json.success) {
-        setActionSuccess('Full refund processed successfully via Paystack!');
+        setActionSuccess("Full refund processed successfully via Paystack!");
         setShowRefundModal(false);
         await fetchOrderDetail();
       } else {
-        throw new Error(json.error || 'Failed to process refund');
+        throw new Error(json.error || "Failed to process refund");
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Refund processing failed');
+      setError(err instanceof Error ? err.message : "Refund processing failed");
     } finally {
       setActionLoading(false);
     }
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
+    return new Intl.NumberFormat("en-NG", {
+      style: "currency",
+      currency: "NGN",
       maximumFractionDigits: 0,
     }).format(amount);
   };
@@ -162,12 +173,12 @@ export default function AdminOrderDetailPage({
   const formatDate = (dateStr: string) => {
     try {
       const d = new Date(dateStr);
-      return d.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
+      return d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
       });
     } catch {
       return dateStr;
@@ -187,7 +198,9 @@ export default function AdminOrderDetailPage({
     return (
       <div className="p-8 rounded-3xl bg-white border border-red-200 text-center space-y-4">
         <div className="text-3xl">⚠️</div>
-        <h3 className="font-heading font-bold text-lg text-slate-800">Order Not Found</h3>
+        <h3 className="font-heading font-bold text-lg text-slate-800">
+          Order Not Found
+        </h3>
         <p className="text-xs text-slate-500">{error}</p>
         <Link
           href="/admin/orders"
@@ -202,26 +215,36 @@ export default function AdminOrderDetailPage({
   if (!order) return null;
 
   const currentStatus = order.status;
-  const isPending = currentStatus === 'pending';
-  const isConfirmed = currentStatus === 'confirmed';
-  const isShipped = currentStatus === 'shipped';
-  const isReceived = currentStatus === 'received';
-  const isCancelled = currentStatus === 'cancelled';
-  const isRefunded = currentStatus === 'refunded';
+  const isPending = currentStatus === "pending";
+  const isConfirmed = currentStatus === "confirmed";
+  const isShipped = currentStatus === "shipped";
+  const isReceived = currentStatus === "received";
+  const isCancelled = currentStatus === "cancelled";
+  const isRefunded = currentStatus === "refunded";
 
-  const isEligibleForCancellation = ['created', 'pending', 'confirmed', 'shipped'].includes(currentStatus);
-  const isEligibleForRefund = !isRefunded && currentStatus !== 'created';
+  const isEligibleForCancellation = [
+    "created",
+    "pending",
+    "confirmed",
+    "shipped",
+  ].includes(currentStatus);
+  const isEligibleForRefund = !isRefunded && currentStatus !== "created";
 
   return (
     <div className="space-y-8">
       {/* 1. Top Breadcrumb & Actions Bar */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-xs text-slate-400">
-          <Link href="/admin/orders" className="hover:text-slate-600 transition-colors">
+          <Link
+            href="/admin/orders"
+            className="hover:text-slate-600 transition-colors"
+          >
             ← Back to Orders
           </Link>
           <span>/</span>
-          <span className="font-mono text-slate-600 font-bold">{order.orderNumber}</span>
+          <span className="font-mono text-slate-600 font-bold">
+            {order.orderNumber}
+          </span>
         </div>
 
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs">
@@ -232,18 +255,23 @@ export default function AdminOrderDetailPage({
               </h2>
               <OrderStatusBadge status={order.status} />
               <OrderStatusBadge
-                status={order.paymentStatus || 'pending'}
+                status={order.paymentStatus || "pending"}
                 type="payment"
               />
             </div>
             <p className="text-xs text-slate-500">
-              Placed on <strong className="text-slate-700">{formatDate(order.createdAt)}</strong> • Warehouse: {order.warehouse.name || 'Main Hub'}
+              Placed on{" "}
+              <strong className="text-slate-700">
+                {formatDate(order.createdAt)}
+              </strong>{" "}
+              • Warehouse: {order.warehouse.name || "Main Hub"}
             </p>
           </div>
 
           {/* Action Buttons based on state machine */}
           <div className="flex flex-wrap items-center gap-2.5">
-            {((order.paymentStatus || 'pending') === 'pending' || order.status === 'created') && (
+            {((order.paymentStatus || "pending") === "pending" ||
+              order.status === "created") && (
               <button
                 type="button"
                 onClick={() => handleRevalidatePayment()}
@@ -288,7 +316,7 @@ export default function AdminOrderDetailPage({
             {isShipped && (
               <button
                 type="button"
-                onClick={() => handleTransition('received')}
+                onClick={() => handleTransition("received")}
                 disabled={actionLoading}
                 className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold font-heading shadow-xs transition-all cursor-pointer disabled:opacity-50"
               >
@@ -350,7 +378,9 @@ export default function AdminOrderDetailPage({
                     <div className="space-y-0.5">
                       <div className="font-heading font-bold text-sm text-slate-800 flex items-center gap-2">
                         <span>{item.productName}</span>
-                        {(item.productType === 'bundle' || (item.bundleComponents && item.bundleComponents.length > 0)) && (
+                        {(item.productType === "bundle" ||
+                          (item.bundleComponents &&
+                            item.bundleComponents.length > 0)) && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-100 text-purple-800 uppercase tracking-wider">
                             📦 Bundle Set
                           </span>
@@ -374,28 +404,33 @@ export default function AdminOrderDetailPage({
                   </div>
 
                   {/* Bundle Components List if present */}
-                  {item.bundleComponents && item.bundleComponents.length > 0 && (
-                    <div className="p-3 bg-purple-50/70 rounded-2xl border border-purple-100 space-y-1.5 text-xs">
-                      <div className="flex items-center justify-between text-purple-900 font-heading font-bold text-[11px] uppercase tracking-wider">
-                        <span className="flex items-center gap-1.5">
-                          <span>📦</span> Included Bundle Components
-                        </span>
-                        <span className="text-[10px] text-purple-700 bg-purple-100/80 px-2 py-0.5 rounded-full font-semibold">
-                          {item.bundleComponents.length} component products
-                        </span>
+                  {item.bundleComponents &&
+                    item.bundleComponents.length > 0 && (
+                      <div className="p-3 bg-purple-50/70 rounded-2xl border border-purple-100 space-y-1.5 text-xs">
+                        <div className="flex items-center justify-between text-purple-900 font-heading font-bold text-[11px] uppercase tracking-wider">
+                          <span className="flex items-center gap-1.5">
+                            <span>📦</span> Included Bundle Components
+                          </span>
+                          <span className="text-[10px] text-purple-700 bg-purple-100/80 px-2 py-0.5 rounded-full font-semibold">
+                            {item.bundleComponents.length} component products
+                          </span>
+                        </div>
+                        <div className="space-y-1 pt-1.5 border-t border-purple-100 text-purple-900">
+                          {item.bundleComponents.map((comp, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between"
+                            >
+                              <span>• {comp.name}</span>
+                              <span className="font-semibold font-mono text-[11px]">
+                                {comp.quantityPerBundle} / bundle (
+                                {comp.totalQuantity} total)
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="space-y-1 pt-1.5 border-t border-purple-100 text-purple-900">
-                        {item.bundleComponents.map((comp, idx) => (
-                          <div key={idx} className="flex items-center justify-between">
-                            <span>• {comp.name}</span>
-                            <span className="font-semibold font-mono text-[11px]">
-                              {comp.quantityPerBundle} / bundle ({comp.totalQuantity} total)
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                    )}
 
                   {/* Add-ons list if present */}
                   {item.addons && item.addons.length > 0 && (
@@ -404,7 +439,10 @@ export default function AdminOrderDetailPage({
                         Included Add-ons:
                       </span>
                       {item.addons.map((addon) => (
-                        <div key={addon.id} className="flex items-center justify-between text-slate-700">
+                        <div
+                          key={addon.id}
+                          className="flex items-center justify-between text-slate-700"
+                        >
                           <span>
                             + {addon.addonName} (×{addon.quantity})
                           </span>
@@ -430,27 +468,31 @@ export default function AdminOrderDetailPage({
                         )}
                       </div>
 
-                      {item.themeCustomization.themes && item.themeCustomization.themes.length > 0 && (
-                        <div className="space-y-1.5 pt-1 border-t border-amber-200/50">
-                          <span className="text-[10px] font-heading font-bold text-amber-800/80 uppercase tracking-wider block">
-                            Selected Themes ({item.themeCustomization.themes.length}/3):
-                          </span>
-                          <div className="flex flex-wrap gap-1.5">
-                            {item.themeCustomization.themes.map((t, idx) => (
-                              <span
-                                key={idx}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white border border-amber-200/80 text-amber-950 font-medium text-xs shadow-2xs"
-                              >
-                                <span>✨</span> {t.themeName}
-                              </span>
-                            ))}
+                      {item.themeCustomization.themes &&
+                        item.themeCustomization.themes.length > 0 && (
+                          <div className="space-y-1.5 pt-1 border-t border-amber-200/50">
+                            <span className="text-[10px] font-heading font-bold text-amber-800/80 uppercase tracking-wider block">
+                              Selected Themes (
+                              {item.themeCustomization.themes.length}/3):
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {item.themeCustomization.themes.map((t, idx) => (
+                                <span
+                                  key={idx}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white border border-amber-200/80 text-amber-950 font-medium text-xs shadow-2xs"
+                                >
+                                  <span>✨</span> {t.themeName}
+                                </span>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
                       {item.themeCustomization.coverName && (
                         <div className="text-slate-700 bg-white/90 p-2.5 rounded-xl border border-amber-200/60 flex items-center justify-between">
-                          <span className="text-[11px] font-semibold text-slate-600">Personalized Cover Name:</span>
+                          <span className="text-[11px] font-semibold text-slate-600">
+                            Personalized Cover Name:
+                          </span>
                           <span className="font-heading font-bold text-slate-900 text-xs">
                             "{item.themeCustomization.coverName}"
                           </span>
@@ -473,38 +515,46 @@ export default function AdminOrderDetailPage({
 
                       {item.customization.notes && (
                         <div className="text-slate-700 bg-white p-2.5 rounded-xl border border-rose-100/60">
-                          <strong className="text-slate-900 block text-[11px]">Customer Dedication / Note:</strong>
-                          <p className="italic mt-0.5">"{item.customization.notes}"</p>
+                          <strong className="text-slate-900 block text-[11px]">
+                            Customer Dedication / Note:
+                          </strong>
+                          <p className="italic mt-0.5">
+                            "{item.customization.notes}"
+                          </p>
                         </div>
                       )}
 
-                      {item.customization.assets && item.customization.assets.length > 0 && (
-                        <div className="space-y-1.5">
-                          <span className="text-[11px] font-semibold text-slate-600 block">
-                            Uploaded Reference Photos ({item.customization.assets.length}):
-                          </span>
-                          <div className="flex flex-wrap gap-2.5">
-                            {item.customization.assets.map((asset, idx) => (
-                              <a
-                                key={asset.id}
-                                href={asset.assetUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="group relative inline-flex items-center gap-2 p-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-rose-600 hover:border-rose-200 text-xs font-semibold shadow-2xs transition-all"
-                              >
-                                <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-100">
-                                  <img
-                                    src={asset.assetUrl}
-                                    alt={`Custom Photo ${idx + 1}`}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                  />
-                                </div>
-                                <span className="pr-1.5">Photo #{idx + 1} ↗</span>
-                              </a>
-                            ))}
+                      {item.customization.assets &&
+                        item.customization.assets.length > 0 && (
+                          <div className="space-y-1.5">
+                            <span className="text-[11px] font-semibold text-slate-600 block">
+                              Uploaded Reference Photos (
+                              {item.customization.assets.length}):
+                            </span>
+                            <div className="flex flex-wrap gap-2.5">
+                              {item.customization.assets.map((asset, idx) => (
+                                <a
+                                  key={asset.id}
+                                  href={asset.assetUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="group relative inline-flex items-center gap-2 p-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-rose-600 hover:border-rose-200 text-xs font-semibold shadow-2xs transition-all"
+                                >
+                                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-100">
+                                    <img
+                                      src={asset.assetUrl}
+                                      alt={`Custom Photo ${idx + 1}`}
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                    />
+                                  </div>
+                                  <span className="pr-1.5">
+                                    Photo #{idx + 1} ↗
+                                  </span>
+                                </a>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
                     </div>
                   )}
                 </div>
@@ -529,37 +579,42 @@ export default function AdminOrderDetailPage({
               </div>
               <div className="flex justify-between font-heading font-bold text-base text-slate-900 pt-2 border-t border-slate-100">
                 <span>Total Amount</span>
-                <span className="text-rose-500">{formatCurrency(order.totalAmount)}</span>
+                <span className="text-rose-500">
+                  {formatCurrency(order.totalAmount)}
+                </span>
               </div>
             </div>
           </div>
 
           {/* Order Lifecycle Timeline */}
-          <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-            <h3 className="font-heading font-bold text-base text-slate-900 border-b border-slate-100 pb-3">
-              Order Timeline &amp; Status History
-            </h3>
+          <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs">
+            <div className="relative space-y-6">
+              {/* Timeline line */}
+              <div className="absolute left-1.25 top-1 bottom-1 w-0.5 bg-slate-200" />
 
-            {order.statusHistory.length === 0 ? (
-              <div className="text-xs text-slate-400">No status transitions recorded yet.</div>
-            ) : (
-              <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
-                {order.statusHistory.map((hist) => (
-                  <div key={hist.id} className="relative space-y-1">
-                    <span className="absolute -left-6 top-1 w-2.5 h-2.5 rounded-full bg-slate-400 border-2 border-white ring-2 ring-slate-100" />
+              {order.statusHistory.map((hist) => (
+                <div key={hist.id} className="relative flex gap-4">
+                  {/* Timeline dot */}
+                  <div className="relative z-10 mt-1.5 h-3 w-3 shrink-0 rounded-full bg-slate-400 border-2 border-white ring-2 ring-slate-100" />
+
+                  {/* Content */}
+                  <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2">
                       <OrderStatusBadge status={hist.status} />
-                      <span className="text-[11px] text-slate-400">{formatDate(hist.createdAt)}</span>
+                      <span className="text-[11px] text-slate-400">
+                        {formatDate(hist.createdAt)}
+                      </span>
                     </div>
+
                     {hist.note && (
                       <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                         {hist.note}
                       </div>
                     )}
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -572,16 +627,20 @@ export default function AdminOrderDetailPage({
             </h3>
             <div className="space-y-2 text-xs">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Name</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                  Name
+                </span>
                 <span className="text-slate-800 font-semibold text-sm">
                   {order.customer.firstName || order.customer.lastName
                     ? `${order.customer.firstName} ${order.customer.lastName}`.trim()
-                    : 'Guest Customer'}
+                    : "Guest Customer"}
                 </span>
               </div>
 
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Email</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                  Email
+                </span>
                 <a
                   href={`mailto:${order.customer.email}`}
                   className="text-rose-500 hover:underline font-semibold break-all"
@@ -592,8 +651,13 @@ export default function AdminOrderDetailPage({
 
               {order.customer.phone && (
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Phone</span>
-                  <a href={`tel:${order.customer.phone}`} className="text-slate-800 font-semibold">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                    Phone
+                  </span>
+                  <a
+                    href={`tel:${order.customer.phone}`}
+                    className="text-slate-800 font-semibold"
+                  >
                     {order.customer.phone}
                   </a>
                 </div>
@@ -608,17 +672,23 @@ export default function AdminOrderDetailPage({
             </h3>
             <div className="space-y-1.5 text-xs text-slate-700">
               <div className="font-semibold text-slate-900">
-                {order.shippingAddress.streetAddress || 'Address on file'}
+                {order.shippingAddress.streetAddress || "Address on file"}
               </div>
               <div>
-                {order.shippingAddress.city && `${order.shippingAddress.city}, `}
+                {order.shippingAddress.city &&
+                  `${order.shippingAddress.city}, `}
                 {order.shippingAddress.state}
               </div>
               {order.shippingAddress.postalCode && (
-                <div className="text-slate-400">Postal Code: {order.shippingAddress.postalCode}</div>
+                <div className="text-slate-400">
+                  Postal Code: {order.shippingAddress.postalCode}
+                </div>
               )}
               <div className="pt-2 text-[11px] text-slate-400">
-                Destination State: <strong className="text-slate-700">{order.location.name}</strong>
+                Destination State:{" "}
+                <strong className="text-slate-700">
+                  {order.location.name}
+                </strong>
               </div>
             </div>
           </div>
@@ -629,11 +699,16 @@ export default function AdminOrderDetailPage({
               Payment Record
             </h3>
             {order.payments.length === 0 ? (
-              <div className="text-xs text-slate-400">No payment records found.</div>
+              <div className="text-xs text-slate-400">
+                No payment records found.
+              </div>
             ) : (
               <div className="space-y-2 text-xs">
                 {order.payments.map((p) => (
-                  <div key={p.id} className="space-y-1.5 p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                  <div
+                    key={p.id}
+                    className="space-y-1.5 p-3 rounded-2xl bg-slate-50 border border-slate-100"
+                  >
                     <div className="flex items-center justify-between">
                       <span className="font-semibold uppercase tracking-wider text-[10px] text-slate-500">
                         {p.provider}
@@ -653,7 +728,7 @@ export default function AdminOrderDetailPage({
                         Paid on: {formatDate(p.paidAt)}
                       </div>
                     )}
-                    {p.status === 'pending' && (
+                    {p.status === "pending" && (
                       <button
                         type="button"
                         onClick={() => handleRevalidatePayment(p.id)}
@@ -688,9 +763,13 @@ export default function AdminOrderDetailPage({
               ✓
             </div>
             <div className="text-center space-y-1">
-              <h4 className="font-heading font-bold text-lg text-slate-900">Confirm This Order?</h4>
+              <h4 className="font-heading font-bold text-lg text-slate-900">
+                Confirm This Order?
+              </h4>
               <p className="text-xs text-slate-500">
-                This will move the order from <strong>Pending</strong> to <strong>Confirmed</strong>, signifying that items and customization specifications have been verified.
+                This will move the order from <strong>Pending</strong> to{" "}
+                <strong>Confirmed</strong>, signifying that items and
+                customization specifications have been verified.
               </p>
             </div>
             <div className="flex gap-3 pt-2">
@@ -704,11 +783,15 @@ export default function AdminOrderDetailPage({
               </button>
               <button
                 type="button"
-                onClick={() => handleTransition('confirmed', { note: 'Order confirmed by administrator' })}
+                onClick={() =>
+                  handleTransition("confirmed", {
+                    note: "Order confirmed by administrator",
+                  })
+                }
                 disabled={actionLoading}
                 className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs disabled:opacity-50"
               >
-                {actionLoading ? 'Confirming...' : 'Yes, Confirm Order'}
+                {actionLoading ? "Confirming..." : "Yes, Confirm Order"}
               </button>
             </div>
           </div>
@@ -723,15 +806,20 @@ export default function AdminOrderDetailPage({
               🚚
             </div>
             <div className="text-center space-y-1">
-              <h4 className="font-heading font-bold text-lg text-slate-900">Ship Order</h4>
+              <h4 className="font-heading font-bold text-lg text-slate-900">
+                Ship Order
+              </h4>
               <p className="text-xs text-slate-500">
-                Enter delivery tracking details for <strong>{order.orderNumber}</strong>.
+                Enter delivery tracking details for{" "}
+                <strong>{order.orderNumber}</strong>.
               </p>
             </div>
 
             <div className="space-y-3 text-xs">
               <div className="space-y-1">
-                <label className="font-semibold text-slate-700">Courier / Carrier</label>
+                <label className="font-semibold text-slate-700">
+                  Courier / Carrier
+                </label>
                 <input
                   type="text"
                   value={carrier}
@@ -742,7 +830,9 @@ export default function AdminOrderDetailPage({
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-slate-700">Tracking Number / Waybill</label>
+                <label className="font-semibold text-slate-700">
+                  Tracking Number / Waybill
+                </label>
                 <input
                   type="text"
                   value={trackingNumber}
@@ -765,16 +855,16 @@ export default function AdminOrderDetailPage({
               <button
                 type="button"
                 onClick={() =>
-                  handleTransition('shipped', {
+                  handleTransition("shipped", {
                     trackingNumber: trackingNumber.trim() || undefined,
                     carrier: carrier.trim() || undefined,
-                    note: `Shipped via ${carrier.trim()} (Tracking: ${trackingNumber.trim() || 'N/A'})`,
+                    note: `Shipped via ${carrier.trim()} (Tracking: ${trackingNumber.trim() || "N/A"})`,
                   })
                 }
                 disabled={actionLoading}
                 className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs disabled:opacity-50"
               >
-                {actionLoading ? 'Updating...' : 'Confirm Shipment'}
+                {actionLoading ? "Updating..." : "Confirm Shipment"}
               </button>
             </div>
           </div>
@@ -789,14 +879,19 @@ export default function AdminOrderDetailPage({
               ⚠️
             </div>
             <div className="text-center space-y-1">
-              <h4 className="font-heading font-bold text-lg text-slate-900">Cancel Order?</h4>
+              <h4 className="font-heading font-bold text-lg text-slate-900">
+                Cancel Order?
+              </h4>
               <p className="text-xs text-slate-500">
-                This will cancel order <strong>{order.orderNumber}</strong> and release any active inventory holds.
+                This will cancel order <strong>{order.orderNumber}</strong> and
+                release any active inventory holds.
               </p>
             </div>
 
             <div className="space-y-1 text-xs">
-              <label className="font-semibold text-slate-700">Cancellation Reason</label>
+              <label className="font-semibold text-slate-700">
+                Cancellation Reason
+              </label>
               <textarea
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
@@ -817,11 +912,15 @@ export default function AdminOrderDetailPage({
               </button>
               <button
                 type="button"
-                onClick={() => handleTransition('cancelled', { note: cancelReason.trim() || 'Cancelled by administrator' })}
+                onClick={() =>
+                  handleTransition("cancelled", {
+                    note: cancelReason.trim() || "Cancelled by administrator",
+                  })
+                }
                 disabled={actionLoading}
                 className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs disabled:opacity-50"
               >
-                {actionLoading ? 'Cancelling...' : 'Confirm Cancellation'}
+                {actionLoading ? "Cancelling..." : "Confirm Cancellation"}
               </button>
             </div>
           </div>
@@ -836,21 +935,30 @@ export default function AdminOrderDetailPage({
               💸
             </div>
             <div className="text-center space-y-1">
-              <h4 className="font-heading font-bold text-lg text-slate-900">Process Full Refund</h4>
+              <h4 className="font-heading font-bold text-lg text-slate-900">
+                Process Full Refund
+              </h4>
               <p className="text-xs text-slate-500">
-                Refund full payment of <strong className="text-purple-700 font-bold">{formatCurrency(order.totalAmount)}</strong> back to the customer via Paystack.
+                Refund full payment of{" "}
+                <strong className="text-purple-700 font-bold">
+                  {formatCurrency(order.totalAmount)}
+                </strong>{" "}
+                back to the customer via Paystack.
               </p>
             </div>
 
             <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100 text-xs text-purple-900 space-y-1">
               <div className="font-semibold">⚠️ Irreversible Transaction</div>
               <p className="text-[11px] text-purple-700">
-                Paystack will credit the customer&apos;s original bank account/card directly.
+                Paystack will credit the customer&apos;s original bank
+                account/card directly.
               </p>
             </div>
 
             <div className="space-y-1 text-xs">
-              <label className="font-semibold text-slate-700">Internal Refund Note</label>
+              <label className="font-semibold text-slate-700">
+                Internal Refund Note
+              </label>
               <input
                 type="text"
                 value={refundReason}
@@ -875,7 +983,9 @@ export default function AdminOrderDetailPage({
                 disabled={actionLoading}
                 className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-xs disabled:opacity-50"
               >
-                {actionLoading ? 'Refunding...' : `Refund ${formatCurrency(order.totalAmount)}`}
+                {actionLoading
+                  ? "Refunding..."
+                  : `Refund ${formatCurrency(order.totalAmount)}`}
               </button>
             </div>
           </div>

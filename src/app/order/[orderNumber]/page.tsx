@@ -4,10 +4,12 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { OrderStatus } from '@/lib/supabase/types';
+import OrderStatusTimeline from '@/components/OrderStatusTimeline';
 
 interface ShippingAddress {
   addressLine1?: string;
   addressLine2?: string;
+  streetAddress?: string;
   city?: string;
   state?: string;
   postalCode?: string;
@@ -234,9 +236,9 @@ export default function OrderStatusPage() {
     );
   }
 
-  const shippingAddr =
+  const shippingAddr: ShippingAddress =
     order.shippingAddress && typeof order.shippingAddress === 'object'
-      ? order.shippingAddress
+      ? (order.shippingAddress as ShippingAddress)
       : {};
 
   return (
@@ -430,7 +432,7 @@ export default function OrderStatusPage() {
               <span>📍</span> Delivery Address
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed">
-              {shippingAddr.streetAddress || 'Address on file'}
+              {shippingAddr.streetAddress || shippingAddr.addressLine1 || 'Address on file'}
               <br />
               {shippingAddr.city && `${shippingAddr.city}, `}
               {shippingAddr.state || ''}

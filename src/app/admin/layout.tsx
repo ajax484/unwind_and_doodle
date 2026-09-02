@@ -18,6 +18,7 @@ interface AdminSessionData {
     id: string;
     role: string;
   };
+  permissions?: string[];
 }
 
 export default function AdminLayout({
@@ -32,11 +33,13 @@ export default function AdminLayout({
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
+  const isLoginPage = pathname === '/admin/login';
   const isUnauthorizedPage = pathname === '/admin/unauthorized';
+  const isPublicAdminPage = isLoginPage || isUnauthorizedPage;
 
   useEffect(() => {
-    // If we're already on the unauthorized page, skip automatic session redirect guard
-    if (isUnauthorizedPage) {
+    // If we're already on the login or unauthorized page, skip automatic session redirect guard
+    if (isPublicAdminPage) {
       setLoading(false);
       return;
     }
@@ -52,9 +55,9 @@ export default function AdminLayout({
         if (!isMounted) return;
 
         if (res.status === 401 || !json.authenticated) {
-          // Unauthenticated -> redirect to /auth preserving next parameter
+          // Unauthenticated -> redirect to /admin/login preserving next parameter
           const next = encodeURIComponent(pathname || '/admin');
-          router.replace(`/auth?next=${next}`);
+          router.replace(`/admin/login?next=${next}`);
           return;
         }
 
@@ -84,16 +87,16 @@ export default function AdminLayout({
     return () => {
       isMounted = false;
     };
-  }, [pathname, router, isUnauthorizedPage]);
+  }, [pathname, router, isPublicAdminPage]);
 
   const handleSignOut = async () => {
     try {
       await fetch('/api/auth/signout', { method: 'POST' });
       window.dispatchEvent(new Event('auth-updated'));
-      router.replace('/auth?next=/admin');
+      router.replace('/admin/login');
     } catch (err) {
       console.error('Error signing out:', err);
-      router.replace('/auth');
+      router.replace('/admin/login');
     }
   };
 
@@ -102,7 +105,7 @@ export default function AdminLayout({
     setMobileSidebarOpen(false);
   }, [pathname]);
 
-  if (loading) {
+  if (loading && !isPublicAdminPage) {
     return (
       <div className="min-h-screen bg-[#F4F7F9] flex flex-col items-center justify-center p-4">
         <div className="w-12 h-12 rounded-2xl bg-white border border-[#E2ECF2] shadow-sm flex items-center justify-center text-2xl animate-spin mb-4">
@@ -114,13 +117,18 @@ export default function AdminLayout({
     );
   }
 
-  // If on unauthorized page, render full width without sidebar
-  if (isUnauthorizedPage) {
-    return <div className="min-h-screen bg-[#F4F7F9] text-slate-800">{children}</div>;
+  // If on login or unauthorized page, render full width without sidebar
+  if (isPublicAdminPage) {
+    return <>{children}</>;
   }
+
+  const role = session?.membership.role?.toLowerCase() || 'staff';
+  const isOwner = role === 'owner';
+  const isAdmin = role === 'admin' || isOwner;
 
   const navCommerce = [
     { label: 'Dashboard', href: '/admin', icon: '📊', exact: true },
+    { label: 'Analytics', href: '/admin/analytics', icon: '📈' },
     { label: 'Orders', href: '/admin/orders', icon: '📦' },
     { label: 'Products', href: '/admin/products', icon: '🎨', exact: true },
     { label: 'Bundles', href: '/admin/products/bundles', icon: '🎁' },
@@ -131,13 +139,19 @@ export default function AdminLayout({
     { label: 'Discounts', href: '/admin/discounts', icon: '🏷️' },
   ];
 
-  const navSettings = [
-    { label: 'Store Settings', href: '/admin/settings', icon: '⚙️' },
-    { label: 'Locations', href: '/admin/settings/locations', icon: '📍' },
-    { label: 'Warehouses', href: '/admin/settings/warehouses', icon: '🏬' },
-    { label: 'Delivery Rates', href: '/admin/settings/delivery', icon: '🚚' },
-    { label: 'Team Members', href: '/admin/settings/team', icon: '🛡️' },
+  const allNavSettings = [
+    { label: 'Store Settings', href: '/admin/settings', icon: '⚙️', permission: 'organization.manage' },
+    { label: 'Locations', href: '/admin/settings/locations', icon: '📍', permission: 'organization.manage' },
+    { label: 'Warehouses', href: '/admin/settings/warehouses', icon: '🏬', permission: 'organization.manage' },
+    { label: 'Delivery Rates', href: '/admin/settings/delivery', icon: '🚚', permission: 'organization.manage' },
+    { label: 'Team Members', href: '/admin/settings/team', icon: '🛡️', permission: 'team.read' },
   ];
+
+  const navSettings = allNavSettings.filter((item) => {
+    if (item.permission === 'team.read') return isAdmin;
+    if (item.permission === 'organization.manage') return isAdmin;
+    return true;
+  });
 
   const isLinkActive = (href: string, exact: boolean = false) => {
     if (exact) return pathname === href;
@@ -146,6 +160,7 @@ export default function AdminLayout({
 
   const getPageTitle = () => {
     if (pathname === '/admin') return 'Dashboard';
+    if (pathname.startsWith('/admin/analytics')) return 'Store Analytics';
     if (pathname.startsWith('/admin/orders')) return 'Order Management';
     if (pathname.startsWith('/admin/products/bundles')) return 'Product Bundles';
     if (pathname.startsWith('/admin/products')) return 'Products';
@@ -363,15 +378,23 @@ export default function AdminLayout({
           {/* Right Header Admin Info & Actions */}
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-[#FBF0F2] text-[#D99BA3] flex items-center justify-center font-bold text-xs border border-[#F5D8DD]">
-                🛡️
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border ${
+                isOwner
+                  ? 'bg-amber-50 text-amber-600 border-amber-200'
+                  : isAdmin
+                  ? 'bg-rose-50 text-rose-600 border-rose-200'
+                  : 'bg-blue-50 text-blue-600 border-blue-200'
+              }`}>
+                {isOwner ? '👑' : isAdmin ? '🛡️' : '👤'}
               </div>
               <div className="hidden sm:flex flex-col text-right">
                 <span className="text-xs font-bold text-slate-700 leading-tight">
                   {session?.user.email || 'Admin User'}
                 </span>
-                <span className="text-[10px] font-semibold text-rose-500 capitalize">
-                  {session?.membership.role || 'Admin'}
+                <span className={`text-[10px] font-bold capitalize ${
+                  isOwner ? 'text-amber-600' : isAdmin ? 'text-rose-500' : 'text-blue-500'
+                }`}>
+                  {session?.membership.role || 'Staff'}
                 </span>
               </div>
             </div>

@@ -3,14 +3,26 @@
 
 -- 1. Ensure idempotency_key column & unique index exists on orders table
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS discount_source TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_org_idempotency ON public.orders(organization_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
 
 -- 2. Ensure unique index exists on order_payment_requests token
 CREATE UNIQUE INDEX IF NOT EXISTS idx_order_payment_requests_token ON public.order_payment_requests(token);
 
 -- 3. Hardened Atomic RPC Function for Admin Manual Order Creation
-DROP FUNCTION IF EXISTS public.create_admin_manual_order(UUID, JSONB, JSONB, JSONB, UUID, UUID, TEXT, TEXT, NUMERIC, TEXT);
-DROP FUNCTION IF EXISTS public.create_admin_manual_order(UUID, JSONB, JSONB, JSONB, UUID, UUID, TEXT, TEXT, NUMERIC, TEXT, TEXT);
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN (
+    SELECT oid::regprocedure AS func_signature
+    FROM pg_proc
+    WHERE proname = 'create_admin_manual_order'
+      AND pronamespace = 'public'::regnamespace
+  ) LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.func_signature || ' CASCADE';
+  END LOOP;
+END $$;
 
 CREATE OR REPLACE FUNCTION public.create_admin_manual_order(
   p_org_id UUID,
@@ -23,16 +35,14 @@ CREATE OR REPLACE FUNCTION public.create_admin_manual_order(
   p_discount_code TEXT DEFAULT NULL,
   p_shipping_fee NUMERIC DEFAULT 0,
   p_notes TEXT DEFAULT NULL,
-  p_idempotency_key TEXT DEFAULT NULL
+  p_idempotency_key TEXT DEFAULT NULL,
+  p_manual_discount JSONB DEFAULT NULL
 )
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
--- INTENTIONAL BUSINESS RULE: Admin-created manual orders allow selling products with status 'published' or 'draft'
--- (allowing admins to process private custom/draft items for clients over DM/phone before public catalog listing),
--- while strictly excluding 'archived' products.
 DECLARE
   v_order_id UUID;
   v_payment_req_id UUID;
@@ -56,6 +66,7 @@ DECLARE
   v_subtotal NUMERIC := 0;
   v_discount_id UUID := NULL;
   v_disc_code TEXT := NULL;
+  v_discount_source TEXT := NULL;
   v_discount_type public.discount_type;
   v_discount_value NUMERIC;
   v_discount_min_amount NUMERIC;
@@ -73,13 +84,17 @@ DECLARE
   v_warehouse_id UUID;
   v_rand_hex TEXT;
   v_existing_order_id UUID;
+  v_manual_disc_type TEXT;
+  v_manual_disc_val NUMERIC;
+  v_avail_qty INTEGER;
+  v_comp_avail INTEGER;
 BEGIN
-  -- 1. Verify caller authorization (SECURITY DEFINER requirement)
+  -- 1. Verify caller authorization
   IF auth.role() <> 'service_role' AND NOT public.is_organization_admin(p_org_id) THEN
     RAISE EXCEPTION 'Unauthorized: organization admin access required';
   END IF;
 
-  -- 2. Idempotency Check (Fast Path for existing idempotency key)
+  -- 2. Idempotency Check
   IF p_idempotency_key IS NOT NULL AND TRIM(p_idempotency_key) <> '' THEN
     SELECT id, order_number, total, subtotal, discount_total, shipping_fee
     INTO v_existing_order_id, v_order_number, v_total, v_subtotal, v_discount_amount, p_shipping_fee
@@ -115,7 +130,6 @@ BEGIN
     RAISE EXCEPTION 'Customer email is required for manual order creation.';
   END IF;
 
-  -- Resolve customer_id safely scoped to organization_id
   SELECT id INTO v_cust_id
   FROM public.customers
   WHERE organization_id = p_org_id AND LOWER(email) = LOWER(v_cust_email)
@@ -139,7 +153,7 @@ BEGIN
   IF v_warehouse_id IS NULL THEN
     SELECT id INTO v_warehouse_id
     FROM public.warehouses
-    WHERE organization_id = p_org_id AND is_active = TRUE
+    WHERE organization_id = p_org_id AND (active = TRUE OR active IS NULL)
     LIMIT 1;
 
     IF v_warehouse_id IS NULL THEN
@@ -148,14 +162,14 @@ BEGIN
   ELSE
     SELECT id INTO v_warehouse_id
     FROM public.warehouses
-    WHERE id = v_warehouse_id AND organization_id = p_org_id AND is_active = TRUE;
+    WHERE id = v_warehouse_id AND organization_id = p_org_id AND (active = TRUE OR active IS NULL);
 
     IF NOT FOUND THEN
       RAISE EXCEPTION 'Warehouse % is not active or does not belong to organization %', p_warehouse_id, p_org_id;
     END IF;
   END IF;
 
-  -- 6. Calculate DB-authoritative pricing for items
+  -- 6. Calculate DB-authoritative pricing for items & Validate Stock Availability
   FOR v_item IN SELECT * FROM jsonb_array_elements(p_items) LOOP
     v_product_id := (v_item->>'product_id')::UUID;
     v_qty := (v_item->>'quantity')::INTEGER;
@@ -177,7 +191,6 @@ BEGIN
       RAISE EXCEPTION 'Product % belongs to another organization', v_product_id;
     END IF;
 
-    -- Intentional business rule: Allow published and draft products for admin manual orders, reject archived products
     IF v_prod_status = 'archived'::public.product_status THEN
       RAISE EXCEPTION 'Product % (%) is archived and cannot be ordered', v_prod_name, v_product_id;
     END IF;
@@ -186,12 +199,69 @@ BEGIN
       RAISE EXCEPTION 'Product % has an invalid selling price', v_prod_name;
     END IF;
 
+    -- Inventory Availability Check
+    IF v_prod_type <> 'bundle' THEN
+      SELECT (COALESCE(quantity, 0) - COALESCE(reserved_quantity, 0)) INTO v_avail_qty
+      FROM public.inventory
+      WHERE warehouse_id = v_warehouse_id AND product_id = v_product_id;
+
+      IF v_avail_qty IS NULL OR v_avail_qty < v_qty THEN
+        RAISE EXCEPTION 'Insufficient stock for product % (requested %, available %)', v_prod_name, v_qty, COALESCE(v_avail_qty, 0);
+      END IF;
+    ELSE
+      -- Bundle component availability check
+      FOR v_comp IN
+        SELECT bi.component_product_id, bi.quantity AS qty_per_bundle, p.name AS comp_name
+        FROM public.bundle_items bi
+        JOIN public.products p ON p.id = bi.component_product_id
+        WHERE bi.bundle_product_id = v_product_id
+      LOOP
+        SELECT (COALESCE(quantity, 0) - COALESCE(reserved_quantity, 0)) INTO v_comp_avail
+        FROM public.inventory
+        WHERE warehouse_id = v_warehouse_id AND product_id = v_comp.component_product_id;
+
+        IF v_comp_avail IS NULL OR v_comp_avail < (v_comp.qty_per_bundle * v_qty) THEN
+          RAISE EXCEPTION 'Insufficient stock for bundle component % in bundle % (requested %, available %)',
+            v_comp.comp_name, v_prod_name, (v_comp.qty_per_bundle * v_qty), COALESCE(v_comp_avail, 0);
+        END IF;
+      END LOOP;
+    END IF;
+
     v_item_subtotal := v_prod_price * v_qty;
     v_subtotal := v_subtotal + v_item_subtotal;
   END LOOP;
 
-  -- 7. Calculate server-authoritative discount using canonical discount schema
-  IF p_discount_code IS NOT NULL AND TRIM(p_discount_code) <> '' THEN
+  -- 7. Mutual Exclusivity Check between Discount Code and Manual Discount
+  IF (p_discount_code IS NOT NULL AND TRIM(p_discount_code) <> '') AND 
+     (p_manual_discount IS NOT NULL AND p_manual_discount <> 'null'::jsonb) THEN
+    RAISE EXCEPTION 'Discount code and manual discount cannot be used together.';
+  END IF;
+
+  -- 8. Calculate Discount
+  IF p_manual_discount IS NOT NULL AND p_manual_discount <> 'null'::jsonb THEN
+    v_manual_disc_type := p_manual_discount->>'type';
+    v_manual_disc_val := (p_manual_discount->>'value')::NUMERIC;
+
+    IF v_manual_disc_val IS NULL OR v_manual_disc_val <= 0 THEN
+      RAISE EXCEPTION 'Manual discount value must be greater than zero.';
+    END IF;
+
+    IF v_manual_disc_type = 'percentage' THEN
+      IF v_manual_disc_val > 100 THEN
+        RAISE EXCEPTION 'Percentage discount cannot exceed 100%%.';
+      END IF;
+      v_discount_amount := (v_subtotal * (v_manual_disc_val / 100.0));
+      v_discount_source := 'manual_percentage';
+    ELSIF v_manual_disc_type = 'fixed_amount' OR v_manual_disc_type = 'fixed' THEN
+      IF v_manual_disc_val > v_subtotal THEN
+        RAISE EXCEPTION 'Fixed discount amount (₦%) cannot exceed subtotal (₦%).', v_manual_disc_val, v_subtotal;
+      END IF;
+      v_discount_amount := v_manual_disc_val;
+      v_discount_source := 'manual_fixed';
+    ELSE
+      RAISE EXCEPTION 'Invalid manual discount type: %', v_manual_disc_type;
+    END IF;
+  ELSIF p_discount_code IS NOT NULL AND TRIM(p_discount_code) <> '' THEN
     SELECT
       id, code, type, value, minimum_order_amount, usage_limit, usage_count, starts_at, expires_at, active
     INTO
@@ -225,25 +295,25 @@ BEGIN
       RAISE EXCEPTION 'Order subtotal (₦%) does not meet minimum order requirement (₦%) for discount "%".', v_subtotal, v_discount_min_amount, v_disc_code;
     END IF;
 
-    -- Compute discount amount
     IF v_discount_type = 'percentage' THEN
       v_discount_amount := (v_subtotal * (v_discount_value / 100.0));
     ELSIF v_discount_type = 'fixed_amount' THEN
       v_discount_amount := LEAST(v_subtotal, v_discount_value);
     END IF;
+    v_discount_source := 'code';
   END IF;
 
-  -- 8. Calculate Total
+  -- 9. Calculate Total
   IF p_shipping_fee IS NULL OR p_shipping_fee < 0 THEN
     RAISE EXCEPTION 'Shipping fee cannot be negative.';
   END IF;
 
   v_total := GREATEST(0, v_subtotal - v_discount_amount + p_shipping_fee);
 
-  -- 9. Generate Order Number
+  -- 10. Generate Order Number
   v_order_number := 'ORD-M-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-' || UPPER(SUBSTRING(MD5(RANDOM()::TEXT) FROM 1 FOR 5));
 
-  -- 10. Create Order Record with Concurrent Idempotency Guard
+  -- 11. Create Order Record with Concurrent Idempotency Guard
   BEGIN
     INSERT INTO public.orders (
       organization_id,
@@ -264,6 +334,7 @@ BEGIN
       discount_total,
       discount_id,
       discount_code,
+      discount_source,
       shipping_fee,
       total,
       idempotency_key,
@@ -287,13 +358,13 @@ BEGIN
       v_discount_amount,
       v_discount_id,
       v_disc_code,
+      v_discount_source,
       p_shipping_fee,
       v_total,
       p_idempotency_key,
       NOW()
     ) RETURNING id INTO v_order_id;
   EXCEPTION WHEN unique_violation THEN
-    -- Race condition fallback for concurrent duplicate idempotency requests
     IF p_idempotency_key IS NOT NULL AND TRIM(p_idempotency_key) <> '' THEN
       SELECT id, order_number, total, subtotal, discount_total, shipping_fee
       INTO v_existing_order_id, v_order_number, v_total, v_subtotal, v_discount_amount, p_shipping_fee
@@ -321,7 +392,7 @@ BEGIN
     RAISE;
   END;
 
-  -- 11. Insert Order Items & Snapshot Bundle Components
+  -- 12. Insert Order Items & Snapshot Bundle Components
   FOR v_item IN SELECT * FROM jsonb_array_elements(p_items) LOOP
     v_product_id := (v_item->>'product_id')::UUID;
     v_qty := (v_item->>'quantity')::INTEGER;
@@ -349,7 +420,6 @@ BEGIN
       v_item_subtotal
     ) RETURNING id INTO v_order_item_id;
 
-    -- Handle Bundle Component Snapshots
     IF v_prod_type = 'bundle' THEN
       FOR v_comp IN
         SELECT
@@ -393,52 +463,44 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- 12. Reserve Inventory Atomically using canonical reserve_inventory function
-  -- Signature: public.reserve_inventory(p_order_id uuid, p_inventory_id uuid, p_quantity integer, p_expiration_minutes integer DEFAULT 30)
-  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items) LOOP
-    v_product_id := (v_item->>'product_id')::UUID;
-    v_qty := (v_item->>'quantity')::INTEGER;
+  -- 13. Reserve Inventory Atomically by aggregating required physical stock per inventory record
+  FOR v_comp IN
+    WITH expanded_items AS (
+      SELECT 
+        (i->>'product_id')::UUID AS product_id, 
+        (i->>'quantity')::INTEGER AS qty
+      FROM jsonb_array_elements(p_items) i
+      JOIN public.products p ON p.id = (i->>'product_id')::UUID
+      WHERE p.product_type <> 'bundle'
 
-    SELECT product_type INTO v_prod_type
-    FROM public.products
-    WHERE id = v_product_id;
+      UNION ALL
 
-    IF v_prod_type <> 'bundle' THEN
-      -- Reserve single physical/custom product stock
-      SELECT id INTO v_inv_id
-      FROM public.inventory
-      WHERE warehouse_id = v_warehouse_id AND product_id = v_product_id
-      FOR UPDATE;
-
-      IF v_inv_id IS NULL THEN
-        RAISE EXCEPTION 'No inventory record for product % in warehouse %', v_product_id, v_warehouse_id;
-      END IF;
-
-      PERFORM public.reserve_inventory(v_order_id, v_inv_id, v_qty, 1440); -- 24 hours (1440 mins)
-    ELSE
-      -- Reserve bundle component inventory
-      FOR v_comp IN
-        SELECT component_product_id, quantity AS qty_per_bundle
-        FROM public.bundle_items
-        WHERE bundle_product_id = v_product_id
-      LOOP
-        SELECT id INTO v_inv_id
-        FROM public.inventory
-        WHERE warehouse_id = v_warehouse_id AND product_id = v_comp.component_product_id
-        FOR UPDATE;
-
-        IF v_inv_id IS NULL THEN
-          RAISE EXCEPTION 'No inventory record for bundle component % in warehouse %', v_comp.component_product_id, v_warehouse_id;
-        END IF;
-
-        PERFORM public.reserve_inventory(v_order_id, v_inv_id, (v_comp.qty_per_bundle * v_qty), 1440); -- 24 hours (1440 mins)
-      END LOOP;
-    END IF;
+      SELECT 
+        bi.component_product_id AS product_id, 
+        (bi.quantity * (i->>'quantity')::INTEGER) AS qty
+      FROM jsonb_array_elements(p_items) i
+      JOIN public.products p ON p.id = (i->>'product_id')::UUID
+      JOIN public.bundle_items bi ON bi.bundle_product_id = p.id
+      WHERE p.product_type = 'bundle'
+    ),
+    aggregated_reqs AS (
+      SELECT product_id, SUM(qty)::INTEGER AS total_qty
+      FROM expanded_items
+      GROUP BY product_id
+    )
+    SELECT 
+      inv.id AS inventory_id, 
+      ar.product_id, 
+      ar.total_qty
+    FROM aggregated_reqs ar
+    JOIN public.inventory inv ON inv.warehouse_id = v_warehouse_id AND inv.product_id = ar.product_id
+  LOOP
+    PERFORM 1 FROM public.inventory WHERE id = v_comp.inventory_id FOR UPDATE;
+    PERFORM public.reserve_inventory(v_order_id, v_comp.inventory_id, v_comp.total_qty, 1440);
   END LOOP;
 
-  -- 13. Generate Secure Random Payment Token
-  SELECT encode(gen_random_bytes(24), 'hex') INTO v_rand_hex;
-  v_token := 'mpr_' || v_rand_hex;
+  -- 14. Generate Secure Random Payment Token
+  v_token := 'mpr_' || REPLACE(gen_random_uuid()::TEXT, '-', '') || REPLACE(gen_random_uuid()::TEXT, '-', '');
 
   INSERT INTO public.order_payment_requests (
     organization_id,
@@ -460,20 +522,18 @@ BEGIN
     auth.uid()
   ) RETURNING id INTO v_payment_req_id;
 
-  -- 14. Record Initial Status History
+  -- 15. Record Initial Status History
   INSERT INTO public.order_status_history (
     order_id,
     from_status,
     to_status,
-    status,
-    previous_status,
+    changed_by,
     note
   ) VALUES (
     v_order_id,
     NULL,
     'created'::public.order_status,
-    'created'::public.order_status,
-    NULL,
+    auth.uid(),
     'Manual order created by admin via ' || COALESCE(p_manual_order_channel, 'admin dashboard')
   );
 
@@ -494,3 +554,6 @@ $$;
 -- Function Execution Permissions
 REVOKE ALL ON FUNCTION public.create_admin_manual_order FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.create_admin_manual_order TO service_role, authenticated;
+
+-- Notify PostgREST to reload schema cache
+NOTIFY pgrst, 'reload schema';

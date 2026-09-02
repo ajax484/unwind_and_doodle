@@ -4,36 +4,45 @@ import { HOMEPAGE_CATEGORIES } from '@/lib/homepage-data';
 
 export default function CategoryGrid() {
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <div className="text-center max-w-2xl mx-auto mb-12">
-        <h2 className="text-3xl font-bold font-heading text-slate-800 tracking-tight">
-          Explore Our Collections
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="text-center max-w-2xl mx-auto space-y-3 mb-12">
+        <span className="text-xs font-heading font-semibold uppercase tracking-wider text-[#A7C2D4] block">
+          Explore Collections
+        </span>
+        <h2 className="font-heading text-3xl sm:text-4xl font-bold text-[#243342]">
+          Shop by category
         </h2>
-        <p className="mt-3 text-slate-600 text-lg">
-          Tools created to help you slow down, express yourself, and find peaceful moments.
+        <p className="text-xs sm:text-sm text-[#52657A]">
+          Discover thoughtfully curated formats for relaxation, journaling, and mindful drawing.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {HOMEPAGE_CATEGORIES.map((cat) => (
           <Link
             key={cat.title}
             href={cat.href}
-            className={`group bg-white rounded-3xl p-6 border border-slate-100 shadow-sm transition-all duration-300 hover:shadow-md ${cat.borderColor} flex flex-col justify-between`}
+            className={`card-soft p-6 sm:p-7 flex flex-col justify-between h-64 group bg-white ${cat.borderColor} transition-all`}
           >
-            <div>
-              <span className={`inline-block text-xs font-semibold px-3 py-1 rounded-full ${cat.badgeColor} mb-4`}>
+            <div className="space-y-2.5">
+              <span
+                className={`text-[10px] font-heading font-bold tracking-wider uppercase px-2.5 py-1 rounded-full inline-block ${cat.badgeColor}`}
+              >
                 {cat.tag}
               </span>
-              <h3 className="text-xl font-bold font-heading text-slate-800 group-hover:text-pink-600 transition-colors">
+              <h3 className="font-heading font-bold text-xl text-[#243342] group-hover:text-[#D99BA3] transition-colors leading-snug">
                 {cat.title}
               </h3>
-              <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+              <p className="text-xs text-[#52657A] leading-relaxed">
                 {cat.description}
               </p>
             </div>
-            <div className="mt-6 flex items-center text-sm font-semibold text-pink-600 group-hover:translate-x-1 transition-transform">
-              Shop Now <span className="ml-1">→</span>
+
+            <div className="pt-4 border-t border-[#EDF3F7] flex items-center justify-between text-xs font-heading font-semibold text-[#243342] group-hover:text-[#D99BA3]">
+              <span>Browse collection</span>
+              <span className="group-hover:translate-x-1 transition-transform" aria-hidden="true">
+                →
+              </span>
             </div>
           </Link>
         ))}

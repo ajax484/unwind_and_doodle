@@ -41,11 +41,16 @@ export function createMockSupabaseClient(initialData?: {
   order_payment_requests?: any[];
   stock_receipt_items?: any[];
   customer_notes?: any[];
+  themes?: any[];
+  product_themes?: any[];
+  order_item_theme_customizations?: any[];
+  order_item_theme_snapshots?: any[];
   [key: string]: any[] | undefined;
 }) {
   const store = {
     organizations: [...(initialData?.organizations || [])],
     organization_members: [...(initialData?.organization_members || [])],
+    organization_invitations: [...(initialData?.organization_invitations || [])],
     locations: [...(initialData?.locations || [])],
     warehouses: [...(initialData?.warehouses || [])],
     warehouse_locations: [...(initialData?.warehouse_locations || [])],
@@ -285,7 +290,14 @@ export function createMockSupabaseClient(initialData?: {
         p_manual_order_channel,
         p_discount_code,
         p_shipping_fee,
+        p_manual_discount,
       } = args;
+
+      let effectiveWarehouseId = p_warehouse_id;
+      if (!effectiveWarehouseId) {
+        const wh = store.warehouses.find((w) => w.organization_id === p_org_id && (w.active === true || w.active === undefined));
+        effectiveWarehouseId = wh?.id;
+      }
 
       if (!p_customer?.email) throw new Error('Customer email is required for manual order creation.');
       if (!p_items || p_items.length === 0) throw new Error('Manual order must contain at least one product item.');
@@ -301,13 +313,43 @@ export function createMockSupabaseClient(initialData?: {
         if (!prod) throw new Error(`Product ${item.product_id} does not exist`);
         if (prod.organization_id !== p_org_id)
           throw new Error(`Product ${item.product_id} belongs to another organization`);
-        subtotal += Number(prod.selling_price || 0) * Number(item.quantity || 1);
+
+        const reqQty = Number(item.quantity || 1);
+        if (effectiveWarehouseId && prod.product_type !== 'bundle') {
+          const inv = store.inventory.find((i) => i.warehouse_id === effectiveWarehouseId && i.product_id === item.product_id);
+          const q = inv ? (inv.quantity ?? inv.quantity_on_hand ?? 0) : 0;
+          const r = inv ? (inv.reserved_quantity ?? inv.quantity_reserved ?? 0) : 0;
+          const avail = q - r;
+          if (avail < reqQty) {
+            throw new Error(`Insufficient stock for product ${prod.name || item.product_id} (requested ${reqQty}, available ${avail})`);
+          }
+        }
+
+        subtotal += Number(prod.selling_price || 0) * reqQty;
       }
 
       let discountAmount = 0;
       let discountId = null;
       let discountCode = null;
-      if (p_discount_code) {
+      let discountSource = null;
+
+      if (p_discount_code && p_manual_discount) {
+        throw new Error('Discount code and manual discount cannot be used together.');
+      }
+
+      if (p_manual_discount) {
+        const val = Number(p_manual_discount.value);
+        if (!val || val <= 0) throw new Error('Manual discount value must be greater than zero.');
+        if (p_manual_discount.type === 'percentage') {
+          if (val > 100) throw new Error('Percentage discount cannot exceed 100%.');
+          discountAmount = subtotal * (val / 100.0);
+          discountSource = 'manual_percentage';
+        } else if (p_manual_discount.type === 'fixed_amount' || p_manual_discount.type === 'fixed') {
+          if (val > subtotal) throw new Error(`Fixed discount amount (₦${val}) cannot exceed subtotal (₦${subtotal}).`);
+          discountAmount = val;
+          discountSource = 'manual_fixed';
+        }
+      } else if (p_discount_code) {
         const disc = store.discounts.find(
           (d) =>
             d.organization_id === p_org_id &&
@@ -320,6 +362,7 @@ export function createMockSupabaseClient(initialData?: {
         
         discountId = disc.id;
         discountCode = disc.code;
+        discountSource = 'code';
         const dType = disc.type || disc.discount_type;
         const dValue = disc.value ?? disc.discount_value;
         if (dType === 'percentage') {
@@ -360,6 +403,7 @@ export function createMockSupabaseClient(initialData?: {
         discount_total: discountAmount,
         discount_id: discountId,
         discount_code: discountCode,
+        discount_source: discountSource,
         shipping_fee: shippingFee,
         total,
         placed_at: new Date().toISOString(),
@@ -395,6 +439,48 @@ export function createMockSupabaseClient(initialData?: {
               total_quantity: c.quantity * item.quantity,
               unit_cost_price: compProd?.cost_price || 0,
             });
+          }
+        }
+      }
+
+      // Reserve inventory in store
+      if (effectiveWarehouseId) {
+        for (const item of p_items) {
+          const prod = store.products.find((p) => p.id === item.product_id);
+          if (prod && prod.product_type !== 'bundle') {
+            const inv = store.inventory.find((i) => i.warehouse_id === effectiveWarehouseId && i.product_id === item.product_id);
+            if (inv) {
+              const curRes = inv.reserved_quantity ?? inv.quantity_reserved ?? 0;
+              inv.reserved_quantity = curRes + item.quantity;
+              inv.quantity_reserved = curRes + item.quantity;
+              store.inventory_reservations.push({
+                id: `res-${Math.random().toString(36).substring(2, 7)}`,
+                inventory_id: inv.id,
+                order_id: orderId,
+                quantity: item.quantity,
+                status: 'active',
+                expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+              });
+            }
+          } else if (prod && prod.product_type === 'bundle') {
+            const comps = store.bundle_items.filter((bi) => bi.bundle_product_id === item.product_id);
+            for (const c of comps) {
+              const inv = store.inventory.find((i) => i.warehouse_id === effectiveWarehouseId && i.product_id === c.component_product_id);
+              if (inv) {
+                const reqCompQty = c.quantity * item.quantity;
+                const curRes = inv.reserved_quantity ?? inv.quantity_reserved ?? 0;
+                inv.reserved_quantity = curRes + reqCompQty;
+                inv.quantity_reserved = curRes + reqCompQty;
+                store.inventory_reservations.push({
+                  id: `res-${Math.random().toString(36).substring(2, 7)}`,
+                  inventory_id: inv.id,
+                  order_id: orderId,
+                  quantity: reqCompQty,
+                  status: 'active',
+                  expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                });
+              }
+            }
           }
         }
       }
@@ -525,6 +611,30 @@ export function createMockSupabaseClient(initialData?: {
   const client = {
     _store: store,
     auth: {
+      signInWithPassword: async ({ email, password }: { email: string; password?: string }) => {
+        if (!password || password === 'wrongpassword') {
+          return { data: { user: null, session: null }, error: { message: 'Invalid email or password' } };
+        }
+        const user = {
+          id: email.includes('admin') ? 'usr-admin-alice-101' : 'usr_mock_123',
+          email,
+          user_metadata: { first_name: 'Auth', last_name: 'User' },
+        };
+        const session = { access_token: `mock_jwt_pw_${Date.now()}` };
+        return { data: { user, session }, error: null };
+      },
+      signUp: async ({ email, password, options }: { email: string; password?: string; options?: any }) => {
+        if (email === 'existing@example.com') {
+          return { data: { user: null, session: null }, error: { message: 'User already registered' } };
+        }
+        const user = {
+          id: `usr_new_${Math.random().toString(36).substring(2, 9)}`,
+          email,
+          user_metadata: options?.data || {},
+        };
+        const session = { access_token: `mock_jwt_signup_${Date.now()}` };
+        return { data: { user, session }, error: null };
+      },
       signInWithOtp: async ({ email }: { email: string }) => {
         return { data: { user: null, session: null }, error: null };
       },
@@ -642,12 +752,24 @@ export function createMockSupabaseClient(initialData?: {
           filteredData = filteredData.filter((r) => r[col] === val || (val === null && (r[col] === null || r[col] === undefined)));
           return queryBuilder;
         },
-        lte: (col: string, val: any) => {
-          filteredData = filteredData.filter((r) => r[col] <= val);
+        gt: (col: string, val: any) => {
+          filteredData = filteredData.filter((r) => r[col] > val);
           return queryBuilder;
         },
         gte: (col: string, val: any) => {
           filteredData = filteredData.filter((r) => r[col] >= val);
+          return queryBuilder;
+        },
+        lt: (col: string, val: any) => {
+          filteredData = filteredData.filter((r) => r[col] < val);
+          return queryBuilder;
+        },
+        lte: (col: string, val: any) => {
+          filteredData = filteredData.filter((r) => r[col] <= val);
+          return queryBuilder;
+        },
+        neq: (col: string, val: any) => {
+          filteredData = filteredData.filter((r) => r[col] !== val);
           return queryBuilder;
         },
         ilike: (col: string, pattern: string) => {

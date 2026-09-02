@@ -10,14 +10,9 @@ export interface CategoryCardData {
 export interface ReviewData {
   quote: string;
   author: string;
-  role: string;
+  location: string;
+  product: string;
   rating: number;
-}
-
-export interface FeatureData {
-  icon: string;
-  title: string;
-  description: string;
 }
 
 export const HOMEPAGE_CATEGORIES: CategoryCardData[] = [
@@ -57,39 +52,27 @@ export const HOMEPAGE_CATEGORIES: CategoryCardData[] = [
 
 export const HOMEPAGE_REVIEWS: ReviewData[] = [
   {
-    quote: 'Unwind & Doodle coloring books have become my evening ritual. The paper quality is amazing and doesn’t bleed through at all.',
-    author: 'Amina K.',
-    role: 'Verified Buyer',
+    quote:
+      'Turning our holiday family photos into a custom coloring book was the most heartwarming gift. The illustration quality and thick paper are absolute perfection.',
+    author: 'Amina O.',
+    location: 'Lagos, Nigeria',
+    product: 'Custom Keepsake Coloring Book',
     rating: 5,
   },
   {
-    quote: 'The guided journal helped me build a daily mindfulness habit. Beautiful minimalist designs with just the right prompts.',
-    author: 'David O.',
-    role: 'Verified Buyer',
+    quote:
+      'This has genuinely become my evening ritual to unwind from busy work days. The binding stays flat, and the paper never bleeds through.',
+    author: 'Tunde B.',
+    location: 'Abuja, Nigeria',
+    product: 'Mindful Floral Coloring Book',
     rating: 5,
   },
   {
-    quote: 'Ordered the gift bundle for a friend and it came packaged so thoughtfully. The colored pencils are rich and vibrant.',
-    author: 'Chidinma N.',
-    role: 'Verified Buyer',
+    quote:
+      'The aesthetic is so calm and soothing. It feels like an art piece on my table, and coloring each page brings so much peaceful focus.',
+    author: 'Chidinma E.',
+    location: 'Port Harcourt, Nigeria',
+    product: 'Daily Reflection Journal',
     rating: 5,
-  },
-];
-
-export const HOMEPAGE_FEATURES: FeatureData[] = [
-  {
-    icon: '✨',
-    title: 'Mindfully Crafted',
-    description: 'Designed specifically to reduce stress and spark daily creativity.',
-  },
-  {
-    icon: '🌿',
-    title: 'Archival & Sustainable',
-    description: 'Premium FSC-certified paper that feels substantial and resists bleed-through.',
-  },
-  {
-    icon: '📦',
-    title: 'Fast Nationwide Delivery',
-    description: 'Carefully packed and delivered right to your doorstep across Nigeria.',
   },
 ];

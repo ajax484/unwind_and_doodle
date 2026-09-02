@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedCustomer } from '@/lib/auth-helpers';
+import { getAuthenticatedUserContext } from '@/services/user-context.service';
 
 export async function GET(req: NextRequest) {
   try {
-    const authContext = await getAuthenticatedCustomer(req);
+    const authContext = await getAuthenticatedUserContext(req);
 
-    if (!authContext) {
+    if (!authContext.authenticated) {
       return NextResponse.json(
-        { success: false, authenticated: false, customer: null },
+        {
+          success: true,
+          authenticated: false,
+          user: null,
+          userType: 'anonymous',
+          customer: null,
+          organization: null,
+          membership: null,
+        },
         { status: 200 }
       );
     }
@@ -16,8 +24,13 @@ export async function GET(req: NextRequest) {
       success: true,
       authenticated: true,
       data: {
-        userId: authContext.userId,
+        userId: authContext.user.id,
+        user: authContext.user,
+        userType: authContext.userType,
         customer: authContext.customer,
+        organization: authContext.organization,
+        membership: authContext.membership,
+        permissions: authContext.permissions,
       },
     });
   } catch (err: unknown) {

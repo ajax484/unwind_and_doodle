@@ -31,22 +31,49 @@ export const ManualOrderShippingAddressSchema = z.object({
   country: z.string().default('Nigeria'),
 });
 
-export const CreateManualOrderSchema = z.object({
-  customer: ManualOrderCustomerSchema,
-  shippingAddress: ManualOrderShippingAddressSchema,
-  items: z.array(ManualOrderItemSchema).min(1, { message: 'At least one product item is required' }),
-  manualOrderChannel: z.enum(['instagram', 'whatsapp', 'phone', 'in_person', 'other']).default('instagram'),
-  discountCode: z.string().optional(),
-  shippingFee: z.number().min(0).default(0),
-  locationId: z.string().uuid().optional(),
-  warehouseId: z.string().uuid().optional(),
-  notes: z.string().optional(),
+export const ManualDiscountSchema = z.object({
+  type: z.enum(['percentage', 'fixed_amount', 'fixed']),
+  value: z.number().positive({ message: 'Discount value must be greater than zero' }),
 });
 
-export type ManualOrderItemInput = z.infer<typeof ManualOrderItemSchema>;
-export type ManualOrderCustomerInput = z.infer<typeof ManualOrderCustomerSchema>;
-export type ManualOrderShippingAddressInput = z.infer<typeof ManualOrderShippingAddressSchema>;
-export type CreateManualOrderInput = z.infer<typeof CreateManualOrderSchema>;
+export const CreateManualOrderSchema = z
+  .object({
+    customer: ManualOrderCustomerSchema,
+    shippingAddress: ManualOrderShippingAddressSchema,
+    items: z.array(ManualOrderItemSchema).min(1, { message: 'At least one product item is required' }),
+    manualOrderChannel: z.enum(['instagram', 'whatsapp', 'phone', 'in_person', 'other']).default('instagram'),
+    discountCode: z.string().optional(),
+    manualDiscount: ManualDiscountSchema.optional(),
+    shippingFee: z.number().min(0).default(0),
+    locationId: z.string().uuid().optional(),
+    warehouseId: z.string().uuid().optional(),
+    notes: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.discountCode && data.discountCode.trim() !== '' && data.manualDiscount) {
+        return false;
+      }
+      return true;
+    },
+    { message: 'Discount code and manual discount cannot be used together', path: ['manualDiscount'] }
+  );
+
+export const UpdateCustomerOrderSchema = z.object({
+  token: z.string().min(1, { message: 'Payment token is required' }),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  phone: z.string().optional(),
+  locationId: z.string().uuid({ message: 'Invalid location ID' }).optional(),
+  shippingAddress: ManualOrderShippingAddressSchema.optional(),
+});
+
+export type ManualDiscountInput = z.input<typeof ManualDiscountSchema>;
+export type ManualOrderItemInput = z.input<typeof ManualOrderItemSchema>;
+export type ManualOrderCustomerInput = z.input<typeof ManualOrderCustomerSchema>;
+export type ManualOrderShippingAddressInput = z.input<typeof ManualOrderShippingAddressSchema>;
+export type CreateManualOrderInput = z.input<typeof CreateManualOrderSchema>;
+export type UpdateCustomerOrderInput = z.input<typeof UpdateCustomerOrderSchema>;
 
 export interface PaymentRequestDetail {
   id: string;
@@ -59,8 +86,11 @@ export interface PaymentRequestDetail {
   expiresAt: string | null;
   customer: {
     name: string;
+    firstName?: string | null;
+    lastName?: string | null;
     email: string;
     phone: string | null;
+    locationId?: string | null;
     shippingAddress: Record<string, unknown>;
   };
   items: Array<{

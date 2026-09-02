@@ -6,6 +6,7 @@ import { z } from 'zod';
 const VerifyOtpSchema = z.object({
   email: z.string().email(),
   token: z.string().min(4, 'Please enter a valid OTP code'),
+  intent: z.enum(['admin', 'customer', 'auto']).optional().default('auto'),
 });
 
 export async function POST(req: NextRequest) {
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { email, token } = parsed.data;
+    const { email, token, intent } = parsed.data;
     const cleanEmail = email.trim().toLowerCase();
     const cleanToken = token.trim();
     const supabase = getServiceSupabaseClient();
@@ -46,6 +47,20 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 3. If still fails, try 'magiclink'
+    if (authError || !authData?.session) {
+      const magicAttempt = await supabase.auth.verifyOtp({
+        email: cleanEmail,
+        token: cleanToken,
+        type: 'magiclink',
+      });
+
+      if (!magicAttempt.error && magicAttempt.data?.session) {
+        authData = magicAttempt.data;
+        authError = null;
+      }
+    }
+
     if (authError || !authData?.user || !authData?.session) {
       return NextResponse.json(
         { success: false, error: authError?.message || 'Invalid or expired verification code' },
@@ -53,20 +68,104 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const user = authData.user;
+
+    // 4. Check if user is an organization member (merchant/admin)
+    const { data: members } = await supabase
+      .from('organization_members')
+      .select('id, organization_id, user_id, role')
+      .eq('user_id', user.id)
+      .limit(1);
+
+    const isOrgMember = members && members.length > 0;
+    const member = isOrgMember ? members[0] : null;
+
+    if (intent === 'admin') {
+      if (!isOrgMember) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'Access Denied: Your account is authenticated, but you are not registered as an administrator or team member in this organization.',
+            code: 'FORBIDDEN',
+          },
+          { status: 403 }
+        );
+      }
+
+      const response = NextResponse.json({
+        success: true,
+        data: {
+          userType: 'merchant',
+          redirectTo: '/admin',
+          user: {
+            id: user.id,
+            email: user.email,
+          },
+          membership: {
+            id: member?.id,
+            organizationId: member?.organization_id,
+            role: member?.role,
+          },
+        },
+      });
+
+      response.cookies.set('sb-access-token', authData.session.access_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 30,
+      });
+
+      return response;
+    }
+
+    if (isOrgMember && intent === 'auto') {
+      const response = NextResponse.json({
+        success: true,
+        data: {
+          userType: 'merchant',
+          redirectTo: '/admin',
+          user: {
+            id: user.id,
+            email: user.email,
+          },
+          membership: {
+            id: member?.id,
+            organizationId: member?.organization_id,
+            role: member?.role,
+          },
+        },
+      });
+
+      response.cookies.set('sb-access-token', authData.session.access_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 30,
+      });
+
+      return response;
+    }
+
     // Link or create customer record
     const customer = await linkOrCreateCustomerAccount(supabase, {
-      id: authData.user.id,
-      email: authData.user.email || cleanEmail,
-      user_metadata: authData.user.user_metadata,
+      id: user.id,
+      email: user.email || cleanEmail,
+      user_metadata: user.user_metadata,
     });
 
     const response = NextResponse.json({
       success: true,
       data: {
+        userType: 'customer',
+        redirectTo: '/account',
         customer,
         user: {
-          id: authData.user.id,
-          email: authData.user.email,
+          id: user.id,
+          email: user.email,
         },
       },
     });

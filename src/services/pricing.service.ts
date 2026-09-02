@@ -4,13 +4,78 @@ import { CheckoutItem, PriceBreakdown } from '../types/checkout';
 import { CURRENCY } from '../lib/constants';
 import { validateAndCalculateDiscount, DiscountCartItem } from './discount.service';
 
+export interface DeliveryFeeResult {
+  deliveryFee: number;
+  locationId: string;
+  warehouseId?: string;
+  description?: string;
+}
+
 export interface CalculatePricingParams {
   supabase: SupabaseClient<Database>;
   warehouseId: string;
   locationId: string;
   items: CheckoutItem[];
   discountCode?: string;
+  manualDiscount?: {
+    type: 'percentage' | 'fixed_amount' | 'fixed';
+    value: number;
+  };
   organizationId?: string;
+}
+
+/**
+ * Server-side canonical function to resolve delivery fee for a location and warehouse.
+ * Shared between checkout, manual orders, and customer order edit workflows.
+ */
+export async function resolveDeliveryFee(
+  supabase: SupabaseClient<Database>,
+  locationId: string,
+  warehouseId?: string
+): Promise<DeliveryFeeResult> {
+  if (!locationId) {
+    throw new Error('Location ID is required to resolve delivery fee');
+  }
+
+  let query = supabase.from('delivery_rates').select('*').eq('location_id', locationId);
+
+  if (warehouseId) {
+    query = query.eq('warehouse_id', warehouseId);
+  }
+
+  const { data: deliveryRates, error: delError } = await query;
+
+  if (delError) {
+    throw new Error(`Failed to query delivery rate: ${delError.message}`);
+  }
+
+  const activeRate = (deliveryRates || []).find((r) => {
+    if ((r as Record<string, unknown>).active !== undefined) return (r as Record<string, unknown>).active;
+    if ((r as Record<string, unknown>).is_active !== undefined) return (r as Record<string, unknown>).is_active;
+    return true;
+  });
+
+  if (!activeRate) {
+    throw new Error(
+      warehouseId
+        ? `No delivery rate found for warehouse ${warehouseId} and location ${locationId}`
+        : `No delivery rate found for location ${locationId}`
+    );
+  }
+
+  const deliveryFee =
+    (activeRate as Record<string, unknown>).base_rate !== undefined
+      ? Number((activeRate as Record<string, unknown>).base_rate)
+      : (activeRate as Record<string, unknown>).price !== undefined
+      ? Number((activeRate as Record<string, unknown>).price)
+      : Number((activeRate as Record<string, unknown>).rate || 0);
+
+  return {
+    deliveryFee,
+    locationId,
+    warehouseId: activeRate.warehouse_id || warehouseId,
+    description: 'Standard Delivery Rate',
+  };
 }
 
 /**
@@ -20,7 +85,11 @@ export interface CalculatePricingParams {
 export async function calculateOrderPricing(
   params: CalculatePricingParams
 ): Promise<PriceBreakdown> {
-  const { supabase, warehouseId, locationId, items, discountCode } = params;
+  const { supabase, warehouseId, locationId, items, discountCode, manualDiscount } = params;
+
+  if (discountCode && discountCode.trim() && manualDiscount) {
+    throw new Error('Discount code and manual discount cannot be used together.');
+  }
 
   // 1. Collect all product IDs (main products and addon products)
   const mainProductIds = items.map((i) => i.productId);
@@ -131,38 +200,34 @@ export async function calculateOrderPricing(
     });
   }
 
-  // 4. Calculate delivery fee from delivery_rates
-  const { data: deliveryRates, error: delError } = await supabase
-    .from('delivery_rates')
-    .select('*')
-    .eq('warehouse_id', warehouseId)
-    .eq('location_id', locationId);
+  // 4. Calculate delivery fee using canonical resolver
+  const deliveryRes = await resolveDeliveryFee(supabase, locationId, warehouseId);
+  const deliveryFee = deliveryRes.deliveryFee;
 
-  if (delError) {
-    throw new Error(`Failed to query delivery rate: ${delError.message}`);
-  }
-
-  const activeRate = (deliveryRates || []).find((r) => {
-    if ((r as Record<string, unknown>).active !== undefined) return (r as Record<string, unknown>).active;
-    if ((r as Record<string, unknown>).is_active !== undefined) return (r as Record<string, unknown>).is_active;
-    return true;
-  });
-
-  if (!activeRate) {
-    throw new Error(`No delivery rate found for warehouse ${warehouseId} and location ${locationId}`);
-  }
-
-  const deliveryFee = (activeRate as Record<string, unknown>).base_rate !== undefined
-    ? Number((activeRate as Record<string, unknown>).base_rate)
-    : (activeRate as Record<string, unknown>).price !== undefined
-    ? Number((activeRate as Record<string, unknown>).price)
-    : Number((activeRate as Record<string, unknown>).rate || 0);
-
-  // 5. Calculate discount using validateAndCalculateDiscount if discountCode is supplied
+  // 5. Calculate discount
   let discountTotal = 0;
   let appliedDiscount: PriceBreakdown['appliedDiscount'];
 
-  if (discountCode && discountCode.trim()) {
+  if (manualDiscount) {
+    if (manualDiscount.value <= 0) {
+      throw new Error('Manual discount value must be greater than zero');
+    }
+    const merchandiseTotal = subtotal + addOnsTotal;
+
+    if (manualDiscount.type === 'percentage') {
+      if (manualDiscount.value > 100) {
+        throw new Error('Percentage discount cannot exceed 100%');
+      }
+      discountTotal = (merchandiseTotal * manualDiscount.value) / 100;
+    } else if (manualDiscount.type === 'fixed_amount' || manualDiscount.type === 'fixed') {
+      if (manualDiscount.value > merchandiseTotal) {
+        throw new Error(`Fixed discount amount (₦${manualDiscount.value}) cannot exceed subtotal (₦${merchandiseTotal})`);
+      }
+      discountTotal = manualDiscount.value;
+    } else {
+      throw new Error(`Invalid manual discount type: ${manualDiscount.type}`);
+    }
+  } else if (discountCode && discountCode.trim()) {
     const cartItemsForDiscount: DiscountCartItem[] = itemBreakdowns.map((ib) => ({
       productId: ib.productId,
       quantity: ib.quantity,

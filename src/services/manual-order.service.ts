@@ -1,14 +1,17 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Database } from '../lib/supabase/types';
+import { Database, Json } from '../lib/supabase/types';
 import {
   CreateManualOrderInput,
   CreateManualOrderSchema,
   PaymentLinkResponse,
   PaymentRequestDetail,
+  UpdateCustomerOrderInput,
+  UpdateCustomerOrderSchema,
 } from '../types/manual-order';
 import { resolveOrCreateCustomer } from './customer.service';
 import { findCapableWarehouse, RequiredProductItem, resolveRequiredPhysicalItems } from './warehouse.service';
 import { reserveOrderInventory, releaseOrderReservations } from './inventory.service';
+import { resolveDeliveryFee, calculateOrderPricing } from './pricing.service';
 import { PaystackPaymentProvider } from './payment/paystack.provider';
 import { publishDomainEvent } from './events.service';
 import { validateThemeCustomization, persistThemeCustomizationSnapshot } from './theme.service';
@@ -76,6 +79,16 @@ export async function createAdminManualOrder(
     })
   );
 
+  let shippingFee = validated.shippingFee;
+  if (validated.locationId && shippingFee === 0) {
+    try {
+      const delRes = await resolveDeliveryFee(supabase, validated.locationId, warehouseId);
+      shippingFee = delRes.deliveryFee;
+    } catch {
+      // keep 0 if resolution not configured
+    }
+  }
+
   // 4. Call atomic RPC create_admin_manual_order
   const { data: rpcResult, error: rpcErr } = await supabase.rpc('create_admin_manual_order' as unknown as keyof Database['public']['Functions'], {
     p_org_id: organizationId,
@@ -102,8 +115,15 @@ export async function createAdminManualOrder(
     p_warehouse_id: warehouseId,
     p_manual_order_channel: validated.manualOrderChannel,
     p_discount_code: validated.discountCode || null,
-    p_shipping_fee: validated.shippingFee,
+    p_manual_discount: validated.manualDiscount
+      ? {
+          type: validated.manualDiscount.type,
+          value: validated.manualDiscount.value,
+        }
+      : null,
+    p_shipping_fee: shippingFee,
     p_notes: validated.notes || null,
+    p_idempotency_key: validated.idempotencyKey || null,
   } as unknown as Database['public']['Functions']['create_admin_manual_order']['Args']);
 
   if (rpcErr || !rpcResult) {
@@ -142,14 +162,7 @@ export async function createAdminManualOrder(
   }
 
   try {
-    // 5. Reserve inventory atomically
-    await reserveOrderInventory(supabase, {
-      warehouseId,
-      orderId,
-      items: requiredItems,
-    });
-
-    // 6. Create payment record
+    // 5. Create payment record
     const paystackProvider = new PaystackPaymentProvider();
     const paymentRef = paystackProvider.generateReference();
 
@@ -208,6 +221,11 @@ export async function createAdminManualOrder(
     const origin = baseUrl || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const paymentUrl = `${origin}/pay/${token}`;
 
+    const finalSubtotal = Number(result.subtotal ?? 0);
+    const finalDiscountTotal = Number(result.discount_total ?? 0);
+    const finalShippingFee = Number(result.shipping_fee ?? 0);
+    const finalTotal = Number(result.total ?? totalAmount ?? 0);
+
     return {
       paymentRequestId: result.payment_request_id,
       token,
@@ -215,7 +233,11 @@ export async function createAdminManualOrder(
       orderId,
       orderNumber: result.order_number,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      amount: totalAmount,
+      amount: finalTotal,
+      subtotal: finalSubtotal,
+      discountTotal: finalDiscountTotal,
+      shippingFee: finalShippingFee,
+      total: finalTotal,
     };
   } catch (err) {
     // Cleanup order & inventory if failed after RPC insertion
@@ -351,8 +373,11 @@ export async function getPaymentRequestByToken(
     expiresAt: reqRecord.expires_at,
     customer: {
       name: customerName,
+      firstName: order.first_name,
+      lastName: order.last_name,
       email: order.email,
       phone: order.phone,
+      locationId: order.location_id,
       shippingAddress: (order.shipping_address as Record<string, unknown>) || {},
     },
     items: itemsWithComponents,
@@ -496,4 +521,173 @@ export async function cancelManualOrder(
     entity_id: orderId,
     after_data: { status: ORDER_STATUS.CANCELLED },
   } as unknown as Database['public']['Tables']['audit_logs']['Insert']);
+}
+
+/**
+ * Calculates a server-authoritative preview summary for manual order items and discounts.
+ */
+export async function previewManualOrderPricing(
+  supabase: SupabaseClient<Database>,
+  input: {
+    items: Array<{ productId: string; quantity: number }>;
+    locationId: string;
+    warehouseId?: string;
+    discountCode?: string;
+    manualDiscount?: { type: 'percentage' | 'fixed_amount' | 'fixed'; value: number };
+    organizationId?: string;
+  }
+) {
+  const checkoutItems = input.items.map((i) => ({
+    productId: i.productId,
+    quantity: i.quantity,
+  }));
+
+  let warehouseId = input.warehouseId;
+  if (!warehouseId) {
+    const requiredItems = await resolveRequiredPhysicalItems(supabase, checkoutItems);
+    const whResult = await findCapableWarehouse(supabase, input.locationId, requiredItems);
+    if (!whResult.capable || !whResult.warehouseId) {
+      throw new Error(whResult.error || 'No warehouse available for location');
+    }
+    warehouseId = whResult.warehouseId;
+  }
+
+  return calculateOrderPricing({
+    supabase,
+    warehouseId,
+    locationId: input.locationId,
+    items: checkoutItems,
+    discountCode: input.discountCode,
+    manualDiscount: input.manualDiscount,
+    organizationId: input.organizationId,
+  });
+}
+
+/**
+ * Secure customer edit RPC/API: Allows customers with valid payment link token
+ * to update name, phone, and delivery location atomically while synchronizing payment amount.
+ */
+export async function updateCustomerOrderDetails(
+  supabase: SupabaseClient<Database>,
+  input: UpdateCustomerOrderInput
+): Promise<PaymentRequestDetail> {
+  const validated = UpdateCustomerOrderSchema.parse(input);
+
+  // 1. Look up payment request by token
+  const { data: reqRecord, error: reqErr } = await supabase
+    .from('order_payment_requests')
+    .select('*')
+    .eq('token', validated.token)
+    .maybeSingle();
+
+  if (reqErr || !reqRecord) {
+    throw new Error('Invalid or expired payment link token');
+  }
+
+  if (reqRecord.status !== 'pending') {
+    throw new Error(`Cannot modify order with payment status: ${reqRecord.status}`);
+  }
+
+  if (reqRecord.expires_at && new Date(reqRecord.expires_at) < new Date()) {
+    throw new Error('This payment link has expired');
+  }
+
+  // 2. Fetch associated order
+  const { data: order, error: orderErr } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('id', reqRecord.order_id)
+    .single();
+
+  if (orderErr || !order) {
+    throw new Error('Associated order not found');
+  }
+
+  if (order.status !== ORDER_STATUS.CREATED) {
+    throw new Error(`Order cannot be modified in status: ${order.status}`);
+  }
+
+  // 3. Prepare updates
+  let newShippingFee = Number(order.shipping_fee);
+  let newLocationId = order.location_id;
+  let newShippingAddress = (order.shipping_address as Record<string, unknown>) || {};
+
+  if (validated.locationId && validated.locationId !== order.location_id) {
+    // Resolve delivery fee for new location using canonical resolver
+    const delRes = await resolveDeliveryFee(
+      supabase,
+      validated.locationId,
+      order.warehouse_id || undefined
+    );
+    newShippingFee = delRes.deliveryFee;
+    newLocationId = validated.locationId;
+  }
+
+  if (validated.shippingAddress) {
+    newShippingAddress = {
+      ...newShippingAddress,
+      address_line1: validated.shippingAddress.addressLine1,
+      address_line2: validated.shippingAddress.addressLine2 || '',
+      city: validated.shippingAddress.city,
+      state: validated.shippingAddress.state,
+      postal_code: validated.shippingAddress.postalCode || '',
+      country: validated.shippingAddress.country || 'Nigeria',
+    };
+  }
+
+  const subtotal = Number(order.subtotal);
+  const discountTotal = Number(order.discount_total);
+  const newTotal = Math.max(0, subtotal - discountTotal + newShippingFee);
+
+  const orderUpdates: Database['public']['Tables']['orders']['Update'] = {
+    updated_at: new Date().toISOString(),
+    location_id: newLocationId,
+    shipping_fee: newShippingFee,
+    total: newTotal,
+    shipping_address: newShippingAddress as Json,
+  };
+
+  if (validated.firstName !== undefined) orderUpdates.first_name = validated.firstName;
+  if (validated.lastName !== undefined) orderUpdates.last_name = validated.lastName;
+  if (validated.phone !== undefined) orderUpdates.phone = validated.phone;
+
+  // 4. Update order atomically
+  const { error: updateErr } = await supabase
+    .from('orders')
+    .update(orderUpdates)
+    .eq('id', order.id);
+
+  if (updateErr) {
+    throw new Error(`Failed to update order details: ${updateErr.message}`);
+  }
+
+  // Update customer record if customer_id exists
+  if (order.customer_id) {
+    const custUpdates: Database['public']['Tables']['customers']['Update'] = {
+      updated_at: new Date().toISOString(),
+    };
+    if (validated.firstName !== undefined) custUpdates.first_name = validated.firstName;
+    if (validated.lastName !== undefined) custUpdates.last_name = validated.lastName;
+    if (validated.phone !== undefined) custUpdates.phone = validated.phone;
+
+    await supabase.from('customers').update(custUpdates).eq('id', order.customer_id);
+  }
+
+  // 5. Update payment request amount if total changed
+  if (newTotal !== Number(reqRecord.amount)) {
+    await supabase
+      .from('order_payment_requests')
+      .update({ amount: newTotal, updated_at: new Date().toISOString() })
+      .eq('id', reqRecord.id);
+
+    // Synchronize pending payment records
+    await supabase
+      .from('payments')
+      .update({ amount: newTotal, updated_at: new Date().toISOString() })
+      .eq('order_id', order.id)
+      .eq('status', PAYMENT_STATUS.PENDING);
+  }
+
+  // 6. Return updated detail using getPaymentRequestByToken
+  return getPaymentRequestByToken(supabase, validated.token);
 }

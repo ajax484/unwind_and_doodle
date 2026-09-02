@@ -398,3 +398,76 @@ export async function expireOldReservations(
 
   return count;
 }
+
+/**
+ * Computes net available physical stock (quantity - reserved_quantity) for a product in a warehouse.
+ */
+export async function computeAvailableStock(
+  supabase: SupabaseClient<Database>,
+  productId: string,
+  warehouseId: string
+): Promise<number> {
+  const { data: inv, error } = await supabase
+    .from('inventory')
+    .select('*')
+    .eq('warehouse_id', warehouseId)
+    .eq('product_id', productId)
+    .maybeSingle();
+
+  if (error || !inv) {
+    return 0;
+  }
+
+  const rec = inv as Record<string, unknown>;
+  const qty = rec.quantity !== undefined && rec.quantity !== null ? Number(rec.quantity) : Number(rec.quantity_on_hand || 0);
+  const reserved = rec.reserved_quantity !== undefined && rec.reserved_quantity !== null ? Number(rec.reserved_quantity) : Number(rec.quantity_reserved || 0);
+
+  return Math.max(0, qty - reserved);
+}
+
+/**
+ * Computes maximum buildable bundle units from component physical stock levels in a warehouse.
+ */
+export async function computeBuildableBundles(
+  supabase: SupabaseClient<Database>,
+  bundleProductId: string,
+  warehouseId: string
+): Promise<number> {
+  const { data: components, error } = await supabase
+    .from('bundle_items')
+    .select('component_product_id, quantity')
+    .eq('bundle_product_id', bundleProductId);
+
+  if (error || !components || components.length === 0) {
+    return 0;
+  }
+
+  const componentProductIds = components.map((c) => c.component_product_id);
+  const { data: invRecords } = await supabase
+    .from('inventory')
+    .select('*')
+    .eq('warehouse_id', warehouseId)
+    .in('product_id', componentProductIds);
+
+  const stockMap = new Map<string, number>();
+  for (const inv of invRecords || []) {
+    const rec = inv as Record<string, unknown>;
+    const qty = rec.quantity !== undefined && rec.quantity !== null ? Number(rec.quantity) : Number(rec.quantity_on_hand || 0);
+    const reserved = rec.reserved_quantity !== undefined && rec.reserved_quantity !== null ? Number(rec.reserved_quantity) : Number(rec.quantity_reserved || 0);
+    const available = Math.max(0, qty - reserved);
+    stockMap.set(String(rec.product_id), available);
+  }
+
+  let minBuildable = Infinity;
+  for (const comp of components) {
+    const compAvailable = stockMap.get(comp.component_product_id) || 0;
+    const buildableForComp = Math.floor(compAvailable / comp.quantity);
+    if (buildableForComp < minBuildable) {
+      minBuildable = buildableForComp;
+    }
+  }
+
+  return minBuildable === Infinity ? 0 : minBuildable;
+}
+
+

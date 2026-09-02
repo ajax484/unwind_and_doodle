@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedAdmin } from '@/lib/auth-helpers';
+import { getRolePermissions } from '@/services/permission.service';
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest) {
           id: adminContext.membership.id,
           role: adminContext.membership.role,
         },
+        permissions: getRolePermissions(adminContext.membership.role),
       },
     });
   } catch (err: unknown) {

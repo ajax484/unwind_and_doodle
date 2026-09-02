@@ -28,12 +28,13 @@ export function ManualOrderSuccessModal({ isOpen, data, onReset }: ManualOrderSu
 
   if (!isOpen || !data) return null;
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | string | undefined | null) => {
+    const num = Number(amount ?? 0);
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
       currency: 'NGN',
       maximumFractionDigits: 0,
-    }).format(amount);
+    }).format(isNaN(num) ? 0 : num);
   };
 
   const handleCopyLink = async () => {
@@ -76,7 +77,9 @@ export function ManualOrderSuccessModal({ isOpen, data, onReset }: ManualOrderSu
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
             <div>
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Order Amount</span>
-              <p className="text-2xl font-bold font-heading text-slate-900 mt-0.5">{formatCurrency(data.total)}</p>
+              <p className="text-2xl font-bold font-heading text-slate-900 mt-0.5">
+                {formatCurrency(data.total ?? data.amount)}
+              </p>
             </div>
             <div className="text-right">
               <span className="text-xs font-semibold text-slate-500">Order Reference</span>
