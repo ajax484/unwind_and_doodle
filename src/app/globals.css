@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --font-heading: var(--font-heading), 'Fredoka', cursive, sans-serif;
-  --font-body: var(--font-body), 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: var(--font-fredoka), 'Fredoka', cursive, sans-serif;
+  --font-body: var(--font-plus-jakarta), 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 
   --color-brand-blue: #A7C2D4;
   --color-brand-blue-dark: #7FA6BF;
@@ -22,8 +22,8 @@
 }
 
 :root {
-  --font-heading: var(--font-heading), 'Fredoka', cursive, sans-serif;
-  --font-body: var(--font-body), 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: var(--font-fredoka), 'Fredoka', cursive, sans-serif;
+  --font-body: var(--font-plus-jakarta), 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 
   --brand-blue: #A7C2D4;
   --brand-blue-dark: #7FA6BF;

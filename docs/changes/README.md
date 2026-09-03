@@ -90,3 +90,4 @@ This directory maintains granular, per-feature change records following the repo
 - [2026-09-02 Test Suite Optimization & Redundancy Removal](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-02-test-suite-optimization.md)
 - [2026-09-02 Organize Tests Directory by Feature Domain](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-02-organize-test-directory.md)
 - [2026-09-02 Documentation System Enhancement](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-02-documentation-system-enhancement.md)
+- [2026-09-03 Fix Font Circular Dependency & Mobile Rendering Fallback](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-03-fix-font-circular-dependency.md)

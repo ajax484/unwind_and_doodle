@@ -8,14 +8,14 @@ import CartDrawer from '@/components/CartDrawer';
 const fredoka = Fredoka({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
-  variable: '--font-heading',
+  variable: '--font-fredoka',
   display: 'swap',
 });
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
-  variable: '--font-body',
+  variable: '--font-plus-jakarta',
   display: 'swap',
 });
 
@@ -32,7 +32,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${fredoka.variable} ${plusJakartaSans.variable}`}>
-      <body className="antialiased min-h-screen flex flex-col bg-[#FFFDF7] text-slate-800">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className={`${fredoka.variable} ${plusJakartaSans.variable} antialiased min-h-screen flex flex-col bg-[#FFFDF7] text-slate-800`}>
         <Navbar />
         <main className="flex-grow">{children}</main>
         <Footer />
