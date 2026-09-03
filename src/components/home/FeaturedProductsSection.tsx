@@ -15,8 +15,9 @@ export default function FeaturedProductsSection({
   error,
 }: FeaturedProductsSectionProps) {
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10 pb-4 border-b border-[#EDF3F7]">
+    <section className="w-full bg-[#FAFDFE] py-16 sm:py-24 lg:py-28 border-b border-[#EDF3F7]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10 pb-4 border-b border-[#EDF3F7]">
         <div>
           <span className="text-xs font-heading font-semibold uppercase tracking-wider text-[#A7C2D4] block mb-1">
             Curated Favorites
@@ -80,6 +81,7 @@ export default function FeaturedProductsSection({
           Shop all products →
         </Link>
       </div>
-    </section>
+    </div>
+  </section>
   );
 }

@@ -3,12 +3,13 @@ import Link from 'next/link';
 
 export default function HeroSection() {
   return (
-    <section className="relative pt-8 sm:pt-16 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto overflow-hidden">
-      {/* Organic corner blobs from logo */}
-      <div className="absolute top-0 left-0 w-72 sm:w-96 h-72 sm:h-96 rounded-full bg-[#A7C2D4]/20 blur-3xl -z-10 pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-72 sm:w-96 h-72 sm:h-96 rounded-full bg-[#D99BA3]/20 blur-3xl -z-10 pointer-events-none" />
+    <section className="w-full bg-white relative pt-12 sm:pt-20 lg:pt-28 pb-16 sm:pb-24 px-4 sm:px-6 lg:px-8 border-b border-[#EDF3F7] overflow-hidden">
+      {/* Organic corner blobs from logo spanning full width */}
+      <div className="absolute top-0 left-0 w-80 sm:w-[500px] h-80 sm:h-[500px] rounded-full bg-[#A7C2D4]/18 blur-3xl pointer-events-none -z-10" />
+      <div className="absolute bottom-0 right-0 w-80 sm:w-[500px] h-80 sm:h-[500px] rounded-full bg-[#D99BA3]/18 blur-3xl pointer-events-none -z-10" />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+      <div className="max-w-7xl mx-auto relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
         {/* Left Column: Headline, Copy & CTAs */}
         <div className="lg:col-span-7 space-y-8 text-left">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#F4F8FA] border border-[#DCE7EE] text-xs font-heading font-semibold text-[#52657A]">
@@ -116,6 +117,7 @@ export default function HeroSection() {
           </div>
         </div>
       </div>
-    </section>
+    </div>
+  </section>
   );
 }

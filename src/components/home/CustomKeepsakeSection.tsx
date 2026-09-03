@@ -3,13 +3,13 @@ import Link from 'next/link';
 
 export default function CustomKeepsakeSection() {
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="bg-[#243342] text-white rounded-3xl p-8 sm:p-12 lg:p-16 relative overflow-hidden shadow-xl">
-        {/* Subtle logo blobs inside dark card */}
-        <div className="absolute top-0 right-0 w-80 h-80 rounded-full bg-[#A7C2D4]/15 blur-2xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-[#D99BA3]/15 blur-2xl pointer-events-none" />
+    <section className="w-full bg-[#243342] text-white py-16 sm:py-24 lg:py-32 relative overflow-hidden">
+      {/* Subtle logo blobs inside full-width dark section */}
+      <div className="absolute top-0 right-0 w-96 sm:w-[600px] h-96 sm:h-[600px] rounded-full bg-[#A7C2D4]/12 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-96 sm:w-[600px] h-96 sm:h-[600px] rounded-full bg-[#D99BA3]/12 blur-3xl pointer-events-none" />
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center relative z-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           {/* Left: Headline & Explanation */}
           <div className="lg:col-span-6 space-y-6">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#36495C] text-[11px] font-heading font-semibold tracking-wide uppercase text-[#EDF3F7]">

@@ -67,7 +67,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="space-y-24 sm:space-y-36 pb-16">
+    <div className="w-full flex flex-col">
       {/* 1. HERO SECTION */}
       <HeroSection />
 

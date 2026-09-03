@@ -16,8 +16,9 @@ export default function NewsletterSection({
   onSubmit,
 }: NewsletterSectionProps) {
   return (
-    <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="bg-[#F4F8FA] border-2 border-[#EDF3F7] rounded-3xl p-8 sm:p-12 text-center space-y-6 relative overflow-hidden">
+    <section className="w-full bg-white py-16 sm:py-24 lg:py-32 relative overflow-hidden">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-[#F4F8FA] border-2 border-[#EDF3F7] rounded-3xl p-8 sm:p-14 text-center space-y-6 relative overflow-hidden shadow-xs">
         <div className="space-y-2 max-w-xl mx-auto">
           <span className="text-xs font-heading font-semibold uppercase tracking-wider text-[#A7C2D4] block">
             The Mindful Letter
@@ -65,6 +66,7 @@ export default function NewsletterSection({
           By subscribing you agree to receive updates from Unwind &amp; Doodle. Unsubscribe anytime.
         </p>
       </div>
-    </section>
+    </div>
+  </section>
   );
 }

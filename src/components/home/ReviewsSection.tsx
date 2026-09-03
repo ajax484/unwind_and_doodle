@@ -3,8 +3,9 @@ import { HOMEPAGE_REVIEWS } from '@/lib/homepage-data';
 
 export default function ReviewsSection() {
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="text-center max-w-2xl mx-auto space-y-3 mb-12">
+    <section className="w-full bg-[#F4F8FA] py-16 sm:py-24 lg:py-32 border-b border-[#EDF3F7] relative overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center max-w-2xl mx-auto space-y-3 mb-12">
         <span className="text-xs font-heading font-semibold uppercase tracking-wider text-[#D99BA3] block">
           Customer Reflections
         </span>
@@ -46,6 +47,7 @@ export default function ReviewsSection() {
           </div>
         ))}
       </div>
-    </section>
-  );
+    </div>
+  </section>
+);
 }

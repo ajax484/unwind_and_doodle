@@ -66,6 +66,9 @@ This directory maintains granular, per-feature change records following the repo
 - [2026-08-31 Category and Theme Retrieval Fixes](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-08-31-category-and-theme-retrieval-fixes.md)
 - [2026-09-02 Restore Landing Page Editorial Design](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-02-restore-landing-page-design.md)
 - [2026-09-02 Fix Mobile Font Rendering via next/font/google](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-02-fix-mobile-fonts.md)
+- [2026-09-03 Brand Philosophy 2-Column Grid Layout](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-03-brand-philosophy-2col-layout.md)
+- [2026-09-03 Category Grid Pink Theme Redesign](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-03-category-grid-pink-theme.md)
+- [2026-09-03 Full-Width Sections and Padding-Based Separation](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-03-full-width-sections-and-padding.md)
 
 ---
 
