@@ -1,5 +1,7 @@
 export const RESERVATION_EXPIRY_MINUTES = 45;
 
+export const DEFAULT_ORGANIZATION_ID = '88c7af2e-afd4-4504-a43f-b14cc45d6263';
+
 export const ORDER_STATUS = {
   CREATED: 'created',
   PENDING: 'pending',

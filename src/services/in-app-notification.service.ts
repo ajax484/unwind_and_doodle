@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../lib/supabase/types';
+import { DEFAULT_ORGANIZATION_ID } from '../lib/constants';
 import {
   InAppNotification,
   CreateInAppNotificationInput,
@@ -7,20 +8,20 @@ import {
   NotificationRecipientType,
 } from '../types/notification';
 
-const DEFAULT_ORG_ID = '88c7af2e-afd4-4504-a43f-b14cc45d6263';
+const DEFAULT_ORG_ID = DEFAULT_ORGANIZATION_ID;
 
-function mapRowToNotification(row: any): InAppNotification {
+function mapRowToNotification(row: Database['public']['Tables']['notifications']['Row']): InAppNotification {
   return {
     id: row.id,
     organizationId: row.organization_id,
-    recipientType: row.recipient_type,
+    recipientType: row.recipient_type as NotificationRecipientType,
     recipientId: row.recipient_id,
     title: row.title,
     message: row.message,
-    type: row.type,
-    category: row.category,
+    type: row.type as NotificationType,
+    category: row.category as NotificationCategory,
     link: row.link,
-    metadata: row.metadata || null,
+    metadata: (row.metadata as Record<string, unknown>) || null,
     readAt: row.read_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -36,7 +37,7 @@ export async function createInAppNotification(
 ): Promise<InAppNotification> {
   const orgId = input.organizationId || DEFAULT_ORG_ID;
 
-  const payload = {
+  const payload: Database['public']['Tables']['notifications']['Insert'] = {
     organization_id: orgId,
     recipient_type: input.recipientType,
     recipient_id: input.recipientId || null,
@@ -45,11 +46,11 @@ export async function createInAppNotification(
     type: input.type || 'info',
     category: input.category || 'system',
     link: input.link || null,
-    metadata: input.metadata || {},
+    metadata: (input.metadata as Database['public']['Tables']['notifications']['Insert']['metadata']) || {},
     read_at: null,
   };
 
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from('notifications')
     .insert(payload)
     .select('*')
@@ -81,7 +82,7 @@ export async function getInAppNotifications(
   const offset = params.offset || 0;
 
   // 1. Fetch unread count
-  let unreadQuery = (supabase as any)
+  let unreadQuery = supabase
     .from('notifications')
     .select('id', { count: 'exact', head: true })
     .eq('organization_id', orgId)
@@ -98,7 +99,7 @@ export async function getInAppNotifications(
   const { count: unreadCount } = await unreadQuery;
 
   // 2. Fetch notifications list
-  let listQuery = (supabase as any)
+  let listQuery = supabase
     .from('notifications')
     .select('*', { count: 'exact' })
     .eq('organization_id', orgId);
@@ -141,7 +142,7 @@ export async function markInAppNotificationRead(
 ): Promise<boolean> {
   const now = new Date().toISOString();
 
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from('notifications')
     .update({
       read_at: now,
@@ -170,7 +171,7 @@ export async function markAllInAppNotificationsRead(
   const orgId = params.organizationId || DEFAULT_ORG_ID;
   const now = new Date().toISOString();
 
-  let query = (supabase as any)
+  let query = supabase
     .from('notifications')
     .update({
       read_at: now,

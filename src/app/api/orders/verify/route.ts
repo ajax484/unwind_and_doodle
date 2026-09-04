@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
-import { Database } from '@/lib/supabase/types';
 import { PaystackPaymentProvider } from '@/services/payment/paystack.provider';
-import { commitOrderReservations } from '@/services/inventory.service';
-import { incrementDiscountUsageAtomic } from '@/services/discount.service';
-import { publishDomainEvent } from '@/services/events.service';
-import { ORDER_STATUS, PAYMENT_STATUS, DOMAIN_EVENT_TYPES, CURRENCY } from '@/lib/constants';
+import { fulfillSuccessfulPayment } from '@/services/payment-fulfillment.service';
+import { PAYMENT_STATUS, CURRENCY } from '@/lib/constants';
 
 export async function GET(req: NextRequest) {
   try {
@@ -75,124 +72,30 @@ export async function GET(req: NextRequest) {
       Math.abs(verifiedTx.amount - payment.amount) < 0.01 &&
       verifiedTx.currency.toUpperCase() === CURRENCY.NGN
     ) {
-      // Update payment
-      await supabase
-        .from('payments')
-        .update({
-          status: PAYMENT_STATUS.SUCCESSFUL,
-          metadata: {
-            ...(payment.metadata as Record<string, unknown> || {}),
-            channel: verifiedTx.channel,
-            paid_at: verifiedTx.paidAt,
-            verified_via: 'return_callback',
-          },
-        })
-        .eq('id', payment.id);
-
-      // Update order_payment_requests if manual order
-      await supabase
-        .from('order_payment_requests')
-        .update({
-          status: 'paid',
-          paid_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        } as unknown as Database['public']['Tables']['order_payment_requests']['Update'])
-        .eq('order_id', order.id);
-
-      // Commit inventory reservation
-      await commitOrderReservations(supabase, order.id);
-
-      if ((order as Record<string, unknown>).discount_id) {
-        await incrementDiscountUsageAtomic(
-          supabase,
-          (order as Record<string, unknown>).discount_id as string,
-          (order as Record<string, unknown>).organization_id as string
-        );
-      }
-
-      // Update order status to pending and payment_status if present
-      const orderUpdates: Record<string, unknown> = {
-        status: ORDER_STATUS.PENDING,
-        updated_at: new Date().toISOString(),
-      };
-      if ('payment_status' in (order as Record<string, unknown>)) {
-        orderUpdates.payment_status = PAYMENT_STATUS.SUCCESSFUL;
-      }
-
-      await supabase
-        .from('orders')
-        .update(orderUpdates as any)
-        .eq('id', order.id);
-
-      // Insert status history
-      await supabase.from('order_status_history').insert({
-        order_id: order.id,
-        to_status: ORDER_STATUS.PENDING,
-        from_status: ORDER_STATUS.CREATED,
-        note: `Payment verified on callback return via reference ${txRef}`,
-      });
-
-      // Insert audit log
-      if (order.organization_id) {
-        await supabase.from('audit_logs').insert({
-          organization_id: order.organization_id,
-          actor_id: null,
-          action: 'update',
-          entity_type: 'payment',
-          entity_id: payment.id,
-          after_data: {
-            status: PAYMENT_STATUS.SUCCESSFUL,
-            provider: payment.provider,
-            amount: payment.amount,
-            reference: txRef,
-            source: 'return_callback',
-          },
-        });
-      }
-
-      // Emit domain event
-      await publishDomainEvent(supabase, {
-        eventType: DOMAIN_EVENT_TYPES.PAYMENT_COMPLETED,
-        aggregateType: 'payment',
-        aggregateId: payment.id,
-        payload: {
-          paymentId: payment.id,
-          orderId: order.id,
-          orderNumber: order.order_number,
-          provider: payment.provider,
-          providerReference: txRef,
-          amount: payment.amount,
-          currency: payment.currency,
-          paidAt: verifiedTx.paidAt || new Date().toISOString(),
-          customerId: order.customer_id,
+      const cookieSession = req.cookies.get('uad_cart_session')?.value || req.headers.get('x-cart-session');
+      const fulfillment = await fulfillSuccessfulPayment({
+        supabase,
+        orderId: order.id,
+        paymentId: payment.id,
+        provider: payment.provider,
+        reference: txRef,
+        verifiedDetails: {
+          amount: verifiedTx.amount,
+          currency: verifiedTx.currency,
+          channel: verifiedTx.channel,
+          paidAt: verifiedTx.paidAt,
+          providerReference: verifiedTx.providerReference,
         },
+        source: 'return_callback',
+        cartSessionId: cookieSession || null,
       });
-
-      // Mark associated cart as converted
-      try {
-        const cookieSession = req.cookies.get('uad_cart_session')?.value || req.headers.get('x-cart-session');
-        if (order.customer_id) {
-          await supabase
-            .from('carts')
-            .update({ status: 'converted', updated_at: new Date().toISOString() })
-            .eq('customer_id', order.customer_id)
-            .eq('status', 'active');
-        } else if (cookieSession) {
-          await supabase
-            .from('carts')
-            .update({ status: 'converted', updated_at: new Date().toISOString() })
-            .eq('session_id', cookieSession.trim());
-        }
-      } catch {
-        // Non-blocking conversion tracking
-      }
 
       return NextResponse.json(
         {
           success: true,
-          orderNumber: order.order_number,
-          orderStatus: ORDER_STATUS.PENDING,
-          paymentStatus: PAYMENT_STATUS.SUCCESSFUL,
+          orderNumber: fulfillment.orderNumber,
+          orderStatus: fulfillment.orderStatus,
+          paymentStatus: fulfillment.paymentStatus,
           verified: true,
         },
         { status: 200 }

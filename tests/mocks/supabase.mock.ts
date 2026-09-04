@@ -45,6 +45,7 @@ export function createMockSupabaseClient(initialData?: {
   product_themes?: any[];
   order_item_theme_customizations?: any[];
   order_item_theme_snapshots?: any[];
+  notifications?: any[];
   [key: string]: any[] | undefined;
 }) {
   const store = {

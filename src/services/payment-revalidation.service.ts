@@ -3,9 +3,9 @@ import { Database } from '../lib/supabase/types';
 import { PaystackPaymentProvider } from './payment/paystack.provider';
 import { FlutterwavePaymentProvider } from './payment/flutterwave.provider';
 import { PaymentProvider, PaymentVerification } from './payment/provider.interface';
-import { commitOrderReservations, releaseOrderReservations } from './inventory.service';
-import { publishDomainEvent } from './events.service';
-import { ORDER_STATUS, PAYMENT_STATUS, DOMAIN_EVENT_TYPES, CURRENCY } from '../lib/constants';
+import { releaseOrderReservations } from './inventory.service';
+import { fulfillSuccessfulPayment } from './payment-fulfillment.service';
+import { ORDER_STATUS, PAYMENT_STATUS, CURRENCY } from '../lib/constants';
 
 export interface RevalidationOptions {
   paymentId?: string;
@@ -172,99 +172,21 @@ export async function revalidatePayment(
     Math.abs(verifiedTx.amount - payment.amount) < 0.01 &&
     verifiedTx.currency.toUpperCase() === CURRENCY.NGN
   ) {
-    // Update payment record
-    const updatedMetadata = {
-      ...(payment.metadata && typeof payment.metadata === 'object'
-        ? (payment.metadata as Record<string, unknown>)
-        : {}),
-      channel: verifiedTx.channel,
-      paid_at: verifiedTx.paidAt,
-      revalidated_at: new Date().toISOString(),
-      revalidated_by: triggeredBy,
-    };
-
-    await supabase
-      .from('payments')
-      .update({
-        status: PAYMENT_STATUS.SUCCESSFUL,
-        metadata: updatedMetadata as unknown as Database['public']['Tables']['payments']['Update']['metadata'],
-      } as unknown as Database['public']['Tables']['payments']['Update'])
-      .eq('id', payment.id);
-
-    // Commit inventory reservation hold
-    await commitOrderReservations(supabase, order.id);
-
-    // Transition order state to pending if created, and update payment_status if present
-    const orderUpdates: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
-    if (order.status === ORDER_STATUS.CREATED) {
-      orderUpdates.status = ORDER_STATUS.PENDING;
-    }
-    if ('payment_status' in (order as Record<string, unknown>)) {
-      orderUpdates.payment_status = PAYMENT_STATUS.SUCCESSFUL;
-    }
-
-    await supabase
-      .from('orders')
-      .update(orderUpdates as unknown as Database['public']['Tables']['orders']['Update'])
-      .eq('id', order.id);
-
-    // Record order status history
-    await supabase.from('order_status_history').insert({
-      order_id: order.id,
-      to_status: ORDER_STATUS.PENDING,
-      from_status: order.status,
-      status: ORDER_STATUS.PENDING,
-      previous_status: order.status,
-      note: `Payment revalidated via ${payment.provider} reference ${reference} (${triggeredBy})`,
-    } as unknown as Database['public']['Tables']['order_status_history']['Insert']);
-
-    // Log audit trail
-    if (order.organization_id) {
-      await supabase.from('audit_logs').insert({
-        organization_id: order.organization_id,
-        actor_id: options.actorId || null,
-        user_id: options.actorId || null,
-        action: 'payment.verified',
-        entity_type: 'payment',
-        entity_id: payment.id,
-        before_data: { status: payment.status },
-        old_values: { status: payment.status },
-        after_data: {
-          status: PAYMENT_STATUS.SUCCESSFUL,
-          provider: payment.provider,
-          amount: payment.amount,
-          reference,
-          source: `revalidation_${triggeredBy}`,
-        },
-        new_values: {
-          status: PAYMENT_STATUS.SUCCESSFUL,
-          provider: payment.provider,
-          amount: payment.amount,
-          reference,
-          source: `revalidation_${triggeredBy}`,
-        },
-      } as unknown as Database['public']['Tables']['audit_logs']['Insert']);
-    }
-
-    // Publish domain event
-    await publishDomainEvent(supabase, {
-      eventType: DOMAIN_EVENT_TYPES.PAYMENT_COMPLETED,
-      aggregateType: 'payment',
-      aggregateId: payment.id,
-      payload: {
-        paymentId: payment.id,
-        orderId: order.id,
-        orderNumber: order.order_number,
-        provider: payment.provider,
-        providerReference: reference,
-        amount: payment.amount,
-        currency: payment.currency,
-        paidAt: verifiedTx.paidAt || new Date().toISOString(),
-        customerId: order.customer_id,
-        revalidatedBy: triggeredBy,
+    await fulfillSuccessfulPayment({
+      supabase,
+      orderId: order.id,
+      paymentId: payment.id,
+      provider: payment.provider,
+      reference,
+      verifiedDetails: {
+        amount: verifiedTx.amount,
+        currency: verifiedTx.currency,
+        channel: verifiedTx.channel,
+        paidAt: verifiedTx.paidAt,
+        providerReference: verifiedTx.providerReference,
       },
+      source: `revalidation_${triggeredBy}`,
+      actorId: options.actorId || null,
     });
 
     return {

@@ -76,6 +76,13 @@ export const AcceptInvitationSchema = z.object({
 
 export type AcceptInvitationInput = z.infer<typeof AcceptInvitationSchema>;
 
+export const AcceptInvitationBodySchema = z.object({
+  password: z.string().trim().min(6, 'Password must be at least 6 characters').optional(),
+  fullName: z.string().trim().min(1, 'Full name cannot be empty').optional(),
+});
+
+export type AcceptInvitationBodyInput = z.infer<typeof AcceptInvitationBodySchema>;
+
 export interface PublicInvitationDetail {
   organizationName: string;
   organizationSlug: string;

@@ -9,7 +9,7 @@ import { PaymentProvider } from './payment/provider.interface';
 import { PaystackPaymentProvider } from './payment/paystack.provider';
 import { publishDomainEvent } from './events.service';
 import { validateThemeCustomization, persistThemeCustomizationSnapshot } from './theme.service';
-import { ORDER_STATUS, PAYMENT_STATUS, DOMAIN_EVENT_TYPES, CURRENCY } from '../lib/constants';
+import { ORDER_STATUS, PAYMENT_STATUS, DOMAIN_EVENT_TYPES, CURRENCY, DEFAULT_ORGANIZATION_ID } from '../lib/constants';
 
 export interface ProcessCheckoutOptions {
   supabase: SupabaseClient<Database>;
@@ -70,7 +70,7 @@ export async function processCheckout(options: ProcessCheckoutOptions): Promise<
     .toUpperCase()}`;
 
   // Resolve default organization ID
-  let orgId = '88c7af2e-afd4-4504-a43f-b14cc45d6263';
+  let orgId = DEFAULT_ORGANIZATION_ID;
   try {
     const { data: org } = await supabase.from('organizations').select('id').limit(1).maybeSingle();
     if (org?.id) {

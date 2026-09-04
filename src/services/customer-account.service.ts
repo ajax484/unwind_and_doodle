@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../lib/supabase/types';
+import { DEFAULT_ORGANIZATION_ID } from '../lib/constants';
 
 export interface CustomerProfile {
   id: string;
@@ -119,7 +120,7 @@ export async function linkOrCreateCustomerAccount(
   }
 
   // 3. Create a brand new customer record for this authenticated user
-  let orgId = '88c7af2e-afd4-4504-a43f-b14cc45d6263';
+  let orgId = DEFAULT_ORGANIZATION_ID;
   try {
     const { data: primaryOrg } = await supabase.from('organizations').select('id').limit(1).maybeSingle();
     if (primaryOrg?.id) {

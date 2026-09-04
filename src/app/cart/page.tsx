@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CartItemDetail } from '@/services/cart.service';
+import type { CartItemDetail } from '@/types/cart';
 import { getCartHeaders, dispatchCartUpdated } from '@/lib/cart-client';
 import { useCart } from '@/context/CartContext';
 

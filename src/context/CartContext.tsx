@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
-import { CartResponse, CartItemDetail } from '@/services/cart.service';
+import type { CartResponse, CartItemDetail } from '@/types/cart';
 import { getCartHeaders, setClientCartSessionId, dispatchCartUpdated } from '@/lib/cart-client';
 import { toast } from 'sonner';
 

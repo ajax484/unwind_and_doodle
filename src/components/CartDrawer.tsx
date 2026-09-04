@@ -3,8 +3,9 @@
 import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CartItemDetail } from '@/services/cart.service';
+import type { CartItemDetail } from '@/types/cart';
 import { useCart } from '@/context/CartContext';
+import { formatPrice } from '@/lib/format-utils';
 
 export default function CartDrawer() {
   const pathname = usePathname();
@@ -48,11 +49,7 @@ export default function CartDrawer() {
   const isEmpty = items.length === 0;
   const hasUnavailableItems = items.some((item) => item.isAvailable === false);
 
-  const formattedSubtotal = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    maximumFractionDigits: 0,
-  }).format(cart?.subtotal || 0);
+  const formattedSubtotal = formatPrice(cart?.subtotal);
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
@@ -119,11 +116,7 @@ export default function CartDrawer() {
               /* Item list */
               items.map((item: CartItemDetail) => {
                 const isUpdating = updatingItemId === item.id;
-                const formattedPrice = new Intl.NumberFormat('en-NG', {
-                  style: 'currency',
-                  currency: 'NGN',
-                  maximumFractionDigits: 0,
-                }).format(item.totalPrice);
+                const formattedPrice = formatPrice(item.totalPrice);
 
                 return (
                   <div
@@ -245,11 +238,7 @@ export default function CartDrawer() {
                               <div key={a.id} className="flex justify-between">
                                 <span className="truncate">+ {a.addonName} (×{a.quantity})</span>
                                 <span className="font-semibold text-[#243342] ml-2">
-                                  {new Intl.NumberFormat('en-NG', {
-                                    style: 'currency',
-                                    currency: 'NGN',
-                                    maximumFractionDigits: 0,
-                                  }).format(a.totalPrice)}
+                                  {formatPrice(a.totalPrice)}
                                 </span>
                               </div>
                             ))}

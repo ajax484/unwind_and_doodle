@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../lib/supabase/types';
 import { CustomerInfo, ShippingAddress } from '../types/checkout';
+import { DEFAULT_ORGANIZATION_ID } from '../lib/constants';
 
 export interface CustomerResolutionResult {
   customerId: string;
@@ -63,7 +64,7 @@ export async function resolveOrCreateCustomer(
     const { data: newCust, error: createError } = await supabase
       .from('customers')
       .insert({
-        organization_id: '88c7af2e-afd4-4504-a43f-b14cc45d6263',
+        organization_id: DEFAULT_ORGANIZATION_ID,
         email,
         first_name: customerInfo.firstName,
         last_name: customerInfo.lastName,

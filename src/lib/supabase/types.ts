@@ -1393,6 +1393,62 @@ export type Database = {
           },
         ];
       };
+      notifications: {
+        Row: {
+          category: string;
+          created_at: string;
+          id: string;
+          link: string | null;
+          message: string;
+          metadata: Json | null;
+          organization_id: string;
+          read_at: string | null;
+          recipient_id: string | null;
+          recipient_type: string;
+          title: string;
+          type: string;
+          updated_at: string;
+        };
+        Insert: {
+          category?: string;
+          created_at?: string;
+          id?: string;
+          link?: string | null;
+          message: string;
+          metadata?: Json | null;
+          organization_id: string;
+          read_at?: string | null;
+          recipient_id?: string | null;
+          recipient_type: string;
+          title: string;
+          type?: string;
+          updated_at?: string;
+        };
+        Update: {
+          category?: string;
+          created_at?: string;
+          id?: string;
+          link?: string | null;
+          message?: string;
+          metadata?: Json | null;
+          organization_id?: string;
+          read_at?: string | null;
+          recipient_id?: string | null;
+          recipient_type?: string;
+          title?: string;
+          type?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notifications_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       organization_invitations: {
         Row: {
           accepted_at: string | null;

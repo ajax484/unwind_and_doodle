@@ -43,3 +43,52 @@ export interface NotificationListResponse {
   unreadCount: number;
   total: number;
 }
+
+export interface NotificationRow {
+  id: string;
+  organization_id: string;
+  recipient_type: NotificationRecipientType;
+  recipient_id: string | null;
+  title: string;
+  message: string;
+  type: NotificationType;
+  category: NotificationCategory;
+  link: string | null;
+  metadata: Record<string, unknown> | null;
+  read_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationInsert {
+  id?: string;
+  organization_id: string;
+  recipient_type: NotificationRecipientType;
+  recipient_id?: string | null;
+  title: string;
+  message: string;
+  type?: NotificationType;
+  category?: NotificationCategory;
+  link?: string | null;
+  metadata?: Record<string, unknown> | null;
+  read_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface NotificationUpdate {
+  id?: string;
+  organization_id?: string;
+  recipient_type?: NotificationRecipientType;
+  recipient_id?: string | null;
+  title?: string;
+  message?: string;
+  type?: NotificationType;
+  category?: NotificationCategory;
+  link?: string | null;
+  metadata?: Record<string, unknown> | null;
+  read_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+

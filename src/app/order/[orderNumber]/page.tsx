@@ -5,6 +5,7 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { OrderStatus } from '@/lib/supabase/types';
 import OrderStatusTimeline from '@/components/OrderStatusTimeline';
+import { formatPrice, formatDate } from '@/lib/format-utils';
 
 interface ShippingAddress {
   addressLine1?: string;
@@ -255,7 +256,7 @@ export default function OrderStatusPage() {
           Order Reference:{' '}
           <span className="font-mono font-bold text-slate-900">{order.orderNumber}</span>
           {' • '}
-          {new Date(order.createdAt).toLocaleDateString(undefined, {
+          {formatDate(order.createdAt, {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
@@ -291,7 +292,7 @@ export default function OrderStatusPage() {
                       {item.productName} (×{item.quantity})
                     </h4>
                     <span className="font-bold text-sm text-slate-900 font-heading">
-                      ₦{item.totalPrice.toLocaleString()}
+                      {formatPrice(item.totalPrice)}
                     </span>
                   </div>
 
@@ -392,7 +393,7 @@ export default function OrderStatusPage() {
                     <div className="text-[11px] text-slate-500 space-y-0.5 pt-1">
                       {item.addons.map((a, i) => (
                         <div key={i}>
-                          + {a.name} (×{a.quantity}) — ₦{a.totalPrice.toLocaleString()}
+                          + {a.name} (×{a.quantity}) — {formatPrice(a.totalPrice)}
                         </div>
                       ))}
                     </div>
@@ -406,21 +407,21 @@ export default function OrderStatusPage() {
           <div className="pt-6 border-t border-slate-100 space-y-2 text-xs sm:text-sm">
             <div className="flex items-center justify-between text-slate-600">
               <span>Subtotal</span>
-              <span className="font-semibold text-slate-800">₦{order.subtotal.toLocaleString()}</span>
+              <span className="font-semibold text-slate-800">{formatPrice(order.subtotal)}</span>
             </div>
             {order.discountTotal > 0 && (
               <div className="flex items-center justify-between text-emerald-600">
                 <span>Discount</span>
-                <span className="font-semibold">-₦{order.discountTotal.toLocaleString()}</span>
+                <span className="font-semibold">-{formatPrice(order.discountTotal)}</span>
               </div>
             )}
             <div className="flex items-center justify-between text-slate-600">
               <span>Delivery Fee</span>
-              <span className="font-semibold text-slate-800">₦{order.deliveryFee.toLocaleString()}</span>
+              <span className="font-semibold text-slate-800">{formatPrice(order.deliveryFee)}</span>
             </div>
             <div className="flex items-center justify-between text-base font-bold text-slate-900 pt-3 border-t border-slate-100 font-heading">
               <span>Total Paid</span>
-              <span className="text-[#D99BA3] text-lg">₦{order.totalAmount.toLocaleString()}</span>
+              <span className="text-[#D99BA3] text-lg">{formatPrice(order.totalAmount)}</span>
             </div>
           </div>
         </div>

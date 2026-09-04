@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { extractAuthToken } from '@/lib/auth-helpers';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
 import { acceptTeamInvitation } from '@/services/team.service';
+import { AcceptInvitationBodySchema } from '@/types/admin-team';
 
 export async function POST(
   req: NextRequest,
@@ -47,24 +48,32 @@ export async function POST(
     }
 
     // 2. Check if a password was provided in the request body for direct account creation / sign-in
-    let body: any = null;
+    let parsedBody: { password?: string; fullName?: string } = {};
     try {
-      body = await req.json();
-    } catch {}
+      const rawJson = await req.json();
+      const parseResult = AcceptInvitationBodySchema.safeParse(rawJson);
+      if (!parseResult.success) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Validation failed',
+            details: parseResult.error.flatten().fieldErrors,
+          },
+          { status: 400 }
+        );
+      }
+      parsedBody = parseResult.data;
+    } catch {
+      // Empty body is permissible if authenticating via cookie or header
+    }
 
-    const password = body?.password?.trim();
-    const fullName = body?.fullName?.trim() || 'Team Member';
+    const password = parsedBody.password?.trim();
+    const fullName = parsedBody.fullName?.trim() || 'Team Member';
 
     let currentUser: { id: string; email?: string; user_metadata?: Record<string, any> } | null = null;
     let sessionToken: string | null = null;
 
     if (password) {
-      if (password.length < 6) {
-        return NextResponse.json(
-          { success: false, error: 'Password must be at least 6 characters' },
-          { status: 400 }
-        );
-      }
 
       // Try to sign in first (in case the auth user already exists)
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({

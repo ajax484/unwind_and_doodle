@@ -1,7 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../lib/supabase/types';
 import { CheckoutItem, PriceBreakdown } from '../types/checkout';
-import { CURRENCY } from '../lib/constants';
+import { CURRENCY, DEFAULT_ORGANIZATION_ID } from '../lib/constants';
 import { validateAndCalculateDiscount, DiscountCartItem } from './discount.service';
 
 export interface DeliveryFeeResult {
@@ -106,7 +106,7 @@ export async function calculateOrderPricing(
     throw new Error(`Failed to fetch product prices: ${prodError.message}`);
   }
 
-  let organizationId = params.organizationId || '88c7af2e-afd4-4504-a43f-b14cc45d6263';
+  let organizationId = params.organizationId || DEFAULT_ORGANIZATION_ID;
   if (!params.organizationId && dbProducts && dbProducts.length > 0 && dbProducts[0].organization_id) {
     organizationId = dbProducts[0].organization_id;
   }

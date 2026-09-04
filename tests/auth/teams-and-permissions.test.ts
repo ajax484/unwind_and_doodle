@@ -18,6 +18,7 @@ import {
   removeTeamMember,
 } from '@/services/team.service';
 import { AdminOrganizationContext } from '@/services/auth.service';
+import { AcceptInvitationBodySchema } from '@/types/admin-team';
 
 describe('Teams & Permissions System', () => {
   let mockSupabase: ReturnType<typeof createMockSupabaseClient>;
@@ -368,6 +369,20 @@ describe('Teams & Permissions System', () => {
           'tok_accepted_5555555555abcdef'
         )
       ).rejects.toThrow('already been accepted');
+    });
+
+    it('AcceptInvitationBodySchema validates password length and optional full name', () => {
+      const invalid = AcceptInvitationBodySchema.safeParse({ password: '123' });
+      expect(invalid.success).toBe(false);
+
+      const valid = AcceptInvitationBodySchema.safeParse({
+        password: 'securePassword123',
+        fullName: 'Dave Doe',
+      });
+      expect(valid.success).toBe(true);
+
+      const empty = AcceptInvitationBodySchema.safeParse({});
+      expect(empty.success).toBe(true);
     });
   });
 });

@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { formatPrice } from '@/lib/format-utils';
 
 export interface ProductCardProps {
   id: string;
@@ -25,11 +26,7 @@ export default function ProductCard({
   bundleComponentsCount,
   categories,
 }: ProductCardProps) {
-  const formattedPrice = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    maximumFractionDigits: 0,
-  }).format(price);
+  const formattedPrice = formatPrice(price);
 
   const categoryName = categories && categories.length > 0 ? categories[0].name : null;
 

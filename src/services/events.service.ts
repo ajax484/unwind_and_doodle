@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database, Json } from '../lib/supabase/types';
+import { DEFAULT_ORGANIZATION_ID } from '../lib/constants';
 
 export type DomainEventHandler = (event: {
   id: string;
@@ -38,7 +39,7 @@ export async function publishDomainEvent(
     organizationId?: string | null;
   }
 ): Promise<string> {
-  const DEFAULT_ORG_ID = '88c7af2e-afd4-4504-a43f-b14cc45d6263';
+  const DEFAULT_ORG_ID = DEFAULT_ORGANIZATION_ID;
   let orgId =
     params.organizationId ||
     (params.payload && typeof params.payload === 'object'

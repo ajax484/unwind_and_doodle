@@ -15,11 +15,6 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Newsletter State
-  const [newsletterEmail, setNewsletterEmail] = useState('');
-  const [newsletterStatus, setNewsletterStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [newsletterMsg, setNewsletterMsg] = useState('');
-
   useEffect(() => {
     async function loadFeaturedProducts() {
       try {
@@ -39,32 +34,6 @@ export default function HomePage() {
     }
     loadFeaturedProducts();
   }, []);
-
-  const handleNewsletterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newsletterEmail.trim()) return;
-
-    try {
-      setNewsletterStatus('loading');
-      const res = await fetch('/api/newsletter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: newsletterEmail.trim() }),
-      });
-      const json = await res.json();
-      if (res.ok && json.success) {
-        setNewsletterStatus('success');
-        setNewsletterMsg(json.message || 'Thank you for joining our community!');
-        setNewsletterEmail('');
-      } else {
-        setNewsletterStatus('error');
-        setNewsletterMsg(json.error || 'Failed to subscribe. Please try again.');
-      }
-    } catch {
-      setNewsletterStatus('error');
-      setNewsletterMsg('Network error. Please try again later.');
-    }
-  };
 
   return (
     <div className="w-full flex flex-col">
@@ -91,13 +60,7 @@ export default function HomePage() {
       <ReviewsSection />
 
       {/* 7. NEWSLETTER SIGNUP */}
-      <NewsletterSection
-        email={newsletterEmail}
-        status={newsletterStatus}
-        message={newsletterMsg}
-        onEmailChange={setNewsletterEmail}
-        onSubmit={handleNewsletterSubmit}
-      />
+      <NewsletterSection />
     </div>
   );
 }

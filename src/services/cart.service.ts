@@ -1,83 +1,24 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../lib/supabase/types';
+import { DEFAULT_ORGANIZATION_ID } from '../lib/constants';
 
-export interface CartAddonInput {
-  addonProductId: string;
-  quantity: number;
-}
+import type {
+  CartAddonInput,
+  CartCustomizationInput,
+  CartThemeCustomizationInput,
+  AddToCartInput,
+  CartItemDetail,
+  CartResponse,
+} from '../types/cart';
 
-export interface CartCustomizationInput {
-  notes?: string;
-  assetUrls?: string[];
-  themeCustomization?: CartThemeCustomizationInput;
-}
-
-export interface CartThemeCustomizationInput {
-  selectedThemeIds: string[];
-  coverName?: string;
-}
-
-export interface AddToCartInput {
-  productId: string;
-  quantity: number;
-  addons?: CartAddonInput[];
-  customization?: CartCustomizationInput;
-  themeCustomization?: CartThemeCustomizationInput;
-}
-
-export interface CartItemDetail {
-  id: string;
-  productId: string;
-  productName: string;
-  slug: string;
-  sku: string;
-  quantity: number;
-  unitPrice: number;
-  totalPrice: number;
-  primaryImage: string | null;
-  requiresCustomization: boolean;
-  supportsThemeCustomization?: boolean;
-  isAvailable?: boolean;
-  productType?: 'physical' | 'custom' | 'bundle';
-  bundleComponents?: {
-    componentProductId: string;
-    name: string;
-    quantity: number;
-  }[];
-  customization?: {
-    id: string;
-    notes: string | null;
-    status: string;
-    assets: string[];
-  } | null;
-  themeCustomization?: {
-    selectedThemeIds: string[];
-    coverName: string | null;
-    themes: {
-      id: string;
-      name: string;
-      sortOrder: number;
-    }[];
-  } | null;
-  addons: {
-    id: string;
-    addonProductId: string;
-    addonName: string;
-    quantity: number;
-    unitPrice: number;
-    totalPrice: number;
-    primaryImage: string | null;
-  }[];
-}
-
-export interface CartResponse {
-  cartId: string;
-  sessionId: string;
-  items: CartItemDetail[];
-  totalItemCount: number;
-  subtotal: number;
-  currency: string;
-}
+export type {
+  CartAddonInput,
+  CartCustomizationInput,
+  CartThemeCustomizationInput,
+  AddToCartInput,
+  CartItemDetail,
+  CartResponse,
+};
 
 /**
  * Retrieves an existing cart or creates a new guest cart session.
@@ -175,7 +116,7 @@ export async function getOrCreateCart(
   }
 
   // Resolve default organization ID
-  let orgId = '88c7af2e-afd4-4504-a43f-b14cc45d6263';
+  let orgId = DEFAULT_ORGANIZATION_ID;
   try {
     const { data: org } = await supabase.from('organizations').select('id').limit(1).maybeSingle();
     if (org?.id) {

@@ -54,6 +54,7 @@ This directory maintains granular, per-feature change records following the repo
 - [2026-08-30 Pending Payment Revalidation (Cron Service)](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-08-30-pending-payment-revalidation.md)
 - [2026-08-30 Migration: Replace Flutterwave with Paystack](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-08-30-replace-flutterwave-with-paystack.md)
 - [2026-08-30 Customer Payment Page Implementation](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-08-30-customer-payment-page-implementation.md)
+- [2026-09-04 Clean Code Phase 2: Payment Fulfillment Pipeline Unification](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-04-clean-code-phase-2-payment-fulfillment-unification.md)
 
 ---
 
@@ -99,3 +100,7 @@ This directory maintains granular, per-feature change records following the repo
 - [2026-09-02 Organize Tests Directory by Feature Domain](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-02-organize-test-directory.md)
 - [2026-09-02 Documentation System Enhancement](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-02-documentation-system-enhancement.md)
 - [2026-09-03 Fix Font Circular Dependency & Mobile Rendering Fallback](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-03-fix-font-circular-dependency.md)
+- [2026-09-04 Clean Code Phase 1: Constants & Unified Formatters](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-04-clean-code-phase-1-constants-and-formatters.md)
+- [2026-09-04 Clean Code Phase 2: Payment Fulfillment Pipeline Unification](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-04-clean-code-phase-2-payment-fulfillment-unification.md)
+- [2026-09-04 Clean Code Phase 3: Type Safety, Zod Validation & Cart Model Deduplication](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-04-clean-code-phase-3-types-and-validation.md)
+- [2026-09-04 Clean Code Phase 4: Next.js Performance & Admin Query Projections](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-04-clean-code-phase-4-nextjs-performance-and-architecture.md)

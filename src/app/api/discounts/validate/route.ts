@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
 import { validateAndCalculateDiscount, DiscountCartItem } from '@/services/discount.service';
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/constants';
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
     const supabase = getServiceSupabaseClient();
 
     // Default organization ID
-    let orgId = organizationId || '88c7af2e-afd4-4504-a43f-b14cc45d6263';
+    let orgId = organizationId || DEFAULT_ORGANIZATION_ID;
     if (!organizationId) {
       const { data: org } = await supabase.from('organizations').select('id').limit(1).maybeSingle();
       if (org?.id) orgId = org.id;

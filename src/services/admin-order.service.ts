@@ -98,22 +98,22 @@ export async function listAdminOrders(
     filtered = filtered.filter((o) => o.created_at <= filters.endDate!);
   }
 
-  // 3. Batch fetch payments to support paymentStatus filter and list view
-  const orderIds = filtered.map((o) => o.id);
-  const { data: allPayments } = orderIds.length > 0
-    ? await supabase.from('payments').select('id, order_id, status, provider').in('order_id', orderIds)
-    : { data: [] };
-
+  // 3. Filter by paymentStatus if requested
   const paymentMap = new Map<string, { status: string; provider: string }>();
-  for (const p of allPayments || []) {
-    const existing = paymentMap.get(p.order_id);
-    if (!existing || existing.status !== 'successful' || p.status === 'successful') {
-      paymentMap.set(p.order_id, { status: p.status, provider: p.provider });
-    }
-  }
 
-  // Payment status filter
   if (filters.paymentStatus) {
+    const orderIds = filtered.map((o) => o.id);
+    const { data: filterPayments } = orderIds.length > 0
+      ? await supabase.from('payments').select('id, order_id, status, provider').in('order_id', orderIds)
+      : { data: [] };
+
+    for (const p of filterPayments || []) {
+      const existing = paymentMap.get(p.order_id);
+      if (!existing || existing.status !== 'successful' || p.status === 'successful') {
+        paymentMap.set(p.order_id, { status: p.status, provider: p.provider });
+      }
+    }
+
     filtered = filtered.filter((o) => {
       const pay = paymentMap.get(o.id);
       return pay?.status?.toLowerCase() === filters.paymentStatus!.toLowerCase();
@@ -148,7 +148,7 @@ export async function listAdminOrders(
     };
   }
 
-  // 4. Batch fetch related details (customers, warehouses, locations, order_items)
+  // 4. Batch fetch related details (customers, warehouses, locations, order_items, payments)
   const paginatedOrderIds = paginatedOrders.map((o) => o.id);
   const customerIds = Array.from(new Set(paginatedOrders.map((o) => o.customer_id).filter(Boolean)));
   const warehouseIds = Array.from(new Set(paginatedOrders.map((o) => o.warehouse_id).filter(Boolean)));
@@ -157,19 +157,36 @@ export async function listAdminOrders(
   const validWarehouseIds = warehouseIds.filter((id): id is string => Boolean(id));
   const validLocationIds = locationIds.filter((id): id is string => Boolean(id));
 
-  const [{ data: customers }, { data: warehouses }, { data: locations }, { data: items }] =
-    await Promise.all([
-      validCustomerIds.length > 0
-        ? supabase.from('customers').select('id, email, first_name, last_name, phone').in('id', validCustomerIds)
-        : Promise.resolve({ data: [] }),
-      validWarehouseIds.length > 0
-        ? supabase.from('warehouses').select('*').in('id', validWarehouseIds)
-        : Promise.resolve({ data: [] }),
-      validLocationIds.length > 0
-        ? supabase.from('locations').select('id, name, state').in('id', validLocationIds)
-        : Promise.resolve({ data: [] }),
-      supabase.from('order_items').select('id, order_id, quantity').in('order_id', paginatedOrderIds),
-    ]);
+  const [
+    { data: customers },
+    { data: warehouses },
+    { data: locations },
+    { data: items },
+    { data: pagePayments },
+  ] = await Promise.all([
+    validCustomerIds.length > 0
+      ? supabase.from('customers').select('id, email, first_name, last_name, phone').in('id', validCustomerIds)
+      : Promise.resolve({ data: [] }),
+    validWarehouseIds.length > 0
+      ? supabase.from('warehouses').select('*').in('id', validWarehouseIds)
+      : Promise.resolve({ data: [] }),
+    validLocationIds.length > 0
+      ? supabase.from('locations').select('id, name, state').in('id', validLocationIds)
+      : Promise.resolve({ data: [] }),
+    supabase.from('order_items').select('id, order_id, quantity').in('order_id', paginatedOrderIds),
+    !filters.paymentStatus && paginatedOrderIds.length > 0
+      ? supabase.from('payments').select('id, order_id, status, provider').in('order_id', paginatedOrderIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  if (!filters.paymentStatus && pagePayments) {
+    for (const p of pagePayments) {
+      const existing = paymentMap.get(p.order_id);
+      if (!existing || existing.status !== 'successful' || p.status === 'successful') {
+        paymentMap.set(p.order_id, { status: p.status, provider: p.provider });
+      }
+    }
+  }
 
   const customerMap = new Map((customers || []).map((c) => [c.id, c]));
   const warehouseMap = new Map((warehouses || []).map((w) => [w.id, w]));

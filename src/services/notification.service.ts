@@ -4,6 +4,7 @@ import { generateOrderAccessToken } from '../lib/order-token';
 import { getConfig } from '../lib/config';
 import { createInAppNotification } from './in-app-notification.service';
 import { getServiceSupabaseClient } from '../lib/supabase/client';
+import { formatPrice } from '../lib/format-utils';
 
 export interface EmailNotificationPayload {
   to: string;
@@ -120,7 +121,7 @@ export function renderEmailTemplate(
     case 'order_confirmation': {
       const orderNumber = String(data.orderNumber || '');
       const customerName = String(data.customerName || 'Valued Customer');
-      const total = data.total ? `₦${Number(data.total).toLocaleString()}` : '';
+      const total = data.total ? formatPrice(Number(data.total)) : '';
       const trackingUrl = String(data.trackingUrl || '#');
       const items = (data.items as Array<{ name?: string; product_name?: string; quantity: number; unit_price?: number; price?: number }>) || [];
 
@@ -139,7 +140,7 @@ export function renderEmailTemplate(
                 <tr>
                   <td>${item.product_name || item.name || 'Item'}</td>
                   <td>${item.quantity}</td>
-                  <td style="text-align: right;">${item.unit_price || item.price ? `₦${Number(item.unit_price || item.price).toLocaleString()}` : '—'}</td>
+                  <td style="text-align: right;">${item.unit_price || item.price ? formatPrice(item.unit_price || item.price) : '—'}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -393,7 +394,7 @@ export function initializeNotificationEventHandlers(): void {
       await createInAppNotification(supabase, {
         recipientType: 'admin',
         title: `New Order #${orderNumber}`,
-        message: payload.total ? `New order received totaling ₦${Number(payload.total).toLocaleString()}` : `New order #${orderNumber} placed`,
+        message: payload.total ? `New order received totaling ${formatPrice(payload.total as number)}` : `New order #${orderNumber} placed`,
         type: 'info',
         category: 'order',
         link: '/admin/orders',

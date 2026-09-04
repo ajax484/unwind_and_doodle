@@ -59,7 +59,7 @@ export async function listAdminCustomers(
   // 2. Fetch orders for all organization customers to calculate LTV and order stats
   const { data: allOrders } = await supabase
     .from('orders')
-    .select('*')
+    .select('id, customer_id, total, status, created_at')
     .in('customer_id', customerIds);
 
   // Aggregate order stats per customer

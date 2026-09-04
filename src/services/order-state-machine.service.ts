@@ -2,7 +2,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Database, OrderStatus, Json } from '../lib/supabase/types';
 import { releaseOrderReservations, commitOrderReservations } from './inventory.service';
 import { publishDomainEvent } from './events.service';
-import { ORDER_STATUS } from '../lib/constants';
+import { ORDER_STATUS, DEFAULT_ORGANIZATION_ID } from '../lib/constants';
 
 export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
   [ORDER_STATUS.CREATED]: [ORDER_STATUS.PENDING, ORDER_STATUS.CANCELLED],
@@ -143,7 +143,7 @@ export async function transitionOrderStatus(
   }
 
   // 5. Insert audit_logs record
-  const orgId = order.organization_id || '88c7af2e-afd4-4504-a43f-b14cc45d6263';
+  const orgId = order.organization_id || DEFAULT_ORGANIZATION_ID;
   const { error: auditError } = await supabase.from('audit_logs').insert({
     organization_id: orgId,
     actor_id: userId || null,

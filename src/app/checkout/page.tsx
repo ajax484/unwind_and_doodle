@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CartResponse, CartItemDetail } from '@/services/cart.service';
+import type { CartResponse, CartItemDetail } from '@/types/cart';
 import { getCartHeaders, setClientCartSessionId } from '@/lib/cart-client';
 import { toast } from 'sonner';
 
