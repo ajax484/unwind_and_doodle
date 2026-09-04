@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CartResponse, CartItemDetail } from '@/services/cart.service';
 import { getCartHeaders, setClientCartSessionId } from '@/lib/cart-client';
+import { toast } from 'sonner';
 
 interface DeliveryLocation {
   id: string;
@@ -188,7 +189,7 @@ export default function CheckoutPage() {
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cart || cart.items.length === 0) {
-      alert('Your cart is empty');
+      toast.warning('Your cart is empty');
       return;
     }
 
@@ -202,7 +203,7 @@ export default function CheckoutPage() {
       (item) => item.requiresCustomization && (!item.customization || item.customization.assets.length === 0)
     );
     if (incompleteCustomization) {
-      alert('One or more custom items in your cart are missing required photos. Please return to cart.');
+      toast.warning('One or more custom items in your cart are missing required photos. Please return to cart.');
       return;
     }
 

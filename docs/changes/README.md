@@ -43,6 +43,8 @@ This directory maintains granular, per-feature change records following the repo
 - [2026-09-02 Customer Payment Edit Experience](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-02-customer-payment-edit-experience.md)
 - [2026-09-02 Fix Account Order Types](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-02-fix-account-order-types.md)
 - [2026-09-02 Fix Order Page and Manual Orders Types](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-02-fix-order-page-and-manual-orders-types.md)
+- [2026-09-04 Cart System Hardening](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-04-cart-system-hardening.md)
+- [2026-09-04 Fix Cart Session Deduplication](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-04-fix-cart-session-deduplication.md)
 
 ---
 
@@ -80,6 +82,9 @@ This directory maintains granular, per-feature change records following the repo
 ---
 
 ### 6. Notifications, Outbox & Infrastructure
+- [2026-09-03 Switch to Sonner Toast Notification System](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-03-switch-to-sonner-toast-system.md)
+- [2026-09-03 Option 2 Persistent In-App Notification Center](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-03-persistent-in-app-notification-center.md)
+- [2026-09-03 Bespoke Toast Notification System & Event Architecture](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-03-bespoke-toast-notification-system.md)
 - [2026-09-02 Nodemailer Email Notification Service](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-09-02-nodemailer-notification-service.md)
 - [2026-08-30 API Routes Verification](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-08-30-api-routes-verification.md)
 - [2026-08-30 Phase 6L Production Hardening](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/2026-08-30-phase-6l-production-hardening-and-validation.md)

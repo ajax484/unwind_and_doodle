@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 interface DiscountItem {
   id: string;
@@ -72,9 +73,10 @@ export default function AdminDiscountsPage() {
       if (!res.ok || !json.success) {
         throw new Error(json.error || 'Failed to update status');
       }
+      toast.success(`Discount ${discount.code} ${!discount.active ? 'activated' : 'deactivated'}`);
       fetchDiscounts();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to update status');
+      toast.error(err instanceof Error ? err.message : 'Failed to update status');
     } finally {
       setActionLoadingId(null);
     }
@@ -97,9 +99,10 @@ export default function AdminDiscountsPage() {
       if (!res.ok || !json.success) {
         throw new Error(json.error || 'Failed to delete discount');
       }
+      toast.success(`Discount ${discount.code} deleted`);
       fetchDiscounts();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to delete discount');
+      toast.error(err instanceof Error ? err.message : 'Failed to delete discount');
     } finally {
       setActionLoadingId(null);
     }

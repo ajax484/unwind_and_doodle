@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import NotificationBell from '@/components/NotificationBell';
 
 interface AdminSessionData {
   user: {
@@ -398,6 +399,8 @@ export default function AdminLayout({
                 </span>
               </div>
             </div>
+
+            <NotificationBell variant="admin" />
 
             <div className="h-6 w-px bg-slate-200 hidden sm:block" />
 

@@ -1,17 +1,23 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CartResponse, CartItemDetail } from '@/services/cart.service';
-import { getCartHeaders, setClientCartSessionId, dispatchCartUpdated } from '@/lib/cart-client';
+import { CartItemDetail } from '@/services/cart.service';
+import { getCartHeaders, dispatchCartUpdated } from '@/lib/cart-client';
+import { useCart } from '@/context/CartContext';
 
 export default function CartPage() {
   const router = useRouter();
-  const [cart, setCart] = useState<CartResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    cart,
+    loading,
+    updatingItemId,
+    updateQuantity,
+    removeItem,
+    setCartDirectly,
+  } = useCart();
+  const [error] = useState<string | null>(null);
 
   // Modal / inline editor state for managing customization photos
   const [editingCustomizationItem, setEditingCustomizationItem] = useState<CartItemDetail | null>(null);
@@ -21,79 +27,12 @@ export default function CartPage() {
   const [savingCustomization, setSavingCustomization] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
-  const fetchCart = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await fetch('/api/cart', { headers: getCartHeaders() });
-      if (!res.ok) throw new Error('Failed to load cart');
-      const json = await res.json();
-      if (json.success && json.data) {
-        if (json.data.sessionId) setClientCartSessionId(json.data.sessionId);
-        setCart(json.data);
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error fetching cart');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchCart();
-
-    const handleCartUpdated = (e: Event) => {
-      const customEvt = e as CustomEvent<{ cart?: CartResponse }>;
-      if (customEvt.detail?.cart) {
-        if (customEvt.detail.cart.sessionId) {
-          setClientCartSessionId(customEvt.detail.cart.sessionId);
-        }
-        setCart(customEvt.detail.cart);
-      } else {
-        fetchCart();
-      }
-    };
-    window.addEventListener('cart-updated', handleCartUpdated);
-    return () => window.removeEventListener('cart-updated', handleCartUpdated);
-  }, [fetchCart]);
-
-  const handleUpdateQuantity = async (cartItemId: string, newQty: number) => {
-    try {
-      setUpdatingItemId(cartItemId);
-      const res = await fetch('/api/cart', {
-        method: 'PATCH',
-        headers: getCartHeaders(),
-        body: JSON.stringify({ cartItemId, quantity: newQty }),
-      });
-      const json = await res.json();
-      if (json.success && json.data) {
-        setCart(json.data);
-        dispatchCartUpdated(json.data, false);
-      }
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error updating quantity');
-    } finally {
-      setUpdatingItemId(null);
-    }
+  const handleUpdateQuantity = (cartItemId: string, newQty: number) => {
+    updateQuantity(cartItemId, newQty);
   };
 
-  const handleRemoveItem = async (cartItemId: string) => {
-    try {
-      setUpdatingItemId(cartItemId);
-      const res = await fetch(`/api/cart?cartItemId=${cartItemId}`, {
-        method: 'DELETE',
-        headers: getCartHeaders(),
-      });
-      const json = await res.json();
-      if (json.success && json.data) {
-        setCart(json.data);
-        dispatchCartUpdated(json.data, false);
-      }
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error removing item');
-    } finally {
-      setUpdatingItemId(null);
-    }
+  const handleRemoveItem = (cartItemId: string) => {
+    removeItem(cartItemId);
   };
 
   // Open customization modal
@@ -153,7 +92,7 @@ export default function CartPage() {
       setSavingCustomization(true);
       const res = await fetch('/api/cart', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getCartHeaders(),
         body: JSON.stringify({
           cartItemId: editingCustomizationItem.id,
           customization: {
@@ -168,8 +107,8 @@ export default function CartPage() {
         throw new Error(json.error || 'Failed to save customization');
       }
 
-      setCart(json.data);
-      window.dispatchEvent(new Event('cart-updated'));
+      setCartDirectly(json.data);
+      dispatchCartUpdated(json.data, false);
       setEditingCustomizationItem(null);
     } catch (err: unknown) {
       setModalError(err instanceof Error ? err.message : 'Error saving customization');
@@ -196,6 +135,8 @@ export default function CartPage() {
 
   const items = cart?.items || [];
   const isEmpty = items.length === 0;
+
+  const hasUnavailableItems = items.some((item) => item.isAvailable === false);
 
   // Check if any customizable product is missing required photos or themes
   const hasIncompleteCustomization = items.some(
@@ -228,7 +169,16 @@ export default function CartPage() {
         </p>
       </div>
 
-      {error ? (
+      {loading && !cart ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-12 items-start animate-pulse">
+          <div className="lg:col-span-8 space-y-4">
+            <div className="h-28 bg-[#F4F8FA] rounded-2xl" />
+            <div className="h-28 bg-[#F4F8FA] rounded-2xl" />
+            <div className="h-28 bg-[#F4F8FA] rounded-2xl" />
+          </div>
+          <div className="lg:col-span-4 h-64 bg-[#F4F8FA] rounded-2xl" />
+        </div>
+      ) : error ? (
         <div className="p-8 text-center text-[#B33948] bg-[#FDF0F2] rounded-2xl max-w-md mx-auto">
           <p className="text-sm font-medium">{error}</p>
         </div>
@@ -253,6 +203,17 @@ export default function CartPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-12 items-start">
           {/* Left Column: Cart Items (7 cols) */}
           <div className="lg:col-span-8 space-y-5">
+            {/* Warning Banner if unavailable items */}
+            {hasUnavailableItems && (
+              <div className="p-4 bg-[#FDF0F2] border border-[#F0DCE0] rounded-2xl flex items-start gap-3 text-xs sm:text-sm text-[#B33948] animate-in fade-in">
+                <span className="text-base">⚠️</span>
+                <div>
+                  <span className="font-heading font-bold block">Unavailable Items in Cart</span>
+                  <span>One or more items in your cart are currently out of stock or discontinued. Please remove them to proceed.</span>
+                </div>
+              </div>
+            )}
+
             {/* Warning Banner if customization missing */}
             {hasIncompleteCustomization && (
               <div className="p-4 bg-[#FDF0F2] border border-[#F0DCE0] rounded-2xl flex items-start gap-3 text-xs sm:text-sm text-[#B33948] animate-in fade-in">
@@ -320,6 +281,20 @@ export default function CartPage() {
                           {formattedLineTotal}
                         </span>
                       </div>
+
+                      {/* Availability Tag */}
+                      {item.isAvailable === false && (
+                        <div className="p-3 rounded-2xl bg-[#FDF0F2] border border-[#F0DCE0] flex items-center justify-between text-xs text-[#B33948]">
+                          <span className="font-heading font-semibold">⚠️ Product currently unavailable (out of stock or discontinued)</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveItem(item.id)}
+                            className="font-heading font-bold underline hover:text-[#8C2B37] ml-2 cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
 
                       {/* Customization Details & Photos Preview */}
                       {item.requiresCustomization && (
@@ -484,9 +459,9 @@ export default function CartPage() {
                           </span>
                           <button
                             type="button"
-                            disabled={isUpdating}
+                            disabled={isUpdating || item.isAvailable === false}
                             onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                            className="stepper-btn !w-8 !h-8 text-xs"
+                            className="stepper-btn !w-8 !h-8 text-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                             aria-label="Increase Quantity"
                           >
                             +
@@ -531,7 +506,20 @@ export default function CartPage() {
               <span className="text-[#D99BA3] text-xl">{formattedSubtotal}</span>
             </div>
 
-            {hasIncompleteCustomization ? (
+            {hasUnavailableItems ? (
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  disabled
+                  className="btn-rose w-full text-center text-sm !py-4 opacity-50 cursor-not-allowed font-heading font-bold block"
+                >
+                  Unavailable Items in Cart
+                </button>
+                <p className="text-[11px] text-center text-[#B33948]">
+                  Please remove unavailable items before proceeding to checkout.
+                </p>
+              </div>
+            ) : hasIncompleteCustomization ? (
               <div className="space-y-2">
                 <button
                   type="button"
@@ -548,7 +536,7 @@ export default function CartPage() {
               <button
                 type="button"
                 onClick={() => router.push('/checkout')}
-                className="btn-rose w-full text-center text-sm !py-4 shadow-md font-heading font-bold block transition-all"
+                className="btn-rose w-full text-center text-sm !py-4 shadow-md font-heading font-bold block transition-all cursor-pointer"
               >
                 Proceed to Checkout →
               </button>

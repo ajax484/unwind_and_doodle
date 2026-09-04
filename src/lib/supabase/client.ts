@@ -44,3 +44,11 @@ export function getServiceSupabaseClient(
 
   return serverClientInstance;
 }
+
+/**
+ * Sets or overrides the active server client instance (e.g. for testing).
+ */
+export function setServiceSupabaseClient(client: SupabaseClient<Database> | null): void {
+  serverClientInstance = client;
+}
+

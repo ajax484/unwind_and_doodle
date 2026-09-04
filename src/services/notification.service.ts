@@ -2,6 +2,8 @@ import nodemailer, { Transporter } from 'nodemailer';
 import { registerDomainEventHandler } from './events.service';
 import { generateOrderAccessToken } from '../lib/order-token';
 import { getConfig } from '../lib/config';
+import { createInAppNotification } from './in-app-notification.service';
+import { getServiceSupabaseClient } from '../lib/supabase/client';
 
 export interface EmailNotificationPayload {
   to: string;
@@ -349,26 +351,57 @@ export function initializeNotificationEventHandlers(): void {
     const orderNumber = (payload.orderNumber as string) || (payload.order_number as string) || event.aggregateId;
     const email = (payload.email as string) || (payload.customerEmail as string);
 
-    if (!email) return;
+    if (email) {
+      const accessToken = generateOrderAccessToken(orderNumber, email);
+      const trackingUrl = `${appUrl}/order/${orderNumber}?token=${accessToken}`;
 
-    const accessToken = generateOrderAccessToken(orderNumber, email);
-    const trackingUrl = `${appUrl}/order/${orderNumber}?token=${accessToken}`;
-
-    await dispatchTransactionalEmail(
-      {
-        to: email,
-        subject: `Order Confirmed: #${orderNumber} — Unwind and Doodle`,
-        template: 'order_confirmation',
-        data: {
-          orderNumber,
-          customerName: payload.firstName || 'Valued Customer',
-          total: payload.total,
-          trackingUrl,
-          items: payload.items || [],
+      await dispatchTransactionalEmail(
+        {
+          to: email,
+          subject: `Order Confirmed: #${orderNumber} — Unwind and Doodle`,
+          template: 'order_confirmation',
+          data: {
+            orderNumber,
+            customerName: payload.firstName || 'Valued Customer',
+            total: payload.total,
+            trackingUrl,
+            items: payload.items || [],
+          },
         },
-      },
-      `notif_order_confirm_${event.id}`
-    );
+        `notif_order_confirm_${event.id}`
+      );
+    }
+
+    // Create in-app notifications for customer & admin
+    try {
+      const supabase = getServiceSupabaseClient();
+      const customerId = (payload.customerId as string) || (payload.customer_id as string) || null;
+
+      if (customerId) {
+        await createInAppNotification(supabase, {
+          recipientType: 'customer',
+          recipientId: customerId,
+          title: `Order #${orderNumber} Confirmed! 🎉`,
+          message: 'Thank you for your order! We are preparing your doodle kit with care.',
+          type: 'success',
+          category: 'order',
+          link: `/order/${orderNumber}`,
+          metadata: { orderNumber, total: payload.total },
+        });
+      }
+
+      await createInAppNotification(supabase, {
+        recipientType: 'admin',
+        title: `New Order #${orderNumber}`,
+        message: payload.total ? `New order received totaling ₦${Number(payload.total).toLocaleString()}` : `New order #${orderNumber} placed`,
+        type: 'info',
+        category: 'order',
+        link: '/admin/orders',
+        metadata: { orderNumber, total: payload.total },
+      });
+    } catch (inAppErr) {
+      console.warn('[notification.in_app_skipped]', inAppErr);
+    }
   });
 
   // 2. Order Shipped Notification
@@ -377,24 +410,45 @@ export function initializeNotificationEventHandlers(): void {
     const orderNumber = (payload.orderNumber as string) || event.aggregateId;
     const email = payload.email as string;
 
-    if (!email) return;
+    if (email) {
+      const accessToken = generateOrderAccessToken(orderNumber, email);
+      const trackingUrl = `${appUrl}/order/${orderNumber}?token=${accessToken}`;
 
-    const accessToken = generateOrderAccessToken(orderNumber, email);
-    const trackingUrl = `${appUrl}/order/${orderNumber}?token=${accessToken}`;
-
-    await dispatchTransactionalEmail(
-      {
-        to: email,
-        subject: `Your Order #${orderNumber} Has Shipped! 🚚 — Unwind and Doodle`,
-        template: 'order_shipped',
-        data: {
-          orderNumber,
-          trackingUrl,
-          deliveryAddress: payload.deliveryAddress,
+      await dispatchTransactionalEmail(
+        {
+          to: email,
+          subject: `Your Order #${orderNumber} Has Shipped! 🚚 — Unwind and Doodle`,
+          template: 'order_shipped',
+          data: {
+            orderNumber,
+            trackingUrl,
+            deliveryAddress: payload.deliveryAddress,
+          },
         },
-      },
-      `notif_order_shipped_${event.id}`
-    );
+        `notif_order_shipped_${event.id}`
+      );
+    }
+
+    // Create in-app notification for customer
+    try {
+      const supabase = getServiceSupabaseClient();
+      const customerId = (payload.customerId as string) || (payload.customer_id as string) || null;
+
+      if (customerId) {
+        await createInAppNotification(supabase, {
+          recipientType: 'customer',
+          recipientId: customerId,
+          title: `Order #${orderNumber} Shipped! 🚚`,
+          message: 'Your doodle kit is on its way. Track your package anytime.',
+          type: 'info',
+          category: 'order',
+          link: `/order/${orderNumber}`,
+          metadata: { orderNumber },
+        });
+      }
+    } catch (inAppErr) {
+      console.warn('[notification.in_app_shipped_skipped]', inAppErr);
+    }
   });
 
   // 3. Stock Replenishment Notification
@@ -403,6 +457,7 @@ export function initializeNotificationEventHandlers(): void {
       productId: string;
       recipients: {
         notificationId: string;
+        customerId?: string;
         email?: string;
         phone?: string;
         channel: string;
@@ -425,6 +480,25 @@ export function initializeNotificationEventHandlers(): void {
           },
           `notif_stock_${recipient.notificationId}`
         );
+      }
+
+      // Create in-app notification if customerId is present
+      if (recipient.customerId) {
+        try {
+          const supabase = getServiceSupabaseClient();
+          await createInAppNotification(supabase, {
+            recipientType: 'customer',
+            recipientId: recipient.customerId,
+            title: 'Back in Stock! 🎨',
+            message: 'An item from your wishlist is now back in stock and ready to order.',
+            type: 'success',
+            category: 'stock',
+            link: '/products',
+            metadata: { productId: payload.productId },
+          });
+        } catch (inAppErr) {
+          console.warn('[notification.in_app_stock_skipped]', inAppErr);
+        }
       }
     }
   });

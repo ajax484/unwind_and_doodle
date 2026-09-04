@@ -9,6 +9,8 @@ import {
   clearCart,
 } from '@/services/cart.service';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
+import { AddToCartSchema, UpdateCartItemSchema } from '@/types/cart';
+import { getAuthenticatedUserContext } from '@/services/user-context.service';
 
 const CART_COOKIE_NAME = 'uad_cart_session';
 
@@ -27,6 +29,18 @@ function getOrCreateSessionId(req: NextRequest): { sessionId: string; isNew: boo
   return { sessionId: newId, isNew: true };
 }
 
+async function resolveCustomerId(req: NextRequest): Promise<string | null> {
+  try {
+    const authContext = await getAuthenticatedUserContext(req);
+    if (authContext.authenticated && authContext.userType === 'customer' && authContext.customer?.id) {
+      return authContext.customer.id;
+    }
+  } catch {
+    // Non-blocking fallback for guest
+  }
+  return null;
+}
+
 function attachCartCookie(res: NextResponse, sessionId: string) {
   res.cookies.set({
     name: CART_COOKIE_NAME,
@@ -42,8 +56,9 @@ export async function GET(req: NextRequest) {
   try {
     const supabase = getServiceSupabaseClient();
     const { sessionId, isNew } = getOrCreateSessionId(req);
+    const customerId = await resolveCustomerId(req);
 
-    const cart = await getCartDetails(supabase, sessionId);
+    const cart = await getCartDetails(supabase, sessionId, customerId);
     const res = NextResponse.json({ success: true, data: cart }, { status: 200 });
 
     if (isNew) {
@@ -60,23 +75,32 @@ export async function POST(req: NextRequest) {
   try {
     const supabase = getServiceSupabaseClient();
     const { sessionId } = getOrCreateSessionId(req);
+    const customerId = await resolveCustomerId(req);
     const body = await req.json();
 
-    const { productId, quantity, addons, customization, themeCustomization } = body;
-    if (!productId || typeof quantity !== 'number' || quantity < 1) {
+    const parseResult = AddToCartSchema.safeParse(body);
+    if (!parseResult.success) {
+      const firstError = parseResult.error.issues[0]?.message || 'Invalid request payload';
       return NextResponse.json(
-        { success: false, error: 'Valid productId and quantity (>= 1) are required' },
+        { success: false, error: firstError, details: parseResult.error.flatten().fieldErrors },
         { status: 400 }
       );
     }
 
-    const updatedCart = await addItemToCart(supabase, sessionId, {
-      productId,
-      quantity,
-      addons,
-      customization,
-      themeCustomization,
-    });
+    const { productId, quantity, addons, customization, themeCustomization } = parseResult.data;
+
+    const updatedCart = await addItemToCart(
+      supabase,
+      sessionId,
+      {
+        productId,
+        quantity,
+        addons,
+        customization,
+        themeCustomization,
+      },
+      customerId
+    );
 
     const res = NextResponse.json({ success: true, data: updatedCart }, { status: 200 });
     attachCartCookie(res, sessionId);
@@ -91,29 +115,40 @@ export async function PATCH(req: NextRequest) {
   try {
     const supabase = getServiceSupabaseClient();
     const { sessionId } = getOrCreateSessionId(req);
+    const customerId = await resolveCustomerId(req);
     const body = await req.json();
 
-    const { cartItemId, quantity, customization, themeCustomization } = body;
-    if (!cartItemId) {
+    const parseResult = UpdateCartItemSchema.safeParse(body);
+    if (!parseResult.success) {
+      const firstError = parseResult.error.issues[0]?.message || 'Invalid request payload';
       return NextResponse.json(
-        { success: false, error: 'cartItemId is required' },
+        { success: false, error: firstError, details: parseResult.error.flatten().fieldErrors },
         { status: 400 }
       );
     }
 
+    const { cartItemId, quantity, customization, themeCustomization } = parseResult.data;
+
+    // 1. Update customization if provided
+    if (customization || themeCustomization) {
+      await updateCartItemCustomization(
+        supabase,
+        sessionId,
+        cartItemId,
+        {
+          ...customization,
+          ...(themeCustomization ? { themeCustomization } : {}),
+        },
+        customerId
+      );
+    }
+
+    // 2. Update quantity if provided
     let updatedCart;
     if (typeof quantity === 'number') {
-      updatedCart = await updateCartItemQuantity(supabase, sessionId, cartItemId, quantity);
-    } else if (customization || themeCustomization) {
-      updatedCart = await updateCartItemCustomization(supabase, sessionId, cartItemId, {
-        ...customization,
-        ...(themeCustomization ? { themeCustomization } : {}),
-      });
+      updatedCart = await updateCartItemQuantity(supabase, sessionId, cartItemId, quantity, customerId);
     } else {
-      return NextResponse.json(
-        { success: false, error: 'Either quantity, customization, or themeCustomization is required' },
-        { status: 400 }
-      );
+      updatedCart = await getCartDetails(supabase, sessionId, customerId);
     }
 
     const res = NextResponse.json({ success: true, data: updatedCart }, { status: 200 });
@@ -129,6 +164,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const supabase = getServiceSupabaseClient();
     const { sessionId } = getOrCreateSessionId(req);
+    const customerId = await resolveCustomerId(req);
     const url = new URL(req.url);
     const cartItemId = url.searchParams.get('cartItemId');
     const clearAll = url.searchParams.get('all') === 'true' || url.searchParams.get('clear') === 'true';
@@ -142,9 +178,9 @@ export async function DELETE(req: NextRequest) {
 
     let updatedCart;
     if (clearAll) {
-      updatedCart = await clearCart(supabase, sessionId);
+      updatedCart = await clearCart(supabase, sessionId, customerId);
     } else {
-      updatedCart = await removeCartItem(supabase, sessionId, cartItemId!);
+      updatedCart = await removeCartItem(supabase, sessionId, cartItemId!, customerId);
     }
 
     const res = NextResponse.json({ success: true, data: updatedCart }, { status: 200 });
@@ -155,3 +191,4 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }
+

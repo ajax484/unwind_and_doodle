@@ -3,30 +3,15 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-
-import { getCartHeaders, setClientCartSessionId } from '@/lib/cart-client';
+import { useCart } from '@/context/CartContext';
+import NotificationBell from '@/components/NotificationBell';
 
 export default function Navbar() {
   const pathname = usePathname();
-  const [cartCount, setCartCount] = useState<number>(0);
+  const { itemCount: cartCount, openDrawer } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [customerName, setCustomerName] = useState<string>('');
-
-  const fetchCartCount = async () => {
-    try {
-      const res = await fetch('/api/cart', { headers: getCartHeaders() });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && json.data) {
-          if (json.data.sessionId) setClientCartSessionId(json.data.sessionId);
-          setCartCount(json.data.totalItemCount || 0);
-        }
-      }
-    } catch {
-      // Ignore background fetch error
-    }
-  };
 
   const fetchSession = async () => {
     try {
@@ -48,27 +33,12 @@ export default function Navbar() {
   useEffect(() => {
     if (pathname?.startsWith('/admin')) return;
 
-    fetchCartCount();
     fetchSession();
 
-    const handleCartUpdate = (e: Event) => {
-      const customEvt = e as CustomEvent<{ cart?: { totalItemCount?: number; sessionId?: string } }>;
-      if (customEvt.detail?.cart) {
-        if (customEvt.detail.cart.sessionId) {
-          setClientCartSessionId(customEvt.detail.cart.sessionId);
-        }
-        setCartCount(customEvt.detail.cart.totalItemCount || 0);
-      } else {
-        fetchCartCount();
-      }
-    };
     const handleAuthUpdate = () => fetchSession();
-
-    window.addEventListener('cart-updated', handleCartUpdate);
     window.addEventListener('auth-updated', handleAuthUpdate);
 
     return () => {
-      window.removeEventListener('cart-updated', handleCartUpdate);
       window.removeEventListener('auth-updated', handleAuthUpdate);
     };
   }, [pathname]);
@@ -80,7 +50,7 @@ export default function Navbar() {
   const handleCartClick = (e: React.MouseEvent) => {
     if (pathname !== '/cart' && pathname !== '/checkout') {
       e.preventDefault();
-      window.dispatchEvent(new Event('open-cart-drawer'));
+      openDrawer();
     }
   };
 
@@ -184,6 +154,11 @@ export default function Navbar() {
               {isAuthenticated ? (customerName || 'Account') : 'Sign In'}
             </span>
           </Link>
+
+          {/* Notifications Bell */}
+          {isAuthenticated && (
+            <NotificationBell variant="customer" />
+          )}
 
           {/* Cart Icon & Count */}
           <Link

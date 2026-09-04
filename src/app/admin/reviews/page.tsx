@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminReviewListItem, AdminReviewSummaryKPIs } from '@/types/admin-review-customization';
+import { toast } from 'sonner';
 
 export default function AdminReviewsPage() {
   const router = useRouter();
@@ -122,13 +123,14 @@ export default function AdminReviewsPage() {
       });
 
       if (res.ok) {
+        toast.success(action === 'approve' ? 'Review approved successfully' : 'Review rejected');
         await fetchReviews();
       } else {
         const json = await res.json();
-        alert(json.error || 'Failed to moderate review');
+        toast.error(json.error || 'Failed to moderate review');
       }
     } catch {
-      alert('Error updating review status');
+      toast.error('Error updating review status');
     } finally {
       setModeratingId(null);
     }

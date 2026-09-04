@@ -4,6 +4,8 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+import { getCartHeaders, dispatchCartUpdated } from '@/lib/cart-client';
+
 function CallbackContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -34,8 +36,11 @@ function CallbackContent() {
         if (res.ok && json.success && json.orderNumber) {
           // Clear cart upon successful order payment
           try {
-            await fetch('/api/cart?clear=true', { method: 'DELETE' });
-            window.dispatchEvent(new Event('cart-updated'));
+            await fetch('/api/cart?clear=true', {
+              method: 'DELETE',
+              headers: getCartHeaders(),
+            });
+            dispatchCartUpdated(undefined, false);
           } catch {
             // Non-blocking
           }

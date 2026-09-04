@@ -8,6 +8,7 @@ import {
   TeamInvitation,
   ADMIN_ROLES,
 } from "@/types/admin-team";
+import { toast } from "sonner";
 
 const ROLE_DESCRIPTIONS: Record<
   Role,
@@ -38,7 +39,6 @@ export default function TeamManagementPage() {
   const [invitations, setInvitations] = useState<TeamInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [successToast, setSuccessToast] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"members" | "invitations">(
     "members",
   );
@@ -100,13 +100,6 @@ export default function TeamManagementPage() {
     fetchTeamData();
   }, []);
 
-  const showToast = (message: string) => {
-    setSuccessToast(message);
-    setTimeout(() => {
-      setSuccessToast(null);
-    }, 4000);
-  };
-
   const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteEmail.trim()) {
@@ -130,7 +123,7 @@ export default function TeamManagementPage() {
         throw new Error(json.error || "Failed to send invitation");
       }
 
-      showToast(`Invitation sent to ${inviteEmail}`);
+      toast.success(`Invitation sent to ${inviteEmail}`);
       setIsInviteModalOpen(false);
       setInviteEmail("");
       setInviteRole("staff");
@@ -159,10 +152,10 @@ export default function TeamManagementPage() {
         throw new Error(json.error || "Failed to resend invitation");
       }
 
-      showToast("Invitation successfully resent!");
+      toast.success("Invitation successfully resent!");
       fetchTeamData();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to resend invitation");
+      toast.error(err instanceof Error ? err.message : "Failed to resend invitation");
     } finally {
       setResendingId(null);
     }
@@ -185,11 +178,11 @@ export default function TeamManagementPage() {
         throw new Error(json.error || "Failed to cancel invitation");
       }
 
-      showToast("Invitation cancelled");
+      toast.success("Invitation cancelled");
       setInviteToCancel(null);
       fetchTeamData();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to cancel invitation");
+      toast.error(err instanceof Error ? err.message : "Failed to cancel invitation");
     } finally {
       setCancelLoading(false);
     }
@@ -214,7 +207,7 @@ export default function TeamManagementPage() {
         throw new Error(json.error || "Failed to update member role");
       }
 
-      showToast(`Role updated for ${editingMember.user.email}`);
+      toast.success(`Role updated for ${editingMember.user.email}`);
       setEditingMember(null);
       fetchTeamData();
     } catch (err: unknown) {
@@ -240,11 +233,11 @@ export default function TeamManagementPage() {
         throw new Error(json.error || "Failed to remove team member");
       }
 
-      showToast(`Member ${memberToDelete.user.email} removed`);
+      toast.success(`Member ${memberToDelete.user.email} removed`);
       setMemberToDelete(null);
       fetchTeamData();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to remove member");
+      toast.error(err instanceof Error ? err.message : "Failed to remove member");
     } finally {
       setDeleteLoading(false);
     }

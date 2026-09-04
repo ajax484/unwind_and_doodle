@@ -92,6 +92,7 @@ export function createMockSupabaseClient(initialData?: {
     product_themes: [...(initialData?.product_themes || [])],
     order_item_theme_customizations: [...(initialData?.order_item_theme_customizations || [])],
     order_item_theme_snapshots: [...(initialData?.order_item_theme_snapshots || [])],
+    notifications: [...(initialData?.notifications || [])],
   };
 
   const rpcHandlers: Record<string, Function> = {
@@ -748,6 +749,10 @@ export function createMockSupabaseClient(initialData?: {
           filteredData = filteredData.slice(0, n);
           return queryBuilder;
         },
+        range: (from: number, to: number) => {
+          filteredData = filteredData.slice(from, to + 1);
+          return queryBuilder;
+        },
         is: (col: string, val: any) => {
           filteredData = filteredData.filter((r) => r[col] === val || (val === null && (r[col] === null || r[col] === undefined)));
           return queryBuilder;
@@ -813,12 +818,14 @@ export function createMockSupabaseClient(initialData?: {
         update: (updates: any) => {
           const conditions: Array<[string, any]> = [];
           const inConditions: Array<[string, any[]]> = [];
+          const isConditions: Array<[string, any]> = [];
           const executeUpdate = () => {
             const tableData = (store as any)[table] || [];
             for (const row of tableData) {
               const matchEq = conditions.every(([c, v]) => row[c] === v);
               const matchIn = inConditions.every(([c, vals]) => vals.includes(row[c]));
-              if (matchEq && matchIn) {
+              const matchIs = isConditions.every(([c, val]) => row[c] === val || (val === null && (row[c] === null || row[c] === undefined)));
+              if (matchEq && matchIn && matchIs) {
                 Object.assign(row, updates);
               }
             }
@@ -830,6 +837,10 @@ export function createMockSupabaseClient(initialData?: {
             },
             in: (col: string, vals: any[]) => {
               inConditions.push([col, vals]);
+              return builder;
+            },
+            is: (col: string, val: any) => {
+              isConditions.push([col, val]);
               return builder;
             },
             select: () => ({
@@ -906,7 +917,7 @@ export function createMockSupabaseClient(initialData?: {
           return { data: row, error: null };
         },
         then: (resolve: Function) => {
-          resolve({ data: filteredData, error: null });
+          resolve({ data: filteredData, count: filteredData.length, error: null });
         },
       };
 

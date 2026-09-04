@@ -168,6 +168,25 @@ export async function GET(req: NextRequest) {
         },
       });
 
+      // Mark associated cart as converted
+      try {
+        const cookieSession = req.cookies.get('uad_cart_session')?.value || req.headers.get('x-cart-session');
+        if (order.customer_id) {
+          await supabase
+            .from('carts')
+            .update({ status: 'converted', updated_at: new Date().toISOString() })
+            .eq('customer_id', order.customer_id)
+            .eq('status', 'active');
+        } else if (cookieSession) {
+          await supabase
+            .from('carts')
+            .update({ status: 'converted', updated_at: new Date().toISOString() })
+            .eq('session_id', cookieSession.trim());
+        }
+      } catch {
+        // Non-blocking conversion tracking
+      }
+
       return NextResponse.json(
         {
           success: true,

@@ -8,6 +8,7 @@ import ProductCard from '@/components/ProductCard';
 import { ProductDetail, CatalogProductItem } from '@/services/catalog.service';
 import { PublicTheme } from '@/types/admin-theme';
 import { getCartHeaders, dispatchCartUpdated } from '@/lib/cart-client';
+import { toast } from 'sonner';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -119,17 +120,17 @@ export default function ProductDetailPage() {
     if (!product) return;
 
     if (product.requiresCustomization && customization.assetUrls.length === 0) {
-      alert('Please upload your customization photo before adding this item to your cart.');
+      toast.warning('Please upload your customization photo before adding this item to your cart.');
       return;
     }
 
     if (product.supportsThemeCustomization) {
       if (selectedThemeIds.length === 0) {
-        alert('Please choose between 1 and 3 themes for your coloring book.');
+        toast.warning('Please choose between 1 and 3 themes for your coloring book.');
         return;
       }
       if (selectedThemeIds.length > 3) {
-        alert('You can select a maximum of 3 themes.');
+        toast.warning('You can select a maximum of 3 themes.');
         return;
       }
     }
@@ -165,8 +166,14 @@ export default function ProductDetailPage() {
 
       setAddedSuccess(true);
       dispatchCartUpdated(json.data, true);
+      toast.success(`${product.name} added to your cart!`, {
+        action: {
+          label: 'View Cart',
+          onClick: () => window.dispatchEvent(new CustomEvent('open-cart-drawer')),
+        },
+      });
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error adding to cart');
+      toast.error(err instanceof Error ? err.message : 'Error adding to cart');
     } finally {
       setAddingToCart(false);
     }

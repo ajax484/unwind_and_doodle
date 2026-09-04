@@ -1,84 +1,34 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CartResponse, CartItemDetail } from '@/services/cart.service';
-import { getCartHeaders, setClientCartSessionId, dispatchCartUpdated } from '@/lib/cart-client';
+import { CartItemDetail } from '@/services/cart.service';
+import { useCart } from '@/context/CartContext';
 
 export default function CartDrawer() {
   const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(false);
-  const [cart, setCart] = useState<CartResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
+  const {
+    cart,
+    loading,
+    updatingItemId,
+    isDrawerOpen: isOpen,
+    closeDrawer,
+    updateQuantity,
+    removeItem,
+  } = useCart();
   const drawerRef = useRef<HTMLDivElement>(null);
-
-  const fetchCart = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await fetch('/api/cart', { headers: getCartHeaders() });
-      if (!res.ok) return;
-      const json = await res.json();
-      if (json.success && json.data) {
-        if (json.data.sessionId) setClientCartSessionId(json.data.sessionId);
-        setCart(json.data);
-      }
-    } catch {
-      // Ignore network errors on background fetch
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Global event listeners
-  useEffect(() => {
-    fetchCart();
-
-    const handleOpenDrawer = (e: Event) => {
-      const customEvt = e as CustomEvent<{ cart?: CartResponse }>;
-      if (customEvt.detail?.cart) {
-        if (customEvt.detail.cart.sessionId) {
-          setClientCartSessionId(customEvt.detail.cart.sessionId);
-        }
-        setCart(customEvt.detail.cart);
-      } else {
-        fetchCart();
-      }
-      setIsOpen(true);
-    };
-
-    const handleCartUpdated = (e: Event) => {
-      const customEvt = e as CustomEvent<{ cart?: CartResponse }>;
-      if (customEvt.detail?.cart) {
-        if (customEvt.detail.cart.sessionId) {
-          setClientCartSessionId(customEvt.detail.cart.sessionId);
-        }
-        setCart(customEvt.detail.cart);
-      } else {
-        fetchCart();
-      }
-    };
-
-    window.addEventListener('open-cart-drawer', handleOpenDrawer);
-    window.addEventListener('cart-updated', handleCartUpdated);
-
-    return () => {
-      window.removeEventListener('open-cart-drawer', handleOpenDrawer);
-      window.removeEventListener('cart-updated', handleCartUpdated);
-    };
-  }, [fetchCart]);
 
   // Handle Escape key to close drawer
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
-        setIsOpen(false);
+        closeDrawer();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+  }, [isOpen, closeDrawer]);
 
   // Lock body scroll when drawer is open
   useEffect(() => {
@@ -92,49 +42,11 @@ export default function CartDrawer() {
     };
   }, [isOpen]);
 
-  const handleUpdateQuantity = async (cartItemId: string, newQty: number) => {
-    try {
-      setUpdatingItemId(cartItemId);
-      const res = await fetch('/api/cart', {
-        method: 'PATCH',
-        headers: getCartHeaders(),
-        body: JSON.stringify({ cartItemId, quantity: newQty }),
-      });
-      const json = await res.json();
-      if (json.success && json.data) {
-        setCart(json.data);
-        dispatchCartUpdated(json.data, false);
-      }
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error updating quantity');
-    } finally {
-      setUpdatingItemId(null);
-    }
-  };
-
-  const handleRemoveItem = async (cartItemId: string) => {
-    try {
-      setUpdatingItemId(cartItemId);
-      const res = await fetch(`/api/cart?cartItemId=${cartItemId}`, {
-        method: 'DELETE',
-        headers: getCartHeaders(),
-      });
-      const json = await res.json();
-      if (json.success && json.data) {
-        setCart(json.data);
-        dispatchCartUpdated(json.data, false);
-      }
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error removing item');
-    } finally {
-      setUpdatingItemId(null);
-    }
-  };
-
   if (pathname?.startsWith('/admin') || !isOpen) return null;
 
   const items = cart?.items || [];
   const isEmpty = items.length === 0;
+  const hasUnavailableItems = items.some((item) => item.isAvailable === false);
 
   const formattedSubtotal = new Intl.NumberFormat('en-NG', {
     style: 'currency',
@@ -146,7 +58,7 @@ export default function CartDrawer() {
     <div className="fixed inset-0 z-50 overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
       {/* Backdrop overlay */}
       <div
-        onClick={() => setIsOpen(false)}
+        onClick={() => closeDrawer()}
         className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity duration-300 animate-in fade-in"
       />
 
@@ -167,8 +79,8 @@ export default function CartDrawer() {
             </div>
             <button
               type="button"
-              onClick={() => setIsOpen(false)}
-              className="w-9 h-9 rounded-full bg-[#F4F8FA] hover:bg-[#EBF3F8] text-[#52657A] flex items-center justify-center text-sm font-bold transition-colors"
+              onClick={() => closeDrawer()}
+              className="w-9 h-9 rounded-full bg-[#F4F8FA] hover:bg-[#EBF3F8] text-[#52657A] flex items-center justify-center text-sm font-bold transition-colors cursor-pointer"
               aria-label="Close Cart Drawer"
             >
               ✕
@@ -197,8 +109,8 @@ export default function CartDrawer() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="btn-rose text-xs !px-6"
+                  onClick={() => closeDrawer()}
+                  className="btn-rose text-xs !px-6 cursor-pointer"
                 >
                   Continue Shopping
                 </button>
@@ -238,8 +150,8 @@ export default function CartDrawer() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <Link
-                            href={`/products/${item.slug}`}
-                            onClick={() => setIsOpen(false)}
+                            href={item.slug ? `/products/${item.slug}` : '/products'}
+                            onClick={() => closeDrawer()}
                             className="hover:text-[#D99BA3] font-heading font-bold text-sm text-[#243342] truncate block"
                           >
                             {item.productName}
@@ -248,6 +160,15 @@ export default function CartDrawer() {
                             {formattedPrice}
                           </span>
                         </div>
+
+                        {/* Availability Warning */}
+                        {item.isAvailable === false && (
+                          <div className="mt-1">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-heading font-semibold text-[#B33948] bg-[#FDF0F2] px-2 py-0.5 rounded-md">
+                              ⚠️ Currently unavailable
+                            </span>
+                          </div>
+                        )}
 
                         {/* Customization Status */}
                         {item.requiresCustomization && (
@@ -290,7 +211,7 @@ export default function CartDrawer() {
                               <span>⚠ Themes required</span>
                               <Link
                                 href={`/products/${item.slug || item.productId}`}
-                                onClick={() => setIsOpen(false)}
+                                onClick={() => closeDrawer()}
                                 className="font-heading font-bold text-[#D99BA3] hover:text-[#C67D87] underline"
                               >
                                 Select
@@ -343,8 +264,8 @@ export default function CartDrawer() {
                         <button
                           type="button"
                           disabled={isUpdating}
-                          onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
-                          className="stepper-btn !w-6 !h-6 text-xs"
+                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          className="stepper-btn !w-6 !h-6 text-xs cursor-pointer"
                           aria-label="Decrease quantity"
                         >
                           -
@@ -354,9 +275,9 @@ export default function CartDrawer() {
                         </span>
                         <button
                           type="button"
-                          disabled={isUpdating}
-                          onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                          className="stepper-btn !w-6 !h-6 text-xs"
+                          disabled={isUpdating || item.isAvailable === false}
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          className="stepper-btn !w-6 !h-6 text-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                           aria-label="Increase quantity"
                         >
                           +
@@ -366,8 +287,8 @@ export default function CartDrawer() {
                       <button
                         type="button"
                         disabled={isUpdating}
-                        onClick={() => handleRemoveItem(item.id)}
-                        className="text-[11px] font-heading font-semibold text-[#B33948] hover:text-[#8C2B37] transition-colors"
+                        onClick={() => removeItem(item.id)}
+                        className="text-[11px] font-heading font-semibold text-[#B33948] hover:text-[#8C2B37] transition-colors cursor-pointer"
                       >
                         Remove
                       </button>
@@ -387,17 +308,32 @@ export default function CartDrawer() {
               </div>
 
               <div className="space-y-2.5">
-                <Link
-                  href="/checkout"
-                  onClick={() => setIsOpen(false)}
-                  className="btn-rose w-full text-center text-sm !py-3.5 shadow-md block font-heading font-bold"
-                >
-                  Checkout →
-                </Link>
+                {hasUnavailableItems ? (
+                  <div className="space-y-1.5">
+                    <button
+                      type="button"
+                      disabled
+                      className="btn-rose w-full text-center text-sm !py-3.5 shadow-md block font-heading font-bold opacity-50 cursor-not-allowed"
+                    >
+                      Unavailable Items in Cart
+                    </button>
+                    <p className="text-[11px] text-center text-[#B33948]">
+                      Please remove unavailable items before proceeding.
+                    </p>
+                  </div>
+                ) : (
+                  <Link
+                    href="/checkout"
+                    onClick={() => closeDrawer()}
+                    className="btn-rose w-full text-center text-sm !py-3.5 shadow-md block font-heading font-bold"
+                  >
+                    Checkout →
+                  </Link>
+                )}
 
                 <Link
                   href="/cart"
-                  onClick={() => setIsOpen(false)}
+                  onClick={() => closeDrawer()}
                   className="btn-outline w-full text-center text-xs !py-2.5 block font-heading font-semibold"
                 >
                   View Cart

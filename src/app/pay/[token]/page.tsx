@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, use } from 'react';
 import { PaymentRequestDetail } from '@/types/manual-order';
+import { toast } from 'sonner';
 
 interface LocationOption {
   id: string;
@@ -151,10 +152,10 @@ export default function CustomerPaymentPage({
       if (res.ok && json.success && json.data?.authorizationUrl) {
         window.location.href = json.data.authorizationUrl;
       } else {
-        alert(json.error || 'Failed to initialize payment transaction');
+        toast.error(json.error || 'Failed to initialize payment transaction');
       }
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error processing payment');
+      toast.error(err instanceof Error ? err.message : 'Error processing payment');
     } finally {
       setPayLoading(false);
     }

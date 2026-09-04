@@ -4,6 +4,8 @@ import './globals.css';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import CartDrawer from '@/components/CartDrawer';
+import { Toaster } from 'sonner';
+import { CartProvider } from '@/context/CartContext';
 
 const fredoka = Fredoka({
   subsets: ['latin'],
@@ -41,10 +43,13 @@ export default function RootLayout({
         />
       </head>
       <body className={`${fredoka.variable} ${plusJakartaSans.variable} antialiased min-h-screen flex flex-col bg-[#FFFDF7] text-slate-800`}>
-        <Navbar />
-        <main className="flex-grow">{children}</main>
-        <Footer />
-        <CartDrawer />
+        <CartProvider>
+          <Navbar />
+          <main className="flex-grow">{children}</main>
+          <Footer />
+          <CartDrawer />
+          <Toaster position="top-right" richColors closeButton />
+        </CartProvider>
       </body>
     </html>
   );
