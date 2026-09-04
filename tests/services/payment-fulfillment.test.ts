@@ -101,8 +101,8 @@ describe('Payment Fulfillment Service', () => {
       .select('*')
       .eq('id', paymentId)
       .single();
-    expect(updatedPayment.status).toBe(PAYMENT_STATUS.SUCCESSFUL);
-    expect(updatedPayment.metadata?.channel).toBe('card');
+    expect(updatedPayment?.status).toBe(PAYMENT_STATUS.SUCCESSFUL);
+    expect((updatedPayment?.metadata as Record<string, unknown>)?.channel).toBe('card');
 
     // Verify order updated
     const { data: updatedOrder } = await mockSupabase
@@ -110,7 +110,7 @@ describe('Payment Fulfillment Service', () => {
       .select('*')
       .eq('id', orderId)
       .single();
-    expect(updatedOrder.status).toBe(ORDER_STATUS.PENDING);
+    expect(updatedOrder?.status).toBe(ORDER_STATUS.PENDING);
 
     // Verify manual order payment request updated
     const { data: updatedOpr } = await mockSupabase
@@ -118,7 +118,7 @@ describe('Payment Fulfillment Service', () => {
       .select('*')
       .eq('order_id', orderId)
       .single();
-    expect(updatedOpr.status).toBe('paid');
+    expect(updatedOpr?.status).toBe('paid');
 
     // Verify cart converted
     const { data: updatedCart } = await mockSupabase
@@ -126,7 +126,7 @@ describe('Payment Fulfillment Service', () => {
       .select('*')
       .eq('id', 'cart-1')
       .single();
-    expect(updatedCart.status).toBe('converted');
+    expect(updatedCart?.status).toBe('converted');
   });
 
   it('handles duplicate calls idempotently without repeating side-effects', async () => {
@@ -188,7 +188,7 @@ describe('Payment Fulfillment Service', () => {
       .select('status')
       .eq('id', orderId)
       .single();
-    expect(order.status).toBe(ORDER_STATUS.CONFIRMED);
+    expect(order?.status).toBe(ORDER_STATUS.CONFIRMED);
   });
 
   it('converts guest cart using cartSessionId when customer_id is absent', async () => {
@@ -201,9 +201,10 @@ describe('Payment Fulfillment Service', () => {
       order_number: 'ORD-GUEST-001',
       total: 5000,
       status: ORDER_STATUS.CREATED,
-      payment_status: PAYMENT_STATUS.PENDING,
       customer_id: null,
       organization_id: '88c7af2e-afd4-4504-a43f-b14cc45d6263',
+      email: 'guest@example.com',
+      shipping_address: {},
     });
 
     await mockSupabase.from('payments').insert({
@@ -222,6 +223,7 @@ describe('Payment Fulfillment Service', () => {
       session_id: guestSessionId,
       customer_id: null,
       status: 'active',
+      organization_id: '88c7af2e-afd4-4504-a43f-b14cc45d6263',
     });
 
     await fulfillSuccessfulPayment({
@@ -243,6 +245,6 @@ describe('Payment Fulfillment Service', () => {
       .select('*')
       .eq('id', 'cart-guest-1')
       .single();
-    expect(updatedGuestCart.status).toBe('converted');
+    expect(updatedGuestCart?.status).toBe('converted');
   });
 });

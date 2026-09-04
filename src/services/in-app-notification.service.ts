@@ -6,6 +6,8 @@ import {
   CreateInAppNotificationInput,
   NotificationListResponse,
   NotificationRecipientType,
+  NotificationType,
+  NotificationCategory,
 } from '../types/notification';
 
 const DEFAULT_ORG_ID = DEFAULT_ORGANIZATION_ID;

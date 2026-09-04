@@ -7,7 +7,7 @@
    - Refactored frontend client components (`CartContext.tsx`, `CartDrawer.tsx`, `app/cart/page.tsx`, `app/checkout/page.tsx`) to import types directly from `@/types/cart`, preventing client components from importing backend service modules.
 
 2. **In-App Notification Type Safety & Elimination of `any` (`src/services/in-app-notification.service.ts`)**:
-   - Added `notifications` table schema definition to `Database['public']['Tables']` in `src/lib/supabase/types.ts`.
+   - Strongly typed `notifications` table schema with `Database['public']['Tables']['notifications']` in `src/lib/supabase/types.ts` (ensuring a single authoritative table definition).
    - Defined `NotificationRow`, `NotificationInsert`, and `NotificationUpdate` in `src/types/notification.ts`.
    - Removed all 6 instances of `(supabase as any)` and `row: any` in `src/services/in-app-notification.service.ts`, replacing them with native typed table queries and strongly-typed mapper functions.
    - Added `notifications` property to `createMockSupabaseClient` initial data type in `tests/mocks/supabase.mock.ts`.
