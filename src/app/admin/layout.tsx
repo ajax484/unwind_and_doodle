@@ -55,13 +55,6 @@ export default function AdminLayout({
 
         if (!isMounted) return;
 
-        if (res.status === 401 || !json.authenticated) {
-          // Unauthenticated -> redirect to /admin/login preserving next parameter
-          const next = encodeURIComponent(pathname || '/admin');
-          router.replace(`/admin/login?next=${next}`);
-          return;
-        }
-
         if (res.status === 403 || !json.success) {
           // Authenticated but not an organization admin -> redirect to unauthorized
           router.replace('/admin/unauthorized');

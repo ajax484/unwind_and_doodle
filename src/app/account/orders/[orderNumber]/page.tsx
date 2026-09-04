@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import OrderStatusTimeline from '@/components/OrderStatusTimeline';
 import ReviewModal from '@/components/ReviewModal';
@@ -82,7 +82,6 @@ interface OrderDetailResponse {
 
 export default function CustomerOrderDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const orderNumber = params?.orderNumber as string;
 
   const [order, setOrder] = useState<OrderDetailResponse | null>(null);
@@ -100,10 +99,6 @@ export default function CustomerOrderDetailPage() {
       setLoading(true);
       const res = await fetch(`/api/account/orders/${orderNumber}`);
       if (!res.ok) {
-        if (res.status === 401) {
-          router.replace('/auth?next=/account/orders/' + orderNumber);
-          return;
-        }
         throw new Error('Order not found or unauthorized');
       }
       const json = await res.json();

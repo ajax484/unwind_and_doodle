@@ -18,31 +18,34 @@ export default function AccountLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [customer, setCustomer] = useState<CustomerData | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     async function loadAccount() {
       try {
         const res = await fetch('/api/auth/session');
-        if (!res.ok) {
-          router.replace('/auth?next=' + encodeURIComponent(pathname));
-          return;
+        if (res.ok) {
+          const json = await res.json();
+          if (isMounted && json.authenticated && json.data?.customer) {
+            setCustomer(json.data.customer);
+          }
         }
-        const json = await res.json();
-        if (json.authenticated && json.data?.customer) {
-          setCustomer(json.data.customer);
-        } else {
-          router.replace('/auth?next=' + encodeURIComponent(pathname));
-        }
-      } catch {
-        router.replace('/auth');
-      } finally {
-        setLoading(false);
+      } catch (err) {
+        console.error('Failed to load customer profile:', err);
       }
     }
 
     loadAccount();
-  }, [router, pathname]);
+
+    const handleAuthUpdate = () => loadAccount();
+    window.addEventListener('auth-updated', handleAuthUpdate);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('auth-updated', handleAuthUpdate);
+    };
+  }, []);
 
   const handleSignOut = async () => {
     try {
@@ -61,15 +64,6 @@ export default function AccountLayout({
     { label: 'Profile', href: '/account/profile', icon: '👤' },
     { label: 'Preferences', href: '/account/preferences', icon: '🔔' },
   ];
-
-  if (loading) {
-    return (
-      <div className="max-w-6xl mx-auto px-4 py-24 text-center space-y-4">
-        <div className="w-12 h-12 rounded-full border-4 border-[#D99BA3] border-t-transparent animate-spin mx-auto" />
-        <p className="text-xs text-slate-500 font-medium">Loading your account...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">

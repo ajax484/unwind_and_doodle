@@ -10,13 +10,6 @@ function AuthContent() {
   const nextPath = searchParams.get('next') || '/account';
   const urlError = searchParams.get('error');
 
-  // If someone targets an admin page via /auth, redirect to the dedicated /admin/login portal
-  useEffect(() => {
-    if (nextPath.startsWith('/admin')) {
-      router.replace(`/admin/login?next=${encodeURIComponent(nextPath)}`);
-    }
-  }, [router, nextPath]);
-
   const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin');
   const [signInMethod, setSignInMethod] = useState<'password' | 'otp'>('password');
   const [otpStep, setOtpStep] = useState<'email' | 'code'>('email');

@@ -262,14 +262,6 @@ export default function TeamManagementPage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast Notification */}
-      {successToast && (
-        <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl border border-slate-700 flex items-center gap-3 animate-in slide-in-from-bottom-5">
-          <span className="text-emerald-400 text-lg">✓</span>
-          <span className="text-xs font-semibold">{successToast}</span>
-        </div>
-      )}
-
       {/* Header Banner */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
