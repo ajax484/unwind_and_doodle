@@ -136,8 +136,8 @@ export function TimeSeriesChart({ data, loading = false }: TimeSeriesChartProps)
           >
             <defs>
               <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.25" />
-                <stop offset="100%" stopColor="#f43f5e" stopOpacity="0.0" />
+                <stop offset="0%" stopColor="var(--color-brand-rose)" stopOpacity="0.25" />
+                <stop offset="100%" stopColor="var(--color-brand-rose)" stopOpacity="0.0" />
               </linearGradient>
             </defs>
 
@@ -152,7 +152,7 @@ export function TimeSeriesChart({ data, loading = false }: TimeSeriesChartProps)
                     y1={y}
                     x2={width - paddingX}
                     y2={y}
-                    stroke="#F1F5F9"
+                    stroke="var(--color-border-default)"
                     strokeWidth="1"
                     strokeDasharray={ratio === 1 ? '0' : '4 4'}
                   />
@@ -161,7 +161,7 @@ export function TimeSeriesChart({ data, loading = false }: TimeSeriesChartProps)
                     y={y + 4}
                     textAnchor="end"
                     fontSize="10"
-                    fill="#94A3B8"
+                    fill="var(--color-text-tertiary)"
                     fontFamily="inherit"
                   >
                     {metric === 'revenue'
@@ -184,13 +184,13 @@ export function TimeSeriesChart({ data, loading = false }: TimeSeriesChartProps)
               <path
                 d={linePath}
                 fill="none"
-                stroke="#F43F5E"
+                stroke="var(--color-brand-rose)"
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
             ) : points.length === 1 ? (
-              <circle cx={points[0].x} cy={points[0].y} r="5" fill="#F43F5E" />
+              <circle cx={points[0].x} cy={points[0].y} r="5" fill="var(--color-brand-rose)" />
             ) : null}
 
             {/* Interactive Data Points */}
@@ -213,8 +213,8 @@ export function TimeSeriesChart({ data, loading = false }: TimeSeriesChartProps)
                   cx={p.x}
                   cy={p.y}
                   r={hoveredPoint?.index === idx ? 6 : 3.5}
-                  fill={hoveredPoint?.index === idx ? '#E11D48' : '#FFFFFF'}
-                  stroke="#F43F5E"
+                  fill={hoveredPoint?.index === idx ? 'var(--color-brand-rose-deep)' : 'var(--color-bg-surface)'}
+                  stroke="var(--color-brand-rose)"
                   strokeWidth="2"
                   className="transition-all"
                 />
@@ -233,7 +233,7 @@ export function TimeSeriesChart({ data, loading = false }: TimeSeriesChartProps)
                   y={height - 8}
                   textAnchor="middle"
                   fontSize="10"
-                  fill="#94A3B8"
+                  fill="var(--color-text-tertiary)"
                   fontFamily="inherit"
                 >
                   {formatDateLabel(p.date)}

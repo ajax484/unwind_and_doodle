@@ -146,21 +146,21 @@ export default function CustomerOrderDetailPage() {
   if (loading) {
     return (
       <div className="card-soft p-16 text-center space-y-4">
-        <div className="w-12 h-12 rounded-full border-4 border-[#D99BA3] border-t-transparent animate-spin mx-auto" />
-        <p className="text-xs text-slate-500 font-medium">Loading order details...</p>
+        <div className="w-12 h-12 rounded-full border-4 border-action-primary border-t-transparent animate-spin mx-auto" />
+        <p className="text-xs text-text-secondary font-medium">Loading order details...</p>
       </div>
     );
   }
 
   if (error || !order) {
     return (
-      <div className="card-soft p-12 text-center space-y-4 bg-white border border-[#E2ECF2]">
+      <div className="card-soft p-12 text-center space-y-4 bg-white border border-border-default">
         <span className="text-4xl block">🔍</span>
-        <h3 className="font-heading font-bold text-lg text-slate-800">
+        <h3 className="font-heading font-bold text-lg text-text-primary">
           Order Not Found
         </h3>
-        <p className="text-xs text-slate-500">{error || "We couldn't locate this order in your account."}</p>
-        <Link href="/account/orders" className="btn-pink text-xs !px-6 inline-block">
+        <p className="text-xs text-text-secondary">{error || "We couldn't locate this order in your account."}</p>
+        <Link href="/account/orders" className="btn-rose text-xs !px-6 inline-block">
           Return to Orders
         </Link>
       </div>
@@ -179,17 +179,17 @@ export default function CustomerOrderDetailPage() {
         <div className="space-y-1">
           <Link
             href="/account/orders"
-            className="text-xs text-[#4A7A99] font-semibold hover:underline flex items-center gap-1"
+            className="text-xs text-action-primary font-semibold hover:underline flex items-center gap-1"
           >
             ← Back to All Orders
           </Link>
-          <h1 className="text-2xl font-bold font-heading text-slate-800 flex items-center gap-3">
+          <h1 className="text-2xl font-bold font-heading text-text-primary flex items-center gap-3">
             <span>Order #{order.orderNumber}</span>
             <span className="badge-stock badge-in-stock capitalize text-xs">
               {order.status}
             </span>
           </h1>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-text-tertiary">
             Placed on{' '}
             {formatDate(order.createdAt, {
               year: 'numeric',
@@ -203,16 +203,16 @@ export default function CustomerOrderDetailPage() {
           type="button"
           onClick={handleReorder}
           disabled={reordering}
-          className="btn-pink text-xs !py-2.5 !px-5 self-start sm:self-auto cursor-pointer disabled:opacity-50"
+          className="btn-rose text-xs !py-2.5 !px-5 self-start sm:self-auto cursor-pointer disabled:opacity-50"
         >
           {reordering ? 'Adding to Cart...' : '🔄 Reorder Items'}
         </button>
       </div>
 
       {reorderResult && (
-        <div className="p-4 bg-[#EBF3F8] text-[#243342] text-xs rounded-2xl border border-[#CBDDE8] flex items-center justify-between">
+        <div className="p-4 bg-bg-brand text-text-primary text-xs rounded-2xl border border-border-brand flex items-center justify-between">
           <span>{reorderResult}</span>
-          <Link href="/cart" className="font-semibold text-[#D99BA3] hover:underline ml-3">
+          <Link href="/cart" className="font-semibold text-action-primary hover:underline ml-3">
             Go to Cart →
           </Link>
         </div>
@@ -224,15 +224,15 @@ export default function CustomerOrderDetailPage() {
       {/* Main Order Content */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
         {/* Itemized Receipt */}
-        <div className="md:col-span-2 card-soft p-6 sm:p-8 bg-white border border-[#E2ECF2] shadow-xs space-y-6">
-          <h3 className="font-heading font-bold text-base text-slate-800">
+        <div className="md:col-span-2 card-soft p-6 sm:p-8 bg-white border border-border-default shadow-xs space-y-6">
+          <h3 className="font-heading font-bold text-base text-text-primary">
             Items in Your Order
           </h3>
 
-          <div className="space-y-4 divide-y divide-slate-100">
+          <div className="space-y-4 divide-y divide-border-default">
             {order.items.map((item) => (
               <div key={item.id} className="pt-4 first:pt-0 flex gap-4 items-start">
-                <div className="w-16 h-16 rounded-2xl bg-[#F4F8FA] overflow-hidden flex-shrink-0 border border-[#EDF3F7] flex items-center justify-center">
+                <div className="w-16 h-16 rounded-2xl bg-bg-subtle overflow-hidden flex-shrink-0 border border-border-default flex items-center justify-center">
                   {item.primaryImage ? (
                     <img
                       src={item.primaryImage}
@@ -246,39 +246,39 @@ export default function CustomerOrderDetailPage() {
 
                 <div className="flex-grow space-y-1.5">
                   <div className="flex items-start justify-between">
-                    <h4 className="font-heading font-bold text-sm text-slate-800">
+                    <h4 className="font-heading font-bold text-sm text-text-primary">
                       {item.productName} (×{item.quantity})
                     </h4>
-                    <span className="font-bold text-sm text-slate-900 font-heading">
+                    <span className="font-bold text-sm text-text-primary font-heading">
                       {formatPrice(item.totalPrice)}
                     </span>
                   </div>
 
                   {/* Coloring Book Theme Customization */}
                   {item.themeCustomization && (
-                    <div className="text-xs text-[#243342] bg-[#FBF0F2] p-3 rounded-2xl border border-[#D99BA3]/20 space-y-1.5 my-1.5">
+                    <div className="text-xs text-text-primary bg-bg-accent p-3 rounded-2xl border border-border-accent/20 space-y-1.5 my-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="font-heading font-bold text-xs text-[#D99BA3] flex items-center gap-1.5">
+                        <span className="font-heading font-bold text-xs text-brand-rose flex items-center gap-1.5">
                           <span>🎨</span> Coloring Book Customization
                         </span>
                         {item.themeCustomization.coverName && (
-                          <span className="text-[10px] font-heading font-bold px-2 py-0.5 rounded-full bg-white text-[#D99BA3] border border-[#D99BA3]/30">
+                          <span className="text-[10px] font-heading font-bold px-2 py-0.5 rounded-full bg-white text-brand-rose border border-border-accent/30">
                             Cover: {item.themeCustomization.coverName}
                           </span>
                         )}
                       </div>
 
                       {item.themeCustomization.themes && item.themeCustomization.themes.length > 0 && (
-                        <div className="text-[11px] text-[#52657A]">
-                          <span className="font-semibold text-[#243342]">Themes:</span>{' '}
+                        <div className="text-[11px] text-text-secondary">
+                          <span className="font-semibold text-text-primary">Themes:</span>{' '}
                           {item.themeCustomization.themes.map((t) => t.themeName).join(' · ')}
                         </div>
                       )}
 
                       {item.themeCustomization.coverName && (
-                        <div className="text-[11px] text-[#52657A]">
-                          <span className="font-semibold text-[#243342]">Personalized Name:</span>{' '}
-                          <span className="font-medium text-slate-800">"{item.themeCustomization.coverName}"</span>
+                        <div className="text-[11px] text-text-secondary">
+                          <span className="font-semibold text-text-primary">Personalized Name:</span>{' '}
+                          <span className="font-medium text-text-primary">"{item.themeCustomization.coverName}"</span>
                         </div>
                       )}
                     </div>
@@ -286,18 +286,18 @@ export default function CustomerOrderDetailPage() {
 
                   {/* Photo & Dedication Customization */}
                   {item.customization && (
-                    <div className="text-xs text-[#243342] bg-rose-50/60 p-3 rounded-2xl border border-rose-100 space-y-1.5 my-1.5">
+                    <div className="text-xs text-text-primary bg-bg-accent p-3 rounded-2xl border border-border-accent/30 space-y-1.5 my-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="font-heading font-bold text-xs text-rose-700 flex items-center gap-1.5">
+                        <span className="font-heading font-bold text-xs text-brand-rose flex items-center gap-1.5">
                           <span>✨</span> Custom Keepsake Artwork
                         </span>
-                        <span className="text-[10px] font-heading font-bold uppercase px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
+                        <span className="text-[10px] font-heading font-bold uppercase px-2 py-0.5 rounded-full bg-bg-accent text-brand-rose">
                           {item.customization.status}
                         </span>
                       </div>
 
                       {item.customization.notes && (
-                        <p className="text-[11px] text-slate-600 italic bg-white/80 p-2 rounded-xl border border-rose-100/60">
+                        <p className="text-[11px] text-text-secondary italic bg-white/80 p-2 rounded-xl border border-border-default">
                           "{item.customization.notes}"
                         </p>
                       )}
@@ -310,7 +310,7 @@ export default function CustomerOrderDetailPage() {
                               href={asset.assetUrl}
                               target="_blank"
                               rel="noreferrer"
-                              className="group w-12 h-12 rounded-xl overflow-hidden bg-white border border-rose-200/80 flex-shrink-0 shadow-2xs relative"
+                              className="group w-12 h-12 rounded-xl overflow-hidden bg-white border border-border-default flex-shrink-0 shadow-2xs relative"
                               title={`View Photo #${idx + 1}`}
                             >
                               <img
@@ -320,7 +320,7 @@ export default function CustomerOrderDetailPage() {
                               />
                             </a>
                           ))}
-                          <span className="text-[11px] text-slate-500 font-medium ml-1">
+                          <span className="text-[11px] text-text-secondary font-medium ml-1">
                             ({item.customization.assets.length} photo{item.customization.assets.length === 1 ? '' : 's'} attached)
                           </span>
                         </div>
@@ -348,7 +348,7 @@ export default function CustomerOrderDetailPage() {
                   )}
 
                   {item.addons && item.addons.length > 0 && (
-                    <div className="text-[11px] text-slate-500 space-y-0.5 pt-1">
+                    <div className="text-[11px] text-text-secondary space-y-0.5 pt-1">
                       {item.addons.map((a, i) => (
                         <div key={i}>
                           + {a.name} (×{a.quantity}) — {formatPrice(a.totalPrice)}
@@ -368,12 +368,12 @@ export default function CustomerOrderDetailPage() {
                             productName: item.productName,
                           })
                         }
-                        className="text-xs text-[#D99BA3] font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+                        className="text-xs text-action-primary font-semibold hover:underline flex items-center gap-1 cursor-pointer"
                       >
                         ⭐ Leave a Product Review
                       </button>
                     ) : item.hasReviewed ? (
-                      <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
+                      <span className="text-[11px] text-status-success-accent font-medium flex items-center gap-1">
                         ✓ Review Submitted
                       </span>
                     ) : null}
@@ -384,28 +384,28 @@ export default function CustomerOrderDetailPage() {
           </div>
 
           {/* Pricing Totals */}
-          <div className="pt-6 border-t border-slate-100 space-y-2 text-xs sm:text-sm">
-            <div className="flex items-center justify-between text-slate-600">
+          <div className="pt-6 border-t border-border-default space-y-2 text-xs sm:text-sm">
+            <div className="flex items-center justify-between text-text-secondary">
               <span>Subtotal</span>
-              <span className="font-semibold text-slate-800">
+              <span className="font-semibold text-text-primary">
                 {formatPrice(order.subtotal)}
               </span>
             </div>
             {order.discountTotal > 0 && (
-              <div className="flex items-center justify-between text-emerald-600">
+              <div className="flex items-center justify-between text-status-success-accent">
                 <span>Discount</span>
                 <span className="font-semibold">-{formatPrice(order.discountTotal)}</span>
               </div>
             )}
-            <div className="flex items-center justify-between text-slate-600">
+            <div className="flex items-center justify-between text-text-secondary">
               <span>Delivery Fee</span>
-              <span className="font-semibold text-slate-800">
+              <span className="font-semibold text-text-primary">
                 {formatPrice(order.deliveryFee)}
               </span>
             </div>
-            <div className="flex items-center justify-between text-base font-bold text-slate-900 pt-3 border-t border-slate-100 font-heading">
+            <div className="flex items-center justify-between text-base font-bold text-text-primary pt-3 border-t border-border-default font-heading">
               <span>Total Paid</span>
-              <span className="text-[#D99BA3] text-lg">
+              <span className="text-action-primary text-lg">
                 {formatPrice(order.totalAmount)}
               </span>
             </div>
@@ -413,12 +413,12 @@ export default function CustomerOrderDetailPage() {
         </div>
 
         {/* Shipping & Payment Summary */}
-        <div className="card-soft p-6 sm:p-8 bg-white border border-[#E2ECF2] shadow-xs space-y-6">
+        <div className="card-soft p-6 sm:p-8 bg-white border border-border-default shadow-xs space-y-6">
           <div className="space-y-2">
-            <h4 className="font-heading font-bold text-sm text-slate-800 flex items-center gap-2">
+            <h4 className="font-heading font-bold text-sm text-text-primary flex items-center gap-2">
               <span>📍</span> Delivery Address
             </h4>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-text-secondary leading-relaxed">
               <strong>{order.customer.firstName} {order.customer.lastName || ''}</strong>
               <br />
               {shippingAddr.streetAddress || shippingAddr.addressLine1 || 'Address on file'}
@@ -428,26 +428,26 @@ export default function CustomerOrderDetailPage() {
               {order.customer.phone && (
                 <>
                   <br />
-                  <span className="text-slate-400">Phone: {order.customer.phone}</span>
+                  <span className="text-text-tertiary">Phone: {order.customer.phone}</span>
                 </>
               )}
             </p>
           </div>
 
-          <div className="space-y-2 pt-4 border-t border-slate-100">
-            <h4 className="font-heading font-bold text-sm text-slate-800 flex items-center gap-2">
+          <div className="space-y-2 pt-4 border-t border-border-default">
+            <h4 className="font-heading font-bold text-sm text-text-primary flex items-center gap-2">
               <span>💳</span> Payment Info
             </h4>
             <div className="flex items-center gap-2">
               <span className="badge-stock badge-in-stock capitalize text-xs">
                 {order.payment?.status || 'Paid'}
               </span>
-              <span className="text-[11px] text-slate-400">
+              <span className="text-[11px] text-text-tertiary">
                 via {order.payment?.provider || 'Paystack'}
               </span>
             </div>
             {order.payment?.reference && (
-              <p className="text-[10px] font-mono text-slate-400 truncate">
+              <p className="text-[10px] font-mono text-text-tertiary truncate">
                 Ref: {order.payment.reference}
               </p>
             )}

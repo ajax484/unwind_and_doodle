@@ -156,7 +156,7 @@ function ProductsListContent() {
               onClick={() => updateFilters({ status: tab.value, page: 1 })}
               className={`px-3.5 py-2 rounded-xl text-xs font-heading font-semibold whitespace-nowrap transition-all cursor-pointer ${
                 isActive
-                  ? 'bg-[#1E293B] text-white shadow-xs'
+                  ? 'bg-neutral-charcoal text-text-inverse shadow-xs'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >

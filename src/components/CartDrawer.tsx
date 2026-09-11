@@ -1,23 +1,79 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useContext } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { CartItemDetail } from '@/types/cart';
-import { useCart } from '@/context/CartContext';
+import type { CartResponse, CartItemDetail } from '@/types/cart';
+import { CartContext } from '@/context/CartContext';
 import { formatPrice } from '@/lib/format-utils';
+import Button from './Button';
+import EmptyState from './EmptyState';
+import CartItemRow from './CartItemRow';
 
-export default function CartDrawer() {
+export interface CartDrawerProps {
+  /**
+   * Explicit control for drawer visibility. Defaults to `useCart().isDrawerOpen`.
+   */
+  isOpen?: boolean;
+  /**
+   * Callback fired when closing the drawer. Defaults to `useCart().closeDrawer`.
+   */
+  onClose?: () => void;
+  /**
+   * Override cart state for stories or testing. Defaults to `useCart().cart`.
+   */
+  cart?: CartResponse | null;
+  /**
+   * Operational loading state. Defaults to `useCart().loading`.
+   */
+  loading?: boolean;
+  /**
+   * ID of item currently undergoing quantity updates. Defaults to `useCart().updatingItemId`.
+   */
+  updatingItemId?: string | null;
+  /**
+   * Quantity change handler. Defaults to `useCart().updateQuantity`.
+   */
+  onUpdateQuantity?: (itemId: string, newQty: number) => Promise<boolean | void> | void;
+  /**
+   * Item removal handler. Defaults to `useCart().removeItem`.
+   */
+  onRemoveItem?: (itemId: string) => Promise<boolean | void> | void;
+  /**
+   * Controls whether the secondary action button ("View Cart") is visible in footer.
+   * Directly matches Figma variant property `SecondaryAction` (Visible / Hidden). Defaults to true.
+   */
+  showSecondaryAction?: boolean;
+  /**
+   * Optional custom test identifier.
+   */
+  'data-testid'?: string;
+}
+
+export default function CartDrawer({
+  isOpen: propIsOpen,
+  onClose: propOnClose,
+  cart: propCart,
+  loading: propLoading,
+  updatingItemId: propUpdatingItemId,
+  onUpdateQuantity: propOnUpdateQuantity,
+  onRemoveItem: propOnRemoveItem,
+  showSecondaryAction = true,
+  'data-testid': testId = 'cart-drawer',
+}: CartDrawerProps = {}) {
   const pathname = usePathname();
-  const {
-    cart,
-    loading,
-    updatingItemId,
-    isDrawerOpen: isOpen,
-    closeDrawer,
-    updateQuantity,
-    removeItem,
-  } = useCart();
+  const cartContext = useContext(CartContext);
+
+  const isOpen = propIsOpen ?? cartContext?.isDrawerOpen ?? false;
+  const closeDrawer = propOnClose ?? cartContext?.closeDrawer ?? (() => {});
+  const cart = propCart !== undefined ? propCart : (cartContext?.cart ?? null);
+  const loading = propLoading !== undefined ? propLoading : (cartContext?.loading ?? false);
+  const updatingItemId =
+    propUpdatingItemId !== undefined ? propUpdatingItemId : (cartContext?.updatingItemId ?? null);
+  const updateQuantity =
+    propOnUpdateQuantity ?? cartContext?.updateQuantity ?? (async () => true);
+  const removeItem = propOnRemoveItem ?? cartContext?.removeItem ?? (async () => true);
+
   const drawerRef = useRef<HTMLDivElement>(null);
 
   // Handle Escape key to close drawer
@@ -52,284 +108,243 @@ export default function CartDrawer() {
   const formattedSubtotal = formatPrice(cart?.subtotal);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+    <div
+      className="fixed inset-0 z-50 overflow-hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="drawer-title"
+      data-testid={testId}
+    >
       {/* Backdrop overlay */}
       <div
-        onClick={() => closeDrawer()}
+        onClick={closeDrawer}
         className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity duration-300 animate-in fade-in"
+        data-testid="cart-drawer-backdrop"
       />
 
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
         <div
           ref={drawerRef}
-          className="w-screen max-w-md bg-white shadow-2xl flex flex-col transform transition-transform duration-300 animate-in slide-in-from-right"
+          className="w-screen max-w-md bg-bg-surface shadow-2xl flex flex-col transform transition-transform duration-300 animate-in slide-in-from-right"
         >
           {/* 1. Header */}
-          <div className="p-6 border-b border-[#EDF3F7] flex items-center justify-between bg-[#FDFCFB]">
+          <div className="p-6 border-b border-border-default flex items-center justify-between bg-bg-default">
             <div>
-              <h2 id="drawer-title" className="font-heading font-bold text-xl text-[#243342]">
+              <h2 id="drawer-title" className="font-heading font-bold text-xl text-text-primary">
                 Your Cart
               </h2>
-              <span className="text-xs font-heading font-semibold text-[#8295A8]">
+              <span
+                className="text-xs font-heading font-semibold text-text-tertiary"
+                data-testid="cart-drawer-item-count"
+              >
                 {cart?.totalItemCount || 0} {cart?.totalItemCount === 1 ? 'item' : 'items'}
               </span>
             </div>
-            <button
-              type="button"
-              onClick={() => closeDrawer()}
-              className="w-9 h-9 rounded-full bg-[#F4F8FA] hover:bg-[#EBF3F8] text-[#52657A] flex items-center justify-center text-sm font-bold transition-colors cursor-pointer"
+            <Button
+              variant="ghost"
+              size="md"
+              iconOnly
+              onClick={closeDrawer}
               aria-label="Close Cart Drawer"
+              className="text-text-placeholder hover:text-text-primary rounded-full shrink-0 -mr-1"
+              data-testid="cart-drawer-close-button"
             >
-              ✕
-            </button>
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+                aria-hidden="true"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </Button>
           </div>
 
           {/* 2. Scrollable Content */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4" data-testid="cart-drawer-content">
             {loading && !cart ? (
               <div className="space-y-4 animate-pulse">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-24 bg-[#F4F8FA] rounded-2xl" />
+                  <div key={i} className="h-24 bg-bg-subtle rounded-2xl" />
                 ))}
               </div>
             ) : isEmpty ? (
               /* Empty state */
-              <div className="py-16 text-center space-y-4">
-                <div className="w-16 h-16 rounded-full bg-[#FBF0F2] text-[#D99BA3] flex items-center justify-center text-3xl mx-auto">
-                  🛒
-                </div>
-                <div className="space-y-1">
-                  <h3 className="font-heading font-bold text-lg text-[#243342]">Your cart is empty</h3>
-                  <p className="text-xs text-[#8295A8]">
-                    Nothing here yet. Explore our mindful coloring collection!
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => closeDrawer()}
-                  className="btn-rose text-xs !px-6 cursor-pointer"
-                >
-                  Continue Shopping
-                </button>
-              </div>
+              <EmptyState
+                size="sm"
+                icon="🛒"
+                title="Your cart is empty"
+                description="Nothing here yet. Explore our mindful coloring collection!"
+                primaryAction={{
+                  label: 'Continue Shopping',
+                  onClick: closeDrawer,
+                }}
+                data-testid="cart-drawer-empty-state"
+              />
             ) : (
               /* Item list */
               items.map((item: CartItemDetail) => {
                 const isUpdating = updatingItemId === item.id;
-                const formattedPrice = formatPrice(item.totalPrice);
 
                 return (
-                  <div
+                  <CartItemRow
                     key={item.id}
-                    className={`p-4 rounded-2xl border border-[#EDF3F7] bg-[#FDFCFB] space-y-3 transition-opacity ${
-                      isUpdating ? 'opacity-50' : 'opacity-100'
-                    }`}
-                  >
-                    <div className="flex gap-3.5">
-                      <div className="w-16 h-16 rounded-xl bg-[#F4F8FA] border border-[#EDF3F7] overflow-hidden flex-shrink-0">
-                        {item.primaryImage ? (
-                          <img
-                            src={item.primaryImage}
-                            alt={item.productName}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-xl">
-                            🎨
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <Link
-                            href={item.slug ? `/products/${item.slug}` : '/products'}
-                            onClick={() => closeDrawer()}
-                            className="hover:text-[#D99BA3] font-heading font-bold text-sm text-[#243342] truncate block"
-                          >
-                            {item.productName}
-                          </Link>
-                          <span className="font-heading font-bold text-sm text-[#D99BA3] whitespace-nowrap">
-                            {formattedPrice}
-                          </span>
-                        </div>
-
-                        {/* Availability Warning */}
-                        {item.isAvailable === false && (
-                          <div className="mt-1">
-                            <span className="inline-flex items-center gap-1 text-[11px] font-heading font-semibold text-[#B33948] bg-[#FDF0F2] px-2 py-0.5 rounded-md">
-                              ⚠️ Currently unavailable
+                    id={item.id}
+                    name={item.productName}
+                    slug={item.slug}
+                    image={item.primaryImage}
+                    price={item.totalPrice}
+                    unitPrice={item.unitPrice}
+                    quantity={item.quantity}
+                    isAvailable={item.isAvailable !== false}
+                    isUpdating={isUpdating}
+                    onQuantityChange={(newQty) => updateQuantity(item.id, newQty)}
+                    onRemove={() => removeItem(item.id)}
+                    addons={item.addons?.map((a) => ({
+                      id: a.id,
+                      name: a.addonName,
+                      price: a.totalPrice,
+                      quantity: a.quantity,
+                    }))}
+                    customizationDetails={
+                      item.requiresCustomization ? (
+                        item.customization && item.customization.assets.length > 0 ? (
+                          <div className="pt-1">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-heading font-semibold text-status-success-text bg-status-success-bg px-2 py-0.5 rounded-md">
+                              ✓ {item.customization.assets.length} photo{item.customization.assets.length === 1 ? '' : 's'} attached
                             </span>
                           </div>
-                        )}
-
-                        {/* Customization Status */}
-                        {item.requiresCustomization && (
-                          <div className="mt-1">
-                            {item.customization && item.customization.assets.length > 0 ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-heading font-semibold text-[#1F7A4D] bg-[#EBF8F2] px-2 py-0.5 rounded-md">
-                                ✓ {item.customization.assets.length} photo{item.customization.assets.length === 1 ? '' : 's'} attached
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-heading font-semibold text-[#B33948] bg-[#FDF0F2] px-2 py-0.5 rounded-md">
-                                ⚠ Customization required
-                              </span>
+                        ) : (
+                          <div className="pt-1">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-heading font-semibold text-status-danger-text bg-status-danger-bg px-2 py-0.5 rounded-md">
+                              ⚠ Customization required
+                            </span>
+                          </div>
+                        )
+                      ) : null
+                    }
+                    themeDetails={
+                      item.supportsThemeCustomization ? (
+                        item.themeCustomization && item.themeCustomization.selectedThemeIds.length > 0 ? (
+                          <div className="text-[11px] space-y-1 text-text-secondary bg-bg-accent/70 p-2.5 rounded-xl border border-brand-rose/20">
+                            {item.themeCustomization.themes && item.themeCustomization.themes.length > 0 && (
+                              <div>
+                                <span className="font-heading font-bold text-text-primary">Themes:</span>{' '}
+                                <span className="font-medium text-text-primary">
+                                  {item.themeCustomization.themes.map((t) => t.name).join(' · ')}
+                                </span>
+                              </div>
+                            )}
+                            {item.themeCustomization.coverName && (
+                              <div>
+                                <span className="font-heading font-bold text-text-primary">Cover:</span>{' '}
+                                <span className="font-medium text-text-primary">
+                                  {item.themeCustomization.coverName}
+                                </span>
+                              </div>
                             )}
                           </div>
-                        )}
-
-                        {/* Coloring Book Theme Customization Summary */}
-                        {item.supportsThemeCustomization && (
-                          item.themeCustomization && item.themeCustomization.selectedThemeIds.length > 0 ? (
-                            <div className="mt-2 text-[11px] space-y-1 text-[#52657A] bg-[#FBF0F2]/70 p-2.5 rounded-xl border border-[#D99BA3]/20">
-                              {item.themeCustomization.themes && item.themeCustomization.themes.length > 0 && (
-                                <div>
-                                  <span className="font-heading font-bold text-[#243342]">Themes:</span>{' '}
-                                  <span className="font-medium text-[#243342]">
-                                    {item.themeCustomization.themes.map((t) => t.name).join(' · ')}
-                                  </span>
-                                </div>
-                              )}
-                              {item.themeCustomization.coverName && (
-                                <div>
-                                  <span className="font-heading font-bold text-[#243342]">Cover:</span>{' '}
-                                  <span className="font-medium text-[#243342]">
-                                    {item.themeCustomization.coverName}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="mt-2 text-[11px] text-[#B33948] bg-[#FDF0F2] p-2 rounded-xl border border-[#F0DCE0] flex items-center justify-between">
-                              <span>⚠ Themes required</span>
-                              <Link
-                                href={`/products/${item.slug || item.productId}`}
-                                onClick={() => closeDrawer()}
-                                className="font-heading font-bold text-[#D99BA3] hover:text-[#C67D87] underline"
-                              >
-                                Select
-                              </Link>
-                            </div>
-                          )
-                        )}
-
-                        {/* Bundle Component Summary */}
-                        {item.productType === 'bundle' && item.bundleComponents && item.bundleComponents.length > 0 && (
-                          <div className="mt-2 text-[11px] space-y-1 text-[#52657A] bg-purple-50/70 p-2.5 rounded-xl border border-purple-100">
-                            <div className="font-heading font-bold text-purple-900 text-[10px] uppercase tracking-wider flex items-center justify-between">
-                              <span>📦 Bundle Includes</span>
-                              <span className="text-purple-700 font-semibold">{item.bundleComponents.length} items</span>
-                            </div>
-                            <div className="space-y-0.5 pt-1 border-t border-purple-100/80">
-                              {item.bundleComponents.map((comp, idx) => (
-                                <div key={idx} className="flex justify-between items-center text-purple-900">
-                                  <span className="truncate">• {comp.name}</span>
-                                  <span className="font-bold ml-2">× {comp.quantity}</span>
-                                </div>
-                              ))}
-                            </div>
+                        ) : (
+                          <div className="text-[11px] text-status-danger-text bg-status-danger-bg p-2 rounded-xl border border-brand-rose/25 flex items-center justify-between">
+                            <span>⚠ Themes required</span>
+                            <Link
+                              href={`/products/${item.slug || item.productId}`}
+                              onClick={closeDrawer}
+                              className="font-heading font-bold text-action-primary hover:text-action-primary-hover underline"
+                            >
+                              Select
+                            </Link>
                           </div>
-                        )}
-
-                        {/* Add-ons summary */}
-                        {item.addons && item.addons.length > 0 && (
-                          <div className="mt-2 text-[11px] space-y-0.5 text-[#52657A] border-t border-[#EDF3F7] pt-1.5">
-                            {item.addons.map((a) => (
-                              <div key={a.id} className="flex justify-between">
-                                <span className="truncate">+ {a.addonName} (×{a.quantity})</span>
-                                <span className="font-semibold text-[#243342] ml-2">
-                                  {formatPrice(a.totalPrice)}
-                                </span>
+                        )
+                      ) : null
+                    }
+                    bundleDetails={
+                      item.productType === 'bundle' && item.bundleComponents && item.bundleComponents.length > 0 ? (
+                        <div className="text-[11px] space-y-1 text-text-secondary bg-purple-50/70 p-2.5 rounded-xl border border-purple-100">
+                          <div className="font-heading font-bold text-purple-900 text-[10px] uppercase tracking-wider flex items-center justify-between">
+                            <span>📦 Bundle Includes</span>
+                            <span className="text-purple-700 font-semibold">{item.bundleComponents.length} items</span>
+                          </div>
+                          <div className="space-y-0.5 pt-1 border-t border-purple-100/80">
+                            {item.bundleComponents.map((comp, idx) => (
+                              <div key={idx} className="flex justify-between items-center text-purple-900">
+                                <span className="truncate">• {comp.name}</span>
+                                <span className="font-bold ml-2">× {comp.quantity}</span>
                               </div>
                             ))}
                           </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Stepper + Remove Link */}
-                    <div className="flex items-center justify-between pt-2 border-t border-[#EDF3F7]">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          disabled={isUpdating}
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="stepper-btn !w-6 !h-6 text-xs cursor-pointer"
-                          aria-label="Decrease quantity"
-                        >
-                          -
-                        </button>
-                        <span className="font-heading font-bold text-xs w-5 text-center">
-                          {item.quantity}
-                        </span>
-                        <button
-                          type="button"
-                          disabled={isUpdating || item.isAvailable === false}
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="stepper-btn !w-6 !h-6 text-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                          aria-label="Increase quantity"
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      <button
-                        type="button"
-                        disabled={isUpdating}
-                        onClick={() => removeItem(item.id)}
-                        className="text-[11px] font-heading font-semibold text-[#B33948] hover:text-[#8C2B37] transition-colors cursor-pointer"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
+                        </div>
+                      ) : null
+                    }
+                  />
                 );
               })
             )}
           </div>
 
-          {/* 3. Footer */}
+          {/* 3. Footer (Hidden when empty per Figma State=Empty) */}
           {!isEmpty && (
-            <div className="p-6 border-t border-[#EDF3F7] space-y-4 bg-[#FDFCFB]">
-              <div className="flex items-center justify-between text-base font-heading font-bold text-[#243342]">
+            <div
+              className="p-6 border-t border-border-default space-y-4 bg-bg-default"
+              data-testid="cart-drawer-footer"
+            >
+              <div className="flex items-center justify-between text-base font-heading font-bold text-text-primary">
                 <span>Subtotal</span>
-                <span className="text-[#D99BA3] text-lg">{formattedSubtotal}</span>
+                <span
+                  className="text-action-primary text-lg font-bold"
+                  data-testid="cart-drawer-subtotal"
+                >
+                  {formattedSubtotal}
+                </span>
               </div>
 
               <div className="space-y-2.5">
                 {hasUnavailableItems ? (
                   <div className="space-y-1.5">
-                    <button
+                    <Button
+                      variant="primary"
+                      size="lg"
                       type="button"
                       disabled
-                      className="btn-rose w-full text-center text-sm !py-3.5 shadow-md block font-heading font-bold opacity-50 cursor-not-allowed"
+                      className="w-full"
+                      data-testid="cart-drawer-checkout-button"
                     >
                       Unavailable Items in Cart
-                    </button>
-                    <p className="text-[11px] text-center text-[#B33948]">
+                    </Button>
+                    <p className="text-[11px] text-center text-status-danger-text font-medium">
                       Please remove unavailable items before proceeding.
                     </p>
                   </div>
                 ) : (
-                  <Link
+                  <Button
+                    variant="primary"
+                    size="lg"
                     href="/checkout"
-                    onClick={() => closeDrawer()}
-                    className="btn-rose w-full text-center text-sm !py-3.5 shadow-md block font-heading font-bold"
+                    onClick={closeDrawer}
+                    className="w-full"
+                    data-testid="cart-drawer-checkout-button"
                   >
                     Checkout →
-                  </Link>
+                  </Button>
                 )}
 
-                <Link
-                  href="/cart"
-                  onClick={() => closeDrawer()}
-                  className="btn-outline w-full text-center text-xs !py-2.5 block font-heading font-semibold"
-                >
-                  View Cart
-                </Link>
+                {showSecondaryAction && (
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    href="/cart"
+                    onClick={closeDrawer}
+                    className="w-full"
+                    data-testid="cart-drawer-view-cart-button"
+                  >
+                    View Cart
+                  </Button>
+                )}
               </div>
 
-              <p className="text-[11px] text-center text-[#8295A8]">
+              <p className="text-[11px] text-center text-text-tertiary">
                 🔒 Delivery calculated at checkout
               </p>
             </div>

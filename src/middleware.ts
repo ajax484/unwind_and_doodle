@@ -14,7 +14,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Check for session tokens across standard Supabase cookie names
+  // 2. Prepare request headers with forwarded pathname
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-pathname', pathname);
+
+  // 3. Check for session tokens across standard Supabase cookie names
   const hasDirectCookie = Boolean(
     request.cookies.get('sb-access-token')?.value ||
       request.cookies.get('app_session_token')?.value ||
@@ -27,7 +31,7 @@ export function middleware(request: NextRequest) {
 
   const isAuthenticated = hasDirectCookie || hasSbChunkedCookie;
 
-  // 3. Admin Protected Routes
+  // 4. Admin Protected Routes
   if (pathname.startsWith('/admin')) {
     const isPublicAdminRoute = pathname === '/admin/login' || pathname === '/admin/unauthorized';
 
@@ -37,10 +41,14 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    return NextResponse.next();
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
   }
 
-  // 4. Customer Account Protected Routes
+  // 5. Customer Account Protected Routes
   if (pathname.startsWith('/account')) {
     if (!isAuthenticated) {
       const authUrl = new URL('/auth', request.url);
@@ -48,10 +56,18 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(authUrl);
     }
 
-    return NextResponse.next();
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
   }
 
-  return NextResponse.next();
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 }
 
 export const config = {

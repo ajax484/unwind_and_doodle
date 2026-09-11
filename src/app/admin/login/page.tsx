@@ -201,7 +201,7 @@ function AdminLoginContent() {
 
   if (verifyingSession) {
     return (
-      <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
         <div className="w-12 h-12 rounded-2xl bg-slate-800 border border-slate-700 shadow-sm flex items-center justify-center text-2xl animate-spin mb-4 text-rose-400">
           ⚙️
         </div>
@@ -211,7 +211,7 @@ function AdminLoginContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0F172A] text-slate-100 flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Background Glows */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-10 right-10 w-72 h-72 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
@@ -234,7 +234,7 @@ function AdminLoginContent() {
         </div>
 
         {/* Card Container */}
-        <div className="bg-[#1E293B] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+        <div className="bg-slate-800 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
           {/* Social Sign-In (Google OAuth) */}
           <button
             type="button"
@@ -473,7 +473,7 @@ export default function AdminLoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-4">
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
           <div className="w-8 h-8 rounded-full border-2 border-slate-700 border-t-rose-500 animate-spin" />
         </div>
       }

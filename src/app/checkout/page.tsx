@@ -297,8 +297,8 @@ export default function CheckoutPage() {
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-4">
-        <div className="w-10 h-10 rounded-full border-3 border-[#D99BA3] border-t-transparent animate-spin mx-auto" />
-        <p className="text-xs sm:text-sm font-heading font-medium text-[#52657A]">
+        <div className="w-10 h-10 rounded-full border-3 border-action-primary border-t-transparent animate-spin mx-auto" />
+        <p className="text-xs sm:text-sm font-heading font-medium text-text-secondary">
           Preparing secure checkout...
         </p>
       </div>
@@ -308,12 +308,12 @@ export default function CheckoutPage() {
   if (!cart || cart.items.length === 0) {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center space-y-6">
-        <div className="w-20 h-20 bg-[#FBF0F2] text-[#D99BA3] rounded-full flex items-center justify-center text-4xl mx-auto shadow-xs">
+        <div className="w-20 h-20 bg-bg-accent text-brand-rose rounded-full flex items-center justify-center text-4xl mx-auto shadow-xs">
           🛒
         </div>
         <div className="space-y-1">
-          <h2 className="text-2xl font-bold font-heading text-[#243342]">Your cart is empty</h2>
-          <p className="text-xs sm:text-sm text-[#52657A]">
+          <h2 className="text-2xl font-bold font-heading text-text-primary">Your cart is empty</h2>
+          <p className="text-xs sm:text-sm text-text-secondary">
             Please add items to your cart before proceeding to checkout.
           </p>
         </div>
@@ -349,18 +349,18 @@ export default function CheckoutPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 space-y-8">
       {/* 1. Checkout Header */}
-      <div className="flex items-center justify-between pb-6 border-b border-[#EDF3F7]">
+      <div className="flex items-center justify-between pb-6 border-b border-border-default">
         <div className="space-y-1">
-          <span className="text-xs font-heading font-semibold uppercase tracking-wider text-[#A7C2D4] block">
+          <span className="text-xs font-heading font-semibold uppercase tracking-wider text-brand-blue block">
             Step 2 of 2
           </span>
-          <h1 className="font-heading text-3xl sm:text-4xl font-bold tracking-tight text-[#243342]">
+          <h1 className="font-heading text-3xl sm:text-4xl font-bold tracking-tight text-text-primary">
             Checkout
           </h1>
         </div>
         <Link
           href="/cart"
-          className="text-xs sm:text-sm font-heading font-semibold text-[#D99BA3] hover:text-[#C67D87] flex items-center gap-1 transition-colors"
+          className="text-xs sm:text-sm font-heading font-semibold text-action-primary hover:text-action-primary-hover flex items-center gap-1 transition-colors"
         >
           ← Edit Cart
         </Link>
@@ -368,7 +368,7 @@ export default function CheckoutPage() {
 
       {/* Global Error Banner */}
       {errorMessage && (
-        <div className="p-4 bg-[#FDF0F2] border border-[#F0DCE0] rounded-2xl text-[#B33948] text-xs sm:text-sm flex items-start gap-2 animate-in fade-in">
+        <div className="p-4 bg-status-danger-bg border border-status-danger-accent/30 rounded-2xl text-status-danger-accent text-xs sm:text-sm flex items-start gap-2 animate-in fade-in">
           <span>⚠️</span>
           <span>{errorMessage}</span>
         </div>
@@ -376,7 +376,7 @@ export default function CheckoutPage() {
 
       {/* Customization Warning */}
       {hasIncompleteCustomization && (
-        <div className="p-4 bg-[#FDF0F2] border border-[#F0DCE0] rounded-2xl text-[#B33948] text-xs sm:text-sm flex items-center justify-between gap-4">
+        <div className="p-4 bg-status-danger-bg border border-status-danger-accent/30 rounded-2xl text-status-danger-accent text-xs sm:text-sm flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <span>⚠️</span>
             <span>Customization incomplete for items in your cart.</span>
@@ -391,14 +391,14 @@ export default function CheckoutPage() {
         {/* Left Column: Customer & Delivery Forms (7 cols) */}
         <div className="lg:col-span-7 space-y-8">
           {/* 1. Contact Information */}
-          <div className="card-soft p-6 sm:p-8 space-y-5 bg-white border border-[#EDF3F7]">
-            <h2 className="font-heading font-bold text-lg text-[#243342] flex items-center gap-2">
+          <div className="card-soft p-6 sm:p-8 space-y-5 bg-white border border-border-default">
+            <h2 className="font-heading font-bold text-lg text-text-primary flex items-center gap-2">
               <span>👤</span> Contact Information
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-heading font-semibold text-[#243342] mb-1">
+                <label className="block text-xs font-heading font-semibold text-text-primary mb-1">
                   First Name *
                 </label>
                 <input
@@ -409,15 +409,15 @@ export default function CheckoutPage() {
                     setFirstName(e.target.value);
                     if (fieldErrors.firstName) setFieldErrors((prev) => ({ ...prev, firstName: '' }));
                   }}
-                  className={`form-input text-xs ${fieldErrors.firstName ? 'border-red-400' : ''}`}
+                  className={`form-input text-xs ${fieldErrors.firstName ? 'border-status-danger-accent' : ''}`}
                 />
                 {fieldErrors.firstName && (
-                  <p className="text-[11px] text-[#B33948] mt-1">{fieldErrors.firstName}</p>
+                  <p className="text-[11px] text-status-danger-accent mt-1">{fieldErrors.firstName}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-xs font-heading font-semibold text-[#243342] mb-1">
+                <label className="block text-xs font-heading font-semibold text-text-primary mb-1">
                   Last Name *
                 </label>
                 <input
@@ -428,16 +428,16 @@ export default function CheckoutPage() {
                     setLastName(e.target.value);
                     if (fieldErrors.lastName) setFieldErrors((prev) => ({ ...prev, lastName: '' }));
                   }}
-                  className={`form-input text-xs ${fieldErrors.lastName ? 'border-red-400' : ''}`}
+                  className={`form-input text-xs ${fieldErrors.lastName ? 'border-status-danger-accent' : ''}`}
                 />
                 {fieldErrors.lastName && (
-                  <p className="text-[11px] text-[#B33948] mt-1">{fieldErrors.lastName}</p>
+                  <p className="text-[11px] text-status-danger-accent mt-1">{fieldErrors.lastName}</p>
                 )}
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-heading font-semibold text-[#243342] mb-1">
+              <label className="block text-xs font-heading font-semibold text-text-primary mb-1">
                 Email Address *
               </label>
               <input
@@ -448,16 +448,16 @@ export default function CheckoutPage() {
                   setEmail(e.target.value);
                   if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: '' }));
                 }}
-                className={`form-input text-xs ${fieldErrors.email ? 'border-red-400' : ''}`}
+                className={`form-input text-xs ${fieldErrors.email ? 'border-status-danger-accent' : ''}`}
               />
               {fieldErrors.email && (
-                <p className="text-[11px] text-[#B33948] mt-1">{fieldErrors.email}</p>
+                <p className="text-[11px] text-status-danger-accent mt-1">{fieldErrors.email}</p>
               )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-heading font-semibold text-[#243342] mb-1">
+                <label className="block text-xs font-heading font-semibold text-text-primary mb-1">
                   Phone Number *
                 </label>
                 <input
@@ -468,15 +468,15 @@ export default function CheckoutPage() {
                     setPhone(e.target.value);
                     if (fieldErrors.phone) setFieldErrors((prev) => ({ ...prev, phone: '' }));
                   }}
-                  className={`form-input text-xs ${fieldErrors.phone ? 'border-red-400' : ''}`}
+                  className={`form-input text-xs ${fieldErrors.phone ? 'border-status-danger-accent' : ''}`}
                 />
                 {fieldErrors.phone && (
-                  <p className="text-[11px] text-[#B33948] mt-1">{fieldErrors.phone}</p>
+                  <p className="text-[11px] text-status-danger-accent mt-1">{fieldErrors.phone}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-xs font-heading font-semibold text-[#243342] mb-1">
+                <label className="block text-xs font-heading font-semibold text-text-primary mb-1">
                   WhatsApp Number (Optional)
                 </label>
                 <input
@@ -491,13 +491,13 @@ export default function CheckoutPage() {
           </div>
 
           {/* 2. Delivery Address */}
-          <div className="card-soft p-6 sm:p-8 space-y-5 bg-white border border-[#EDF3F7]">
-            <h2 className="font-heading font-bold text-lg text-[#243342] flex items-center gap-2">
+          <div className="card-soft p-6 sm:p-8 space-y-5 bg-white border border-border-default">
+            <h2 className="font-heading font-bold text-lg text-text-primary flex items-center gap-2">
               <span>📍</span> Delivery Address
             </h2>
 
             <div>
-              <label className="block text-xs font-heading font-semibold text-[#243342] mb-1">
+              <label className="block text-xs font-heading font-semibold text-text-primary mb-1">
                 Delivery Location / State Hub *
               </label>
               <select
@@ -514,7 +514,7 @@ export default function CheckoutPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-heading font-semibold text-[#243342] mb-1">
+              <label className="block text-xs font-heading font-semibold text-text-primary mb-1">
                 Street Address *
               </label>
               <input
@@ -525,16 +525,16 @@ export default function CheckoutPage() {
                   setStreetAddress(e.target.value);
                   if (fieldErrors.streetAddress) setFieldErrors((prev) => ({ ...prev, streetAddress: '' }));
                 }}
-                className={`form-input text-xs ${fieldErrors.streetAddress ? 'border-red-400' : ''}`}
+                className={`form-input text-xs ${fieldErrors.streetAddress ? 'border-status-danger-accent' : ''}`}
               />
               {fieldErrors.streetAddress && (
-                <p className="text-[11px] text-[#B33948] mt-1">{fieldErrors.streetAddress}</p>
+                <p className="text-[11px] text-status-danger-accent mt-1">{fieldErrors.streetAddress}</p>
               )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-heading font-semibold text-[#243342] mb-1">
+                <label className="block text-xs font-heading font-semibold text-text-primary mb-1">
                   City / Town *
                 </label>
                 <input
@@ -545,15 +545,15 @@ export default function CheckoutPage() {
                     setCity(e.target.value);
                     if (fieldErrors.city) setFieldErrors((prev) => ({ ...prev, city: '' }));
                   }}
-                  className={`form-input text-xs ${fieldErrors.city ? 'border-red-400' : ''}`}
+                  className={`form-input text-xs ${fieldErrors.city ? 'border-status-danger-accent' : ''}`}
                 />
                 {fieldErrors.city && (
-                  <p className="text-[11px] text-[#B33948] mt-1">{fieldErrors.city}</p>
+                  <p className="text-[11px] text-status-danger-accent mt-1">{fieldErrors.city}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-xs font-heading font-semibold text-[#243342] mb-1">
+                <label className="block text-xs font-heading font-semibold text-text-primary mb-1">
                   LGA (Optional)
                 </label>
                 <input
@@ -567,7 +567,7 @@ export default function CheckoutPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-heading font-semibold text-[#243342] mb-1">
+              <label className="block text-xs font-heading font-semibold text-text-primary mb-1">
                 Special Delivery Notes (Optional)
               </label>
               <textarea
@@ -581,23 +581,23 @@ export default function CheckoutPage() {
           </div>
 
           {/* 3. Marketing Preferences */}
-          <div className="card-soft p-5 sm:p-6 space-y-3 bg-[#FDFCFB] border border-[#EDF3F7]">
-            <label className="flex items-center gap-3 cursor-pointer text-xs text-[#52657A]">
+          <div className="card-soft p-5 sm:p-6 space-y-3 bg-bg-default border border-border-default">
+            <label className="flex items-center gap-3 cursor-pointer text-xs text-text-secondary">
               <input
                 type="checkbox"
                 checked={emailConsent}
                 onChange={(e) => setEmailConsent(e.target.checked)}
-                className="rounded border-[#DCE7EE] text-[#D99BA3] focus:ring-[#D99BA3] w-4 h-4"
+                className="rounded border-border-input text-action-primary focus:ring-action-primary w-4 h-4"
               />
               <span>Send me occasional emails about new products and mindfulness updates.</span>
             </label>
 
-            <label className="flex items-center gap-3 cursor-pointer text-xs text-[#52657A]">
+            <label className="flex items-center gap-3 cursor-pointer text-xs text-text-secondary">
               <input
                 type="checkbox"
                 checked={whatsappConsent}
                 onChange={(e) => setWhatsappConsent(e.target.checked)}
-                className="rounded border-[#DCE7EE] text-[#D99BA3] focus:ring-[#D99BA3] w-4 h-4"
+                className="rounded border-border-input text-action-primary focus:ring-action-primary w-4 h-4"
               />
               <span>Send delivery notifications and dispatch updates on WhatsApp.</span>
             </label>
@@ -605,8 +605,8 @@ export default function CheckoutPage() {
         </div>
 
         {/* Right Column: Sticky Order Summary & Pay CTA (5 cols) */}
-        <div className="lg:col-span-5 card-soft p-6 sm:p-8 space-y-6 bg-white border border-[#EDF3F7] sticky top-28 shadow-sm">
-          <h2 className="font-heading font-bold text-xl text-[#243342] pb-4 border-b border-[#EDF3F7]">
+        <div className="lg:col-span-5 card-soft p-6 sm:p-8 space-y-6 bg-white border border-border-default sticky top-28 shadow-sm">
+          <h2 className="font-heading font-bold text-xl text-text-primary pb-4 border-b border-border-default">
             Your Order
           </h2>
 
@@ -620,12 +620,12 @@ export default function CheckoutPage() {
               }).format(item.totalPrice);
 
               return (
-                <div key={item.id} className="text-xs pb-3 border-b border-[#EDF3F7] space-y-1">
+                <div key={item.id} className="text-xs pb-3 border-b border-border-default space-y-1">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="font-heading font-bold text-[#243342]">
+                    <span className="font-heading font-bold text-text-primary">
                       {item.productName} × {item.quantity}
                     </span>
-                    <span className="font-heading font-bold text-[#D99BA3] whitespace-nowrap">
+                    <span className="font-heading font-bold text-action-primary whitespace-nowrap">
                       {formattedPrice}
                     </span>
                   </div>
@@ -647,11 +647,11 @@ export default function CheckoutPage() {
 
                   {/* Add-ons */}
                   {item.addons && item.addons.length > 0 && (
-                    <div className="text-[11px] text-[#52657A] pl-2 space-y-0.5">
+                    <div className="text-[11px] text-text-secondary pl-2 space-y-0.5">
                       {item.addons.map((a) => (
                         <div key={a.id} className="flex justify-between">
                           <span>+ {a.addonName} (×{a.quantity})</span>
-                          <span className="font-medium text-[#243342]">
+                          <span className="font-medium text-text-primary">
                             {new Intl.NumberFormat('en-NG', {
                               style: 'currency',
                               currency: 'NGN',
@@ -665,19 +665,19 @@ export default function CheckoutPage() {
 
                   {/* Theme Customization (Coloring Books) */}
                   {item.themeCustomization && (
-                    <div className="text-[11px] text-[#52657A] bg-amber-50/70 border border-amber-200/60 rounded px-2 py-1 space-y-0.5">
+                    <div className="text-[11px] text-text-secondary bg-amber-50/70 border border-amber-200/60 rounded px-2 py-1 space-y-0.5">
                       {item.themeCustomization.themes && item.themeCustomization.themes.length > 0 && (
                         <div>
-                          <span className="font-semibold text-slate-700">Themes:</span>{' '}
-                          <span className="text-slate-600">
+                          <span className="font-semibold text-text-primary">Themes:</span>{' '}
+                          <span className="text-text-secondary">
                             {item.themeCustomization.themes.map((t) => t.name).join(' · ')}
                           </span>
                         </div>
                       )}
                       {item.themeCustomization.coverName && (
                         <div>
-                          <span className="font-semibold text-slate-700">Cover:</span>{' '}
-                          <span className="text-slate-600">
+                          <span className="font-semibold text-text-primary">Cover:</span>{' '}
+                          <span className="text-text-secondary">
                             {item.themeCustomization.coverName}
                           </span>
                         </div>
@@ -689,11 +689,11 @@ export default function CheckoutPage() {
                   {item.requiresCustomization && (
                     <div className="text-[11px] pl-2 pt-0.5">
                       {item.customization && item.customization.assets.length > 0 ? (
-                        <span className="text-[#1F7A4D] font-semibold">
+                        <span className="text-status-success-accent font-semibold">
                           ✓ {item.customization.assets.length} photo{item.customization.assets.length === 1 ? '' : 's'} attached
                         </span>
                       ) : (
-                        <span className="text-[#B33948] font-bold">
+                        <span className="text-status-danger-accent font-bold">
                           ⚠ Customization incomplete
                         </span>
                       )}
@@ -719,7 +719,7 @@ export default function CheckoutPage() {
                 <button
                   type="button"
                   onClick={handleRemoveDiscount}
-                  className="px-3 py-2 text-xs font-heading font-semibold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
+                  className="px-3 py-2 text-xs font-heading font-semibold rounded-xl bg-bg-subtle text-text-primary hover:bg-bg-brand border border-border-default transition-colors cursor-pointer"
                 >
                   Remove
                 </button>
@@ -736,27 +736,27 @@ export default function CheckoutPage() {
             </div>
 
             {discountError && (
-              <p className="text-[11px] text-[#B33948] font-semibold flex items-center gap-1">
+              <p className="text-[11px] text-status-danger-accent font-semibold flex items-center gap-1">
                 <span>⚠️</span> {discountError}
               </p>
             )}
 
             {appliedDiscount && (
-              <p className="text-[11px] text-[#1F7A4D] font-bold flex items-center gap-1">
+              <p className="text-[11px] text-status-success-accent font-bold flex items-center gap-1">
                 <span>✓</span> Promo code {appliedDiscount.code} applied successfully!
               </p>
             )}
           </div>
 
           {/* Pricing Breakdown */}
-          <div className="space-y-3 text-xs sm:text-sm pt-4 border-t border-[#EDF3F7]">
-            <div className="flex items-center justify-between text-[#52657A]">
+          <div className="space-y-3 text-xs sm:text-sm pt-4 border-t border-border-default">
+            <div className="flex items-center justify-between text-text-secondary">
               <span>Subtotal</span>
-              <span className="font-heading font-bold text-[#243342]">{formattedSubtotal}</span>
+              <span className="font-heading font-bold text-text-primary">{formattedSubtotal}</span>
             </div>
 
             {appliedDiscount && (
-              <div className="flex items-center justify-between text-[#1F7A4D]">
+              <div className="flex items-center justify-between text-status-success-accent">
                 <span>Discount ({appliedDiscount.code})</span>
                 <span className="font-heading font-bold">
                   -
@@ -769,16 +769,16 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            <div className="flex items-center justify-between text-[#52657A]">
+            <div className="flex items-center justify-between text-text-secondary">
               <span>
                 Delivery ({selectedLocation ? `${selectedLocation.state} → ${selectedLocation.name}` : 'Standard'})
               </span>
-              <span className="font-heading font-bold text-[#243342]">{formattedDelivery}</span>
+              <span className="font-heading font-bold text-text-primary">{formattedDelivery}</span>
             </div>
 
-            <div className="flex items-center justify-between text-base sm:text-lg font-heading font-bold text-[#243342] pt-3 border-t border-[#EDF3F7]">
+            <div className="flex items-center justify-between text-base sm:text-lg font-heading font-bold text-text-primary pt-3 border-t border-border-default">
               <span>Total</span>
-              <span className="text-[#D99BA3] text-xl">{formattedTotal}</span>
+              <span className="text-action-primary text-xl">{formattedTotal}</span>
             </div>
           </div>
 
@@ -798,10 +798,10 @@ export default function CheckoutPage() {
           </button>
 
           <div className="text-center space-y-1">
-            <p className="text-[11px] text-[#8295A8]">
+            <p className="text-[11px] text-text-tertiary">
               🔒 Payments securely processed by Flutterwave
             </p>
-            <p className="text-[10px] text-[#8295A8]">
+            <p className="text-[10px] text-text-tertiary">
               Mastercard • Visa • Bank Transfer • USSD
             </p>
           </div>

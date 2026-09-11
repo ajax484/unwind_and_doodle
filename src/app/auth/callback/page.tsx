@@ -67,11 +67,11 @@ function CallbackHandler() {
 
   return (
     <div className="min-h-[70vh] flex flex-col items-center justify-center p-4 space-y-4">
-      <div className="w-12 h-12 rounded-full border-4 border-[#D99BA3] border-t-transparent animate-spin" />
-      <h2 className="font-heading font-bold text-lg text-slate-800">
+      <div className="w-12 h-12 rounded-full border-4 border-brand-rose border-t-transparent animate-spin" />
+      <h2 className="font-heading font-bold text-lg text-text-primary">
         Completing Sign In...
       </h2>
-      <p className="text-xs text-slate-500">Redirecting to your account dashboard.</p>
+      <p className="text-xs text-text-secondary">Redirecting to your account dashboard.</p>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import CategoryGrid from '@/components/home/CategoryGrid';
 import BrandPhilosophySection from '@/components/home/BrandPhilosophySection';
 import ReviewsSection from '@/components/home/ReviewsSection';
 import NewsletterSection from '@/components/home/NewsletterSection';
+import Button from '@/components/Button';
 
 export default function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState<CatalogProductItem[]>([]);
@@ -38,6 +39,7 @@ export default function HomePage() {
   return (
     <div className="w-full flex flex-col">
       {/* 1. HERO SECTION */}
+      <Button>Test</Button>
       <HeroSection />
 
       {/* 2. FEATURED PRODUCTS SECTION */}

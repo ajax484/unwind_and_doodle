@@ -8,6 +8,7 @@ import ProductCard from '@/components/ProductCard';
 import { ProductDetail, CatalogProductItem } from '@/services/catalog.service';
 import { PublicTheme } from '@/types/admin-theme';
 import { getCartHeaders, dispatchCartUpdated } from '@/lib/cart-client';
+import { Tabs } from '@/components/Tabs';
 import { toast } from 'sonner';
 
 export default function ProductDetailPage() {
@@ -183,13 +184,13 @@ export default function ProductDetailPage() {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 animate-pulse">
-          <div className="lg:col-span-6 aspect-square bg-[#F4F8FA] rounded-3xl" />
+          <div className="lg:col-span-6 aspect-square bg-bg-subtle rounded-3xl" />
           <div className="lg:col-span-6 space-y-6">
-            <div className="h-6 bg-[#F4F8FA] rounded-md w-1/4" />
-            <div className="h-10 bg-[#F4F8FA] rounded-lg w-3/4" />
-            <div className="h-6 bg-[#F4F8FA] rounded-md w-1/3" />
-            <div className="h-24 bg-[#F4F8FA] rounded-xl" />
-            <div className="h-12 bg-[#F4F8FA] rounded-full w-full" />
+            <div className="h-6 bg-bg-subtle rounded-md w-1/4" />
+            <div className="h-10 bg-bg-subtle rounded-lg w-3/4" />
+            <div className="h-6 bg-bg-subtle rounded-md w-1/3" />
+            <div className="h-24 bg-bg-subtle rounded-xl" />
+            <div className="h-12 bg-bg-subtle rounded-full w-full" />
           </div>
         </div>
       </div>
@@ -199,14 +200,14 @@ export default function ProductDetailPage() {
   if (error || !product) {
     return (
       <div className="max-w-lg mx-auto px-4 py-24 text-center space-y-6">
-        <div className="w-20 h-20 rounded-full bg-[#FBF0F2] text-[#D99BA3] flex items-center justify-center text-4xl mx-auto shadow-xs">
+        <div className="w-20 h-20 rounded-full bg-bg-accent text-brand-rose flex items-center justify-center text-4xl mx-auto shadow-xs">
           🎨
         </div>
         <div className="space-y-2">
-          <h2 className="text-2xl sm:text-3xl font-heading font-bold text-[#243342]">
+          <h2 className="text-2xl sm:text-3xl font-heading font-bold text-text-primary">
             Product Unavailable
           </h2>
-          <p className="text-sm text-[#52657A]">
+          <p className="text-sm text-text-secondary">
             {error || 'The requested product could not be found in our published collection.'}
           </p>
         </div>
@@ -264,12 +265,12 @@ export default function ProductDetailPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 space-y-16 sm:space-y-24">
       {/* 1. BREADCRUMBS */}
-      <nav className="text-xs font-heading font-semibold text-[#8295A8] flex items-center gap-2">
-        <Link href="/" className="hover:text-[#243342] transition-colors">
+      <nav className="text-xs font-heading font-semibold text-text-tertiary flex items-center gap-2">
+        <Link href="/" className="hover:text-text-primary transition-colors">
           Home
         </Link>
         <span>/</span>
-        <Link href="/products" className="hover:text-[#243342] transition-colors">
+        <Link href="/products" className="hover:text-text-primary transition-colors">
           Products
         </Link>
         {primaryCategory && (
@@ -277,21 +278,21 @@ export default function ProductDetailPage() {
             <span>/</span>
             <Link
               href={`/products?category=${primaryCategory.slug}`}
-              className="hover:text-[#243342] transition-colors"
+              className="hover:text-text-primary transition-colors"
             >
               {primaryCategory.name}
             </Link>
           </>
         )}
         <span>/</span>
-        <span className="text-[#243342] truncate max-w-xs">{product.name}</span>
+        <span className="text-text-primary truncate max-w-xs">{product.name}</span>
       </nav>
 
       {/* 2. MAIN PRODUCT OVERVIEW (Gallery + Information) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
         {/* Left Column: Image Gallery (5 cols) */}
         <div className="lg:col-span-6 space-y-4">
-          <div className="aspect-square rounded-3xl overflow-hidden bg-[#F4F8FA] border-2 border-[#EDF3F7] relative group shadow-sm">
+          <div className="aspect-square rounded-3xl overflow-hidden bg-bg-subtle border-2 border-border-default relative group shadow-sm">
             {currentImage ? (
               <img
                 src={currentImage}
@@ -299,19 +300,19 @@ export default function ProductDetailPage() {
                 className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
               />
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-[#EBF3F8] via-[#FFFFFF] to-[#FBF0F2] p-8 text-center">
+              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-bg-brand via-bg-surface to-bg-accent p-8 text-center">
                 <span className="text-6xl mb-3">🎨</span>
-                <span className="font-heading font-bold text-lg text-[#243342]">
-                  Unwind <span className="text-[#D99BA3]">&amp;</span> Doodle
+                <span className="font-heading font-bold text-lg text-text-primary">
+                  Unwind <span className="text-brand-rose">&amp;</span> Doodle
                 </span>
-                <span className="text-xs text-[#8295A8] mt-1">Archival Mindful Collection</span>
+                <span className="text-xs text-text-tertiary mt-1">Archival Mindful Collection</span>
               </div>
             )}
 
             {/* Customization Badge */}
             {product.requiresCustomization && (
               <div className="absolute top-4 left-4">
-                <span className="bg-[#D99BA3] text-white text-xs font-heading font-bold px-3 py-1.5 rounded-full shadow-sm">
+                <span className="bg-action-primary text-text-inverse text-xs font-heading font-bold px-3 py-1.5 rounded-full shadow-sm">
                   ✨ Custom Photo Book
                 </span>
               </div>
@@ -325,7 +326,7 @@ export default function ProductDetailPage() {
                   onClick={() =>
                     setSelectedImageIndex((idx) => (idx === 0 ? galleryImages.length - 1 : idx - 1))
                   }
-                  className="pointer-events-auto w-9 h-9 rounded-full bg-white/90 hover:bg-white text-[#243342] shadow-md flex items-center justify-center font-bold text-sm"
+                  className="pointer-events-auto w-9 h-9 rounded-full bg-white/90 hover:bg-white text-text-primary shadow-md flex items-center justify-center font-bold text-sm"
                   aria-label="Previous Image"
                 >
                   ←
@@ -335,7 +336,7 @@ export default function ProductDetailPage() {
                   onClick={() =>
                     setSelectedImageIndex((idx) => (idx === galleryImages.length - 1 ? 0 : idx + 1))
                   }
-                  className="pointer-events-auto w-9 h-9 rounded-full bg-white/90 hover:bg-white text-[#243342] shadow-md flex items-center justify-center font-bold text-sm"
+                  className="pointer-events-auto w-9 h-9 rounded-full bg-white/90 hover:bg-white text-text-primary shadow-md flex items-center justify-center font-bold text-sm"
                   aria-label="Next Image"
                 >
                   →
@@ -354,8 +355,8 @@ export default function ProductDetailPage() {
                   onClick={() => setSelectedImageIndex(i)}
                   className={`w-20 h-20 rounded-2xl overflow-hidden border-2 flex-shrink-0 transition-all ${
                     selectedImageIndex === i
-                      ? 'border-[#D99BA3] ring-2 ring-[#D99BA3]/20'
-                      : 'border-[#EDF3F7] opacity-70 hover:opacity-100'
+                      ? 'border-border-accent ring-2 ring-brand-rose/20'
+                      : 'border-border-default opacity-70 hover:opacity-100'
                   }`}
                   aria-label={`Select image ${i + 1}`}
                 >
@@ -367,13 +368,13 @@ export default function ProductDetailPage() {
         </div>
 
         {/* Right Column: Details, Add-ons & Customization (7 cols) */}
-        <div className="lg:col-span-6 space-y-8 bg-white p-6 sm:p-8 rounded-3xl border border-[#EDF3F7] shadow-sm">
+        <div className="lg:col-span-6 space-y-8 bg-bg-surface p-6 sm:p-8 rounded-3xl border border-border-default shadow-sm">
           {/* Header & Price */}
-          <div className="space-y-3 pb-6 border-b border-[#EDF3F7]">
+          <div className="space-y-3 pb-6 border-b border-border-default">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-[#D99BA3] text-sm tracking-wider">★★★★★</span>
-                <span className="text-xs font-heading font-semibold text-[#52657A]">
+                <span className="text-brand-rose text-sm tracking-wider">★★★★★</span>
+                <span className="text-xs font-heading font-semibold text-text-secondary">
                   24 verified reviews
                 </span>
               </div>
@@ -387,16 +388,16 @@ export default function ProductDetailPage() {
               </span>
             </div>
 
-            <h1 className="font-heading text-2xl sm:text-4xl font-bold text-[#243342] leading-tight">
+            <h1 className="font-heading text-2xl sm:text-4xl font-bold text-text-primary leading-tight">
               {product.name}
             </h1>
 
             <div className="flex items-center gap-3">
-              <div className="text-2xl sm:text-3xl font-heading font-bold text-[#D99BA3]">
+              <div className="text-2xl sm:text-3xl font-heading font-bold text-brand-rose">
                 {formattedPrice}
               </div>
               {formattedBundleSavings && (
-                <span className="text-xs font-heading font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                <span className="text-xs font-heading font-bold text-status-success-text bg-status-success-bg px-2.5 py-1 rounded-full border border-status-success-accent/30">
                   Save {formattedBundleSavings}
                 </span>
               )}
@@ -405,19 +406,19 @@ export default function ProductDetailPage() {
 
           {/* Description Snippet */}
           {product.description && (
-            <p className="text-sm sm:text-base text-[#52657A] leading-relaxed">
+            <p className="text-sm sm:text-base text-text-secondary leading-relaxed">
               {product.description}
             </p>
           )}
 
           {/* Bundle What's Included Section */}
           {product.productType === 'bundle' && product.bundleItems && product.bundleItems.length > 0 && (
-            <div className="space-y-4 pt-4 border-t border-[#EDF3F7]">
+            <div className="space-y-4 pt-4 border-t border-border-default">
               <div className="flex items-center justify-between">
-                <h3 className="font-heading font-bold text-sm sm:text-base text-[#243342] flex items-center gap-2">
+                <h3 className="font-heading font-bold text-sm sm:text-base text-text-primary flex items-center gap-2">
                   <span>📦</span> What's Included ({product.bundleItems.length} {product.bundleItems.length === 1 ? 'Item' : 'Items'})
                 </h3>
-                <span className="text-[10px] font-heading font-bold uppercase tracking-wider text-purple-700 bg-purple-50 px-2.5 py-1 rounded-full border border-purple-200">
+                <span className="text-[10px] font-heading font-bold uppercase tracking-wider text-status-purple-base bg-status-purple-base/10 px-2.5 py-1 rounded-full border border-status-purple-base/30">
                   Bundle Set
                 </span>
               </div>
@@ -426,9 +427,9 @@ export default function ProductDetailPage() {
                 {product.bundleItems.map((comp) => (
                   <div
                     key={comp.id}
-                    className="p-3.5 rounded-2xl border border-purple-100 bg-purple-50/40 flex items-center gap-3"
+                    className="p-3.5 rounded-2xl border border-status-purple-base/20 bg-status-purple-base/5 flex items-center gap-3"
                   >
-                    <div className="w-14 h-14 rounded-xl bg-white border border-purple-200 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                    <div className="w-14 h-14 rounded-xl bg-bg-surface border border-status-purple-base/20 overflow-hidden flex-shrink-0 flex items-center justify-center">
                       {comp.primaryImage ? (
                         <img src={comp.primaryImage} alt={comp.name} className="w-full h-full object-cover" />
                       ) : (
@@ -436,11 +437,11 @@ export default function ProductDetailPage() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-heading font-bold text-xs sm:text-sm text-[#243342] truncate">
+                      <h4 className="font-heading font-bold text-xs sm:text-sm text-text-primary truncate">
                         {comp.name}
                       </h4>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[11px] font-heading font-bold text-purple-800 bg-purple-100 px-2 py-0.5 rounded">
+                        <span className="text-[11px] font-heading font-bold text-status-purple-base bg-status-purple-base/15 px-2 py-0.5 rounded">
                           Quantity: {comp.quantity}
                         </span>
                       </div>
@@ -458,26 +459,26 @@ export default function ProductDetailPage() {
 
           {/* Theme Selector & Cover Personalization (Only for theme customizable coloring books) */}
           {product.supportsThemeCustomization && (
-            <div className="space-y-5 pt-5 border-t border-[#EDF3F7]">
+            <div className="space-y-5 pt-5 border-t border-border-default">
               <div>
                 <div className="flex items-center justify-between">
-                  <h3 className="font-heading font-bold text-base text-[#243342] flex items-center gap-2">
+                  <h3 className="font-heading font-bold text-base text-text-primary flex items-center gap-2">
                     <span>🎨</span> Choose your themes
                   </h3>
                   {availableThemes.length > 0 && (
-                    <span className="text-xs font-heading font-bold text-[#D99BA3] bg-[#FBF0F2] px-3 py-1 rounded-full border border-[#D99BA3]/20">
+                    <span className="text-xs font-heading font-bold text-brand-rose bg-bg-accent px-3 py-1 rounded-full border border-border-accent/30">
                       {selectedThemeIds.length} / 3 themes selected
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-[#52657A] mt-1">
+                <p className="text-xs text-text-secondary mt-1">
                   Pick up to 3 themes. We recommend choosing all 3 for the best variety.
                 </p>
               </div>
 
               {availableThemes.length === 0 ? (
-                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-xs text-amber-800 space-y-1">
-                  <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                <div className="p-4 rounded-2xl bg-status-warning-bg border border-status-warning-accent/30 text-xs text-status-warning-text space-y-1">
+                  <div className="font-bold flex items-center gap-1.5">
                     <span>🎨</span> Themes Customization Active
                   </div>
                   <p>Themes are being configured for this coloring book. Please assign themes in the admin product editor to enable customer selection.</p>
@@ -496,28 +497,28 @@ export default function ProductDetailPage() {
                         onClick={() => handleToggleTheme(theme.id)}
                         className={`p-3.5 rounded-2xl border text-left transition-all relative ${
                           isSelected
-                            ? 'border-[#D99BA3] bg-[#FBF0F2] ring-2 ring-[#D99BA3]/30 shadow-xs'
+                            ? 'border-border-accent bg-bg-accent ring-2 ring-brand-rose/30 shadow-xs'
                             : isDisabled
-                            ? 'border-[#EDF3F7] bg-[#F8FAFC] opacity-50 cursor-not-allowed'
-                            : 'border-[#EDF3F7] bg-[#F4F8FA]/60 hover:bg-white hover:border-[#D99BA3]/50'
+                            ? 'border-border-default bg-bg-subtle/50 opacity-50 cursor-not-allowed'
+                            : 'border-border-default bg-bg-subtle/60 hover:bg-bg-surface hover:border-border-accent/50'
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-heading font-bold text-xs sm:text-sm text-[#243342]">
+                          <span className="font-heading font-bold text-xs sm:text-sm text-text-primary">
                             {theme.name}
                           </span>
                           <span
                             className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                               isSelected
-                                ? 'bg-[#D99BA3] text-white shadow-xs'
-                                : 'border border-[#CBD5E1] text-transparent'
+                                ? 'bg-action-primary text-text-inverse shadow-xs'
+                                : 'border border-border-input text-transparent'
                             }`}
                           >
                             ✓
                           </span>
                         </div>
                         {theme.description && (
-                          <p className="text-xs text-[#52657A] mt-1 line-clamp-2">{theme.description}</p>
+                          <p className="text-xs text-text-secondary mt-1 line-clamp-2">{theme.description}</p>
                         )}
                       </button>
                     );
@@ -526,11 +527,11 @@ export default function ProductDetailPage() {
               )}
 
               {/* Cover Personalization */}
-              <div className="pt-3 space-y-2 border-t border-dashed border-[#EDF3F7]">
-                <label className="block font-heading font-bold text-sm text-[#243342]">
+              <div className="pt-3 space-y-2 border-t border-dashed border-border-default">
+                <label className="block font-heading font-bold text-sm text-text-primary">
                   Personalize your cover
                 </label>
-                <p className="text-xs text-[#8295A8]">
+                <p className="text-xs text-text-tertiary">
                   Enter a name to be printed/generated on the coloring book cover.
                 </p>
                 <input
@@ -539,9 +540,9 @@ export default function ProductDetailPage() {
                   value={coverName}
                   onChange={(e) => setCoverName(e.target.value)}
                   placeholder="Enter a name (e.g. Amara)"
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#CBD5E1] focus:border-[#D99BA3] focus:ring-2 focus:ring-[#D99BA3]/20 text-sm text-[#243342] transition-all bg-white"
+                  className="w-full px-4 py-2.5 rounded-xl border border-border-input focus:border-border-accent focus:ring-2 focus:ring-brand-rose/20 text-sm text-text-primary transition-all bg-bg-surface"
                 />
-                <div className="text-right text-[11px] font-heading text-[#8295A8]">
+                <div className="text-right text-[11px] font-heading text-text-tertiary">
                   {coverName.length} / 100 characters
                 </div>
               </div>
@@ -550,12 +551,12 @@ export default function ProductDetailPage() {
 
           {/* Add-ons Section */}
           {product.addons && product.addons.length > 0 && (
-            <div className="space-y-4 pt-4 border-t border-[#EDF3F7]">
+            <div className="space-y-4 pt-4 border-t border-border-default">
               <div className="flex items-center justify-between">
-                <h3 className="font-heading font-bold text-sm sm:text-base text-[#243342] flex items-center gap-2">
+                <h3 className="font-heading font-bold text-sm sm:text-base text-text-primary flex items-center gap-2">
                   <span>🎁</span> Recommended Companion Tools
                 </h3>
-                <span className="text-[11px] font-heading font-semibold text-[#8295A8] uppercase tracking-wider">
+                <span className="text-[11px] font-heading font-semibold text-text-tertiary uppercase tracking-wider">
                   Optional
                 </span>
               </div>
@@ -575,12 +576,12 @@ export default function ProductDetailPage() {
                       key={addon.id}
                       className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-4 ${
                         isSelected
-                          ? 'border-[#D99BA3] bg-[#FBF0F2]/50 shadow-xs'
-                          : 'border-[#EDF3F7] bg-[#F4F8FA]/60 hover:bg-white'
+                          ? 'border-border-accent bg-bg-accent/50 shadow-xs'
+                          : 'border-border-default bg-bg-subtle/60 hover:bg-bg-surface'
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-white border border-[#E2ECF2] overflow-hidden flex-shrink-0 flex items-center justify-center">
+                        <div className="w-12 h-12 rounded-xl bg-bg-surface border border-border-default overflow-hidden flex-shrink-0 flex items-center justify-center">
                           {addon.primaryImage ? (
                             <img
                               src={addon.primaryImage}
@@ -592,10 +593,10 @@ export default function ProductDetailPage() {
                           )}
                         </div>
                         <div>
-                          <h4 className="font-heading font-bold text-xs sm:text-sm text-[#243342]">
+                          <h4 className="font-heading font-bold text-xs sm:text-sm text-text-primary">
                             {addon.name}
                           </h4>
-                          <span className="text-xs font-heading font-semibold text-[#D99BA3]">
+                          <span className="text-xs font-heading font-semibold text-action-primary">
                             +{addonPrice}
                           </span>
                         </div>
@@ -631,7 +632,7 @@ export default function ProductDetailPage() {
                           <button
                             type="button"
                             onClick={() => handleAddonQuantityChange(addon.addonProductId, 1)}
-                            className="px-3.5 py-1.5 rounded-full bg-white border border-[#DCE7EE] hover:border-[#D99BA3] text-xs font-heading font-semibold text-[#243342] hover:text-[#D99BA3] transition-colors shadow-2xs"
+                            className="px-3.5 py-1.5 rounded-full bg-bg-surface border border-border-input hover:border-border-accent text-xs font-heading font-semibold text-text-primary hover:text-action-primary transition-colors shadow-2xs"
                           >
                             + Add
                           </button>
@@ -645,9 +646,9 @@ export default function ProductDetailPage() {
           )}
 
           {/* Quantity Selector & Primary Add to Cart Action */}
-          <div className="pt-6 border-t border-[#EDF3F7] space-y-4">
+          <div className="pt-6 border-t border-border-default space-y-4">
             <div className="flex items-center gap-4">
-              <span className="text-xs font-heading font-bold text-[#243342] uppercase tracking-wide">
+              <span className="text-xs font-heading font-bold text-text-primary uppercase tracking-wide">
                 Quantity:
               </span>
               <div className="flex items-center gap-3">
@@ -697,8 +698,8 @@ export default function ProductDetailPage() {
 
               {/* Toast / Cart Addition Confirmation */}
               {addedSuccess && (
-                <div className="p-4 bg-[#EBF8F2] border border-[#C6EAD8] rounded-2xl text-center space-y-2.5 animate-in fade-in-50">
-                  <p className="text-xs sm:text-sm font-heading font-bold text-[#1F7A4D]">
+                <div className="p-4 bg-status-success-bg border border-status-success-accent/30 rounded-2xl text-center space-y-2.5 animate-in fade-in-50">
+                  <p className="text-xs sm:text-sm font-heading font-bold text-status-success-text">
                     ✓ Added to your cart!
                   </p>
                   <div className="flex items-center justify-center gap-3">
@@ -721,51 +722,28 @@ export default function ProductDetailPage() {
       </div>
 
       {/* 3. PRODUCT SPECIFICATIONS & SHIPPING INFORMATION */}
-      <div className="card-soft p-6 sm:p-10 space-y-8 bg-white border border-[#EDF3F7]">
+      <div className="card-soft p-6 sm:p-10 space-y-8 bg-bg-surface border border-border-default">
         {/* Tab Header */}
-        <div className="flex gap-4 sm:gap-8 border-b border-[#EDF3F7] pb-3 text-xs sm:text-sm font-heading font-bold">
-          <button
-            type="button"
-            onClick={() => setActiveTab('details')}
-            className={`pb-3 border-b-2 transition-colors ${
-              activeTab === 'details'
-                ? 'border-[#D99BA3] text-[#D99BA3]'
-                : 'border-transparent text-[#52657A] hover:text-[#243342]'
-            }`}
-          >
-            Materials &amp; Quality
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('shipping')}
-            className={`pb-3 border-b-2 transition-colors ${
-              activeTab === 'shipping'
-                ? 'border-[#D99BA3] text-[#D99BA3]'
-                : 'border-transparent text-[#52657A] hover:text-[#243342]'
-            }`}
-          >
-            Delivery &amp; Shipping (Nigeria)
-          </button>
-          {product.requiresCustomization && (
-            <button
-              type="button"
-              onClick={() => setActiveTab('customization')}
-              className={`pb-3 border-b-2 transition-colors ${
-                activeTab === 'customization'
-                  ? 'border-[#D99BA3] text-[#D99BA3]'
-                  : 'border-transparent text-[#52657A] hover:text-[#243342]'
-              }`}
-            >
-              Customization Guide
-            </button>
-          )}
-        </div>
+        <Tabs
+          style="underline"
+          size="md"
+          activeTab={activeTab}
+          onChange={(tabId) => setActiveTab(tabId as 'details' | 'shipping' | 'customization')}
+          tabs={[
+            { id: 'details', label: 'Materials & Quality' },
+            { id: 'shipping', label: 'Delivery & Shipping (Nigeria)' },
+            ...(product.requiresCustomization
+              ? [{ id: 'customization', label: 'Customization Guide' }]
+              : []),
+          ]}
+          aria-label="Product specifications and shipping tabs"
+        />
 
         {/* Tab Content */}
         {activeTab === 'details' && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs sm:text-sm text-[#52657A] leading-relaxed">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs sm:text-sm text-text-secondary leading-relaxed">
             <div className="space-y-2">
-              <span className="font-heading font-bold text-[#243342] block text-sm">
+              <span className="font-heading font-bold text-text-primary block text-sm">
                 📖 160gsm Archival Paper
               </span>
               <p>
@@ -773,7 +751,7 @@ export default function ProductDetailPage() {
               </p>
             </div>
             <div className="space-y-2">
-              <span className="font-heading font-bold text-[#243342] block text-sm">
+              <span className="font-heading font-bold text-text-primary block text-sm">
                 📐 Lay-Flat Binding
               </span>
               <p>
@@ -781,7 +759,7 @@ export default function ProductDetailPage() {
               </p>
             </div>
             <div className="space-y-2">
-              <span className="font-heading font-bold text-[#243342] block text-sm">
+              <span className="font-heading font-bold text-text-primary block text-sm">
                 🎨 Single-Sided Artwork
               </span>
               <p>
@@ -792,15 +770,15 @@ export default function ProductDetailPage() {
         )}
 
         {activeTab === 'shipping' && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs sm:text-sm text-[#52657A] leading-relaxed">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs sm:text-sm text-text-secondary leading-relaxed">
             <div className="space-y-2">
-              <span className="font-heading font-bold text-[#243342] block text-sm">
+              <span className="font-heading font-bold text-text-primary block text-sm">
                 📍 Lagos &amp; Abuja
               </span>
               <p>1–2 business days via priority dispatch. Real-time doorstep tracking provided.</p>
             </div>
             <div className="space-y-2">
-              <span className="font-heading font-bold text-[#243342] block text-sm">
+              <span className="font-heading font-bold text-text-primary block text-sm">
                 🚚 Nationwide Delivery
               </span>
               <p>
@@ -808,7 +786,7 @@ export default function ProductDetailPage() {
               </p>
             </div>
             <div className="space-y-2">
-              <span className="font-heading font-bold text-[#243342] block text-sm">
+              <span className="font-heading font-bold text-text-primary block text-sm">
                 🔒 Safe Packaging
               </span>
               <p>All books are moisture-sealed and packaged in rigid protective envelopes.</p>
@@ -817,8 +795,8 @@ export default function ProductDetailPage() {
         )}
 
         {activeTab === 'customization' && (
-          <div className="space-y-4 text-xs sm:text-sm text-[#52657A] leading-relaxed max-w-2xl">
-            <h4 className="font-heading font-bold text-sm text-[#243342]">
+          <div className="space-y-4 text-xs sm:text-sm text-text-secondary leading-relaxed max-w-2xl">
+            <h4 className="font-heading font-bold text-sm text-text-primary">
               How Photo Customization Works:
             </h4>
             <ol className="list-decimal list-inside space-y-2">
@@ -832,17 +810,17 @@ export default function ProductDetailPage() {
 
       {/* 4. REVIEWS SECTION */}
       <section className="space-y-8">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-[#EDF3F7]">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-border-default">
           <div>
-            <span className="text-xs font-heading font-semibold uppercase tracking-wider text-[#A7C2D4] block mb-1">
+            <span className="text-xs font-heading font-semibold uppercase tracking-wider text-brand-blue block mb-1">
               Verified Social Proof
             </span>
-            <h2 className="font-heading text-2xl sm:text-3xl font-bold text-[#243342]">
+            <h2 className="font-heading text-2xl sm:text-3xl font-bold text-text-primary">
               Customer Reviews
             </h2>
           </div>
-          <div className="flex items-center gap-2 text-xs font-heading font-semibold text-[#52657A]">
-            <span className="text-[#D99BA3]">★★★★★</span>
+          <div className="flex items-center gap-2 text-xs font-heading font-semibold text-text-secondary">
+            <span className="text-brand-rose">★★★★★</span>
             <span>5.0 out of 5.0 (24 reviews)</span>
           </div>
         </div>
@@ -868,14 +846,14 @@ export default function ProductDetailPage() {
               text: 'Prompt delivery and beautiful packaging. The pencils are velvety soft and blend like a dream.',
             },
           ].map((rev, i) => (
-            <div key={i} className="card-soft p-6 space-y-4 bg-white border border-[#EDF3F7]">
-              <div className="flex text-[#D99BA3] text-sm">★★★★★</div>
-              <p className="text-xs sm:text-sm text-[#52657A] italic leading-relaxed">
+            <div key={i} className="card-soft p-6 space-y-4 bg-bg-surface border border-border-default">
+              <div className="flex text-brand-rose text-sm">★★★★★</div>
+              <p className="text-xs sm:text-sm text-text-secondary italic leading-relaxed">
                 "{rev.text}"
               </p>
-              <div className="pt-3 border-t border-[#EDF3F7] flex items-center justify-between text-xs">
-                <span className="font-heading font-bold text-[#243342]">{rev.author}</span>
-                <span className="text-[11px] text-[#8295A8]">
+              <div className="pt-3 border-t border-border-default flex items-center justify-between text-xs">
+                <span className="font-heading font-bold text-text-primary">{rev.author}</span>
+                <span className="text-[11px] text-text-tertiary">
                   {rev.location} • {rev.date}
                 </span>
               </div>
@@ -887,13 +865,13 @@ export default function ProductDetailPage() {
       {/* 5. RELATED PRODUCTS */}
       {relatedProducts.length > 0 && (
         <section className="space-y-8">
-          <div className="flex items-center justify-between pb-4 border-b border-[#EDF3F7]">
-            <h2 className="font-heading text-2xl sm:text-3xl font-bold text-[#243342]">
+          <div className="flex items-center justify-between pb-4 border-b border-border-default">
+            <h2 className="font-heading text-2xl sm:text-3xl font-bold text-text-primary">
               You might also love
             </h2>
             <Link
               href="/products"
-              className="text-xs sm:text-sm font-heading font-semibold text-[#D99BA3] hover:text-[#C67D87]"
+              className="text-xs sm:text-sm font-heading font-semibold text-action-primary hover:text-action-primary-hover"
             >
               View all →
             </Link>

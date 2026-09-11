@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { InAppNotification } from '@/types/notification';
+import { Tabs } from '@/components/Tabs';
 
 interface NotificationBellProps {
   variant?: 'customer' | 'admin';
@@ -163,7 +164,7 @@ export default function NotificationBell({
         className={`relative p-2 rounded-xl transition-all cursor-pointer flex items-center justify-center ${
           variant === 'admin'
             ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200/80 bg-white'
-            : 'text-[#243342] hover:text-[#D99BA3] hover:bg-[#FBF0F2]'
+            : 'text-text-primary hover:text-brand-rose hover:bg-bg-accent'
         }`}
       >
         <svg
@@ -194,12 +195,12 @@ export default function NotificationBell({
       {isOpen && (
         <div
           ref={popoverRef}
-          className="fixed inset-x-3 top-16 sm:static sm:inset-auto sm:absolute sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-96 rounded-2xl bg-white border border-[#EDF3F7] shadow-2xl z-50 overflow-hidden animate-in fade-in-50 zoom-in-95 duration-150"
+          className="fixed inset-x-3 top-16 sm:static sm:inset-auto sm:absolute sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-96 rounded-2xl bg-white border border-border-default shadow-2xl z-50 overflow-hidden animate-in fade-in-50 zoom-in-95 duration-150"
         >
           {/* Header */}
-          <div className="p-3.5 sm:p-4 border-b border-[#EDF3F7] bg-[#FAFCFD] flex items-center justify-between">
+          <div className="p-3.5 sm:p-4 border-b border-border-default bg-bg-subtle flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h3 className="font-heading font-bold text-sm text-[#243342]">
+              <h3 className="font-heading font-bold text-sm text-text-primary">
                 Notifications
               </h3>
               {unreadCount > 0 && (
@@ -222,33 +223,22 @@ export default function NotificationBell({
           </div>
 
           {/* Filter Tabs */}
-          <div className="px-3 pt-2 pb-1 border-b border-[#EDF3F7] flex items-center gap-2 text-xs">
-            <button
-              type="button"
-              onClick={() => setActiveTab('all')}
-              className={`px-3 py-1 rounded-lg font-heading font-semibold transition-colors cursor-pointer ${
-                activeTab === 'all'
-                  ? 'bg-[#EBF3F8] text-[#243342]'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              All ({notifications.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('unread')}
-              className={`px-3 py-1 rounded-lg font-heading font-semibold transition-colors cursor-pointer ${
-                activeTab === 'unread'
-                  ? 'bg-[#EBF3F8] text-[#243342]'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              Unread ({unreadCount})
-            </button>
+          <div className="px-3 py-2 border-b border-border-default">
+            <Tabs
+              style="segmented"
+              size="sm"
+              activeTab={activeTab}
+              onChange={(tabId) => setActiveTab(tabId as 'all' | 'unread')}
+              tabs={[
+                { id: 'all', label: 'All', count: notifications.length },
+                { id: 'unread', label: 'Unread', count: unreadCount },
+              ]}
+              aria-label="Notification filter tabs"
+            />
           </div>
 
           {/* Notifications List Body */}
-          <div className="max-h-[380px] overflow-y-auto divide-y divide-[#F4F8FA]">
+          <div className="max-h-[380px] overflow-y-auto divide-y divide-border-default">
             {filteredNotifications.length === 0 ? (
               <div className="p-8 text-center space-y-2">
                 <div className="text-3xl">✨</div>
@@ -268,14 +258,14 @@ export default function NotificationBell({
                     key={item.id}
                     onClick={() => handleMarkAsRead(item.id, item.link)}
                     className={`p-3.5 transition-colors cursor-pointer relative group flex items-start gap-3 ${
-                      isUnread ? 'bg-[#FBF0F2]/30 hover:bg-[#FBF0F2]/60' : 'hover:bg-slate-50'
+                      isUnread ? 'bg-bg-accent/30 hover:bg-bg-accent/60' : 'hover:bg-slate-50'
                     }`}
                   >
                     {/* Category Icon Circle */}
                     <div
                       className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-sm border shadow-2xs ${
                         isUnread
-                          ? 'bg-white border-[#F2D7DC]'
+                          ? 'bg-white border-brand-rose/25'
                           : 'bg-slate-50 border-slate-200/80 text-slate-500'
                       }`}
                     >
@@ -303,7 +293,7 @@ export default function NotificationBell({
                       <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-400">
                         <span>{formatRelativeTime(item.createdAt)}</span>
                         {item.link && (
-                          <span className="text-[#D99BA3] font-semibold group-hover:underline flex items-center gap-0.5">
+                          <span className="text-action-primary font-semibold group-hover:underline flex items-center gap-0.5">
                             View details ↗
                           </span>
                         )}

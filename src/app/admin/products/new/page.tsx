@@ -584,7 +584,7 @@ export default function NewProductPage() {
                     onClick={() => handleThemeToggle(theme.id)}
                     className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                       isSelected
-                        ? 'bg-[#FBF0F2] text-[#D99BA3] border border-[#D99BA3]/30 shadow-2xs font-bold'
+                        ? 'bg-bg-accent text-brand-rose border border-border-accent/30 shadow-2xs font-bold'
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/60'
                     }`}
                   >

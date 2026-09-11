@@ -77,8 +77,8 @@ export default function AccountOrdersPage() {
   if (loading) {
     return (
       <div className="card-soft p-12 text-center space-y-3">
-        <div className="w-8 h-8 rounded-full border-2 border-[#D99BA3] border-t-transparent animate-spin mx-auto" />
-        <p className="text-xs text-slate-400">Loading order history...</p>
+        <div className="w-8 h-8 rounded-full border-2 border-action-primary border-t-transparent animate-spin mx-auto" />
+        <p className="text-xs text-text-tertiary">Loading order history...</p>
       </div>
     );
   }
@@ -87,10 +87,10 @@ export default function AccountOrdersPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold font-heading text-slate-800">
+          <h1 className="text-2xl font-bold font-heading text-text-primary">
             Order History
           </h1>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-text-secondary">
             View and track your previous purchases or reorder your favorites.
           </p>
         </div>
@@ -100,17 +100,17 @@ export default function AccountOrdersPage() {
       </div>
 
       {orders.length === 0 ? (
-        <div className="card-soft p-12 text-center space-y-4 bg-white border border-[#E2ECF2]">
+        <div className="card-soft p-12 text-center space-y-4 bg-white border border-border-default">
           <span className="text-4xl block">🎨</span>
           <div className="space-y-1">
-            <h3 className="font-heading font-bold text-base text-slate-800">
+            <h3 className="font-heading font-bold text-base text-text-primary">
               No orders found
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-text-secondary">
               You haven&apos;t placed any orders yet. Discover our collection of mindful art.
             </p>
           </div>
-          <Link href="/products" className="btn-pink text-xs !px-6 inline-block">
+          <Link href="/products" className="btn-rose text-xs !px-6 inline-block">
             Start Shopping
           </Link>
         </div>
@@ -119,20 +119,20 @@ export default function AccountOrdersPage() {
           {orders.map((order) => (
             <div
               key={order.id}
-              className="card-soft p-6 bg-white border border-[#E2ECF2] shadow-xs space-y-4 transition-all hover:border-[#CBDDE8]"
+              className="card-soft p-6 bg-white border border-border-default shadow-xs space-y-4 transition-all hover:border-border-brand"
             >
               {/* Order Card Header */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-border-default">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-sm text-slate-900">
+                    <span className="font-mono font-bold text-sm text-text-primary">
                       #{order.orderNumber}
                     </span>
                     <span className="badge-stock badge-in-stock capitalize text-[11px]">
                       {order.status}
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[11px] text-text-tertiary">
                     Placed on{' '}
                     {new Date(order.createdAt).toLocaleDateString(undefined, {
                       year: 'numeric',
@@ -143,8 +143,8 @@ export default function AccountOrdersPage() {
                 </div>
 
                 <div className="text-right">
-                  <span className="text-xs text-slate-400 block">Total</span>
-                  <span className="font-heading font-bold text-base text-slate-900">
+                  <span className="text-xs text-text-tertiary block">Total</span>
+                  <span className="font-heading font-bold text-base text-text-primary">
                     ₦{order.totalAmount.toLocaleString()}
                   </span>
                 </div>
@@ -155,9 +155,9 @@ export default function AccountOrdersPage() {
                 {order.itemsPreview.map((item, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center gap-2 bg-[#F4F8FA] p-2 rounded-xl border border-[#EDF3F7] flex-shrink-0"
+                    className="flex items-center gap-2 bg-bg-subtle p-2 rounded-xl border border-border-default flex-shrink-0"
                   >
-                    <div className="w-10 h-10 rounded-lg bg-white overflow-hidden border border-slate-100 flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 rounded-lg bg-white overflow-hidden border border-border-default flex items-center justify-center flex-shrink-0">
                       {item.image ? (
                         <img
                           src={item.image}
@@ -169,15 +169,15 @@ export default function AccountOrdersPage() {
                       )}
                     </div>
                     <div className="text-[11px] max-w-[120px] truncate">
-                      <p className="font-semibold text-slate-800 truncate">
+                      <p className="font-semibold text-text-primary truncate">
                         {item.productName}
                       </p>
-                      <p className="text-slate-400">Qty: {item.quantity}</p>
+                      <p className="text-text-tertiary">Qty: {item.quantity}</p>
                     </div>
                   </div>
                 ))}
                 {order.totalItemCount > order.itemsPreview.length && (
-                  <span className="text-[11px] text-slate-400 pl-2">
+                  <span className="text-[11px] text-text-tertiary pl-2">
                     +{order.totalItemCount - order.itemsPreview.length} more item(s)
                   </span>
                 )}
@@ -185,9 +185,9 @@ export default function AccountOrdersPage() {
 
               {/* Reorder feedback message */}
               {reorderMessage && reorderMessage.id === order.orderNumber && (
-                <div className="p-3 bg-[#EBF3F8] text-[#243342] text-xs rounded-xl border border-[#CBDDE8] flex items-center justify-between">
+                <div className="p-3 bg-bg-brand text-text-primary text-xs rounded-xl border border-border-brand flex items-center justify-between">
                   <span>{reorderMessage.text}</span>
-                  <Link href="/cart" className="font-semibold text-[#D99BA3] hover:underline ml-2">
+                  <Link href="/cart" className="font-semibold text-action-primary hover:underline ml-2">
                     Open Cart →
                   </Link>
                 </div>
@@ -199,13 +199,13 @@ export default function AccountOrdersPage() {
                   type="button"
                   onClick={() => handleReorder(order.orderNumber)}
                   disabled={reordering === order.orderNumber}
-                  className="px-4 py-2 rounded-xl border border-[#CBDDE8] hover:bg-[#F4F8FA] text-xs font-semibold text-[#243342] transition-colors cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl border border-border-default hover:bg-bg-subtle text-xs font-semibold text-text-primary transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {reordering === order.orderNumber ? 'Adding to Cart...' : '🔄 Reorder'}
                 </button>
                 <Link
                   href={`/account/orders/${order.orderNumber}`}
-                  className="btn-pink text-xs !py-2 !px-4"
+                  className="btn-rose text-xs !py-2 !px-4"
                 >
                   View Details &amp; Timeline →
                 </Link>

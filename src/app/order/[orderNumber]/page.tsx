@@ -162,8 +162,8 @@ export default function OrderStatusPage() {
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-4">
-        <div className="w-12 h-12 rounded-full border-4 border-[#D99BA3] border-t-transparent animate-spin mx-auto" />
-        <p className="text-slate-500 font-medium text-sm">Loading your order details...</p>
+        <div className="w-12 h-12 rounded-full border-4 border-action-primary border-t-transparent animate-spin mx-auto" />
+        <p className="text-text-secondary font-medium text-sm">Loading your order details...</p>
       </div>
     );
   }
@@ -171,22 +171,22 @@ export default function OrderStatusPage() {
   if (requiresVerification) {
     return (
       <div className="max-w-md mx-auto px-4 py-20">
-        <div className="card-soft p-8 sm:p-10 text-center space-y-6 bg-white border border-[#E2ECF2] shadow-sm">
-          <div className="w-14 h-14 rounded-2xl bg-[#FBF0F2] text-[#D99BA3] flex items-center justify-center text-3xl mx-auto shadow-xs">
+        <div className="card-soft p-8 sm:p-10 text-center space-y-6 bg-white border border-border-default shadow-sm">
+          <div className="w-14 h-14 rounded-2xl bg-bg-accent text-brand-rose flex items-center justify-center text-3xl mx-auto shadow-xs">
             🔒
           </div>
           <div className="space-y-2">
-            <h2 className="text-2xl font-bold font-heading text-slate-800">
+            <h2 className="text-2xl font-bold font-heading text-text-primary">
               Verify Order Access
             </h2>
-            <p className="text-xs text-slate-500 leading-relaxed">
+            <p className="text-xs text-text-secondary leading-relaxed">
               To protect your privacy, please enter the email address used when placing order{' '}
-              <strong className="text-slate-800">#{orderNumber}</strong>.
+              <strong className="text-text-primary">#{orderNumber}</strong>.
             </p>
           </div>
 
           {verifyError && (
-            <div className="p-3 bg-red-50 text-red-600 text-xs rounded-xl border border-red-100">
+            <div className="p-3 bg-status-danger-bg text-status-danger-accent text-xs rounded-xl border border-status-danger-accent/30">
               {verifyError}
             </div>
           )}
@@ -198,22 +198,22 @@ export default function OrderStatusPage() {
               value={emailInput}
               onChange={(e) => setEmailInput(e.target.value)}
               placeholder="customer@example.com"
-              className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:border-[#D99BA3] text-center"
+              className="w-full px-4 py-3 rounded-2xl border border-border-input text-xs sm:text-sm text-text-primary focus:outline-hidden focus:border-border-accent text-center"
             />
             <button
               type="submit"
               disabled={verifying}
-              className="btn-pink w-full text-xs sm:text-sm !py-3.5 block disabled:opacity-50"
+              className="btn-rose w-full text-xs sm:text-sm !py-3.5 block disabled:opacity-50"
             >
               {verifying ? 'Verifying...' : 'Access Order Details →'}
             </button>
           </form>
 
-          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-            <Link href="/auth" className="hover:text-slate-600 font-medium">
+          <div className="pt-2 border-t border-border-default flex items-center justify-between text-xs text-text-tertiary">
+            <Link href="/auth" className="hover:text-text-primary font-medium">
               Sign In to Account
             </Link>
-            <Link href="/" className="hover:text-slate-600 font-medium">
+            <Link href="/" className="hover:text-text-primary font-medium">
               Return Home
             </Link>
           </div>
@@ -226,11 +226,11 @@ export default function OrderStatusPage() {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center space-y-6">
         <span className="text-5xl">🔍</span>
-        <h2 className="text-2xl font-bold font-heading text-slate-800">Order Not Found</h2>
-        <p className="text-slate-500 text-sm">
+        <h2 className="text-2xl font-bold font-heading text-text-primary">Order Not Found</h2>
+        <p className="text-text-secondary text-sm">
           {error || `We couldn't locate an order with number "${orderNumber}".`}
         </p>
-        <Link href="/" className="btn-pink text-xs !px-6 inline-block">
+        <Link href="/" className="btn-rose text-xs !px-6 inline-block">
           Return to Home
         </Link>
       </div>
@@ -245,16 +245,16 @@ export default function OrderStatusPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
       {/* Celebration Header */}
-      <div className="card-soft p-8 sm:p-10 text-center space-y-3 bg-gradient-to-tr from-[#FBF0F2] via-white to-[#EBF3F8] border-[#E2ECF2] shadow-xs">
-        <div className="w-16 h-16 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-3xl mx-auto shadow-xs">
+      <div className="card-soft p-8 sm:p-10 text-center space-y-3 bg-gradient-to-tr from-bg-accent via-white to-bg-brand border-border-default shadow-xs">
+        <div className="w-16 h-16 rounded-full bg-status-success-bg text-status-success-accent flex items-center justify-center text-3xl mx-auto shadow-xs">
           ✓
         </div>
-        <h1 className="text-2xl sm:text-4xl font-bold font-heading text-slate-900">
+        <h1 className="text-2xl sm:text-4xl font-bold font-heading text-text-primary">
           Thank you for your order, {order.customer.firstName}!
         </h1>
-        <p className="text-slate-600 text-xs sm:text-sm">
+        <p className="text-text-secondary text-xs sm:text-sm">
           Order Reference:{' '}
-          <span className="font-mono font-bold text-slate-900">{order.orderNumber}</span>
+          <span className="font-mono font-bold text-text-primary">{order.orderNumber}</span>
           {' • '}
           {formatDate(order.createdAt, {
             year: 'numeric',
@@ -270,15 +270,15 @@ export default function OrderStatusPage() {
       {/* 2-Column Summary: Items Breakdown & Delivery Info */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
         {/* Left 2 Cols: Itemized Receipt */}
-        <div className="md:col-span-2 card-soft p-6 sm:p-8 bg-white border border-[#E2ECF2] shadow-xs space-y-6">
-          <h3 className="font-heading font-bold text-lg text-slate-800">
+        <div className="md:col-span-2 card-soft p-6 sm:p-8 bg-white border border-border-default shadow-xs space-y-6">
+          <h3 className="font-heading font-bold text-lg text-text-primary">
             Items in Your Order
           </h3>
 
-          <div className="space-y-4 divide-y divide-slate-100">
+          <div className="space-y-4 divide-y divide-border-default">
             {order.items.map((item) => (
               <div key={item.id} className="pt-4 first:pt-0 flex gap-4 items-start">
-                <div className="w-16 h-16 rounded-2xl bg-[#F4F8FA] overflow-hidden flex-shrink-0 border border-[#EDF3F7] flex items-center justify-center">
+                <div className="w-16 h-16 rounded-2xl bg-bg-subtle overflow-hidden flex-shrink-0 border border-border-default flex items-center justify-center">
                   {item.primaryImage ? (
                     <img src={item.primaryImage} alt={item.productName} className="w-full h-full object-cover" />
                   ) : (
@@ -288,39 +288,39 @@ export default function OrderStatusPage() {
 
                 <div className="flex-grow space-y-1">
                   <div className="flex items-start justify-between">
-                    <h4 className="font-heading font-bold text-sm text-slate-800">
+                    <h4 className="font-heading font-bold text-sm text-text-primary">
                       {item.productName} (×{item.quantity})
                     </h4>
-                    <span className="font-bold text-sm text-slate-900 font-heading">
+                    <span className="font-bold text-sm text-text-primary font-heading">
                       {formatPrice(item.totalPrice)}
                     </span>
                   </div>
 
                   {/* Coloring Book Theme Customization */}
                   {item.themeCustomization && (
-                    <div className="text-xs text-[#243342] bg-[#FBF0F2] p-3 rounded-2xl border border-[#D99BA3]/20 space-y-1.5 my-1.5">
+                    <div className="text-xs text-text-primary bg-bg-accent p-3 rounded-2xl border border-border-accent/20 space-y-1.5 my-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="font-heading font-bold text-xs text-[#D99BA3] flex items-center gap-1.5">
+                        <span className="font-heading font-bold text-xs text-brand-rose flex items-center gap-1.5">
                           <span>🎨</span> Coloring Book Customization
                         </span>
                         {item.themeCustomization.coverName && (
-                          <span className="text-[10px] font-heading font-bold px-2 py-0.5 rounded-full bg-white text-[#D99BA3] border border-[#D99BA3]/30">
+                          <span className="text-[10px] font-heading font-bold px-2 py-0.5 rounded-full bg-white text-brand-rose border border-border-accent/30">
                             Cover: {item.themeCustomization.coverName}
                           </span>
                         )}
                       </div>
 
                       {item.themeCustomization.themes && item.themeCustomization.themes.length > 0 && (
-                        <div className="text-[11px] text-[#52657A]">
-                          <span className="font-semibold text-[#243342]">Themes:</span>{' '}
+                        <div className="text-[11px] text-text-secondary">
+                          <span className="font-semibold text-text-primary">Themes:</span>{' '}
                           {item.themeCustomization.themes.map((t) => t.themeName).join(' · ')}
                         </div>
                       )}
 
                       {item.themeCustomization.coverName && (
-                        <div className="text-[11px] text-[#52657A]">
-                          <span className="font-semibold text-[#243342]">Personalized Name:</span>{' '}
-                          <span className="font-medium text-slate-800">"{item.themeCustomization.coverName}"</span>
+                        <div className="text-[11px] text-text-secondary">
+                          <span className="font-semibold text-text-primary">Personalized Name:</span>{' '}
+                          <span className="font-medium text-text-primary">"{item.themeCustomization.coverName}"</span>
                         </div>
                       )}
                     </div>
@@ -328,18 +328,18 @@ export default function OrderStatusPage() {
 
                   {/* Photo & Dedication Customization */}
                   {item.customization && (
-                    <div className="text-xs text-[#243342] bg-rose-50/60 p-3 rounded-2xl border border-rose-100 space-y-1.5 my-1.5">
+                    <div className="text-xs text-text-primary bg-bg-accent p-3 rounded-2xl border border-border-accent/30 space-y-1.5 my-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="font-heading font-bold text-xs text-rose-700 flex items-center gap-1.5">
+                        <span className="font-heading font-bold text-xs text-brand-rose flex items-center gap-1.5">
                           <span>✨</span> Custom Keepsake Artwork
                         </span>
-                        <span className="text-[10px] font-heading font-bold uppercase px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
+                        <span className="text-[10px] font-heading font-bold uppercase px-2 py-0.5 rounded-full bg-bg-accent text-brand-rose">
                           {item.customization.status}
                         </span>
                       </div>
 
                       {item.customization.notes && (
-                        <p className="text-[11px] text-slate-600 italic bg-white/80 p-2 rounded-xl border border-rose-100/60">
+                        <p className="text-[11px] text-text-secondary italic bg-white/80 p-2 rounded-xl border border-border-default">
                           "{item.customization.notes}"
                         </p>
                       )}
@@ -352,7 +352,7 @@ export default function OrderStatusPage() {
                               href={asset.assetUrl}
                               target="_blank"
                               rel="noreferrer"
-                              className="group w-12 h-12 rounded-xl overflow-hidden bg-white border border-rose-200/80 flex-shrink-0 shadow-2xs relative"
+                              className="group w-12 h-12 rounded-xl overflow-hidden bg-white border border-border-default flex-shrink-0 shadow-2xs relative"
                               title={`View Photo #${idx + 1}`}
                             >
                               <img
@@ -362,7 +362,7 @@ export default function OrderStatusPage() {
                               />
                             </a>
                           ))}
-                          <span className="text-[11px] text-slate-500 font-medium ml-1">
+                          <span className="text-[11px] text-text-secondary font-medium ml-1">
                             ({item.customization.assets.length} photo{item.customization.assets.length === 1 ? '' : 's'} attached)
                           </span>
                         </div>
@@ -390,7 +390,7 @@ export default function OrderStatusPage() {
                   )}
 
                   {item.addons && item.addons.length > 0 && (
-                    <div className="text-[11px] text-slate-500 space-y-0.5 pt-1">
+                    <div className="text-[11px] text-text-secondary space-y-0.5 pt-1">
                       {item.addons.map((a, i) => (
                         <div key={i}>
                           + {a.name} (×{a.quantity}) — {formatPrice(a.totalPrice)}
@@ -404,35 +404,35 @@ export default function OrderStatusPage() {
           </div>
 
           {/* Pricing Totals */}
-          <div className="pt-6 border-t border-slate-100 space-y-2 text-xs sm:text-sm">
-            <div className="flex items-center justify-between text-slate-600">
+          <div className="pt-6 border-t border-border-default space-y-2 text-xs sm:text-sm">
+            <div className="flex items-center justify-between text-text-secondary">
               <span>Subtotal</span>
-              <span className="font-semibold text-slate-800">{formatPrice(order.subtotal)}</span>
+              <span className="font-semibold text-text-primary">{formatPrice(order.subtotal)}</span>
             </div>
             {order.discountTotal > 0 && (
-              <div className="flex items-center justify-between text-emerald-600">
+              <div className="flex items-center justify-between text-status-success-accent">
                 <span>Discount</span>
                 <span className="font-semibold">-{formatPrice(order.discountTotal)}</span>
               </div>
             )}
-            <div className="flex items-center justify-between text-slate-600">
+            <div className="flex items-center justify-between text-text-secondary">
               <span>Delivery Fee</span>
-              <span className="font-semibold text-slate-800">{formatPrice(order.deliveryFee)}</span>
+              <span className="font-semibold text-text-primary">{formatPrice(order.deliveryFee)}</span>
             </div>
-            <div className="flex items-center justify-between text-base font-bold text-slate-900 pt-3 border-t border-slate-100 font-heading">
+            <div className="flex items-center justify-between text-base font-bold text-text-primary pt-3 border-t border-border-default font-heading">
               <span>Total Paid</span>
-              <span className="text-[#D99BA3] text-lg">{formatPrice(order.totalAmount)}</span>
+              <span className="text-action-primary text-lg">{formatPrice(order.totalAmount)}</span>
             </div>
           </div>
         </div>
 
         {/* Right Col: Customer & Shipping Details */}
-        <div className="card-soft p-6 sm:p-8 bg-white border border-[#E2ECF2] shadow-xs space-y-6">
+        <div className="card-soft p-6 sm:p-8 bg-white border border-border-default shadow-xs space-y-6">
           <div className="space-y-2">
-            <h4 className="font-heading font-bold text-base text-slate-800 flex items-center gap-2">
+            <h4 className="font-heading font-bold text-base text-text-primary flex items-center gap-2">
               <span>📍</span> Delivery Address
             </h4>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-text-secondary leading-relaxed">
               {shippingAddr.streetAddress || shippingAddr.addressLine1 || 'Address on file'}
               <br />
               {shippingAddr.city && `${shippingAddr.city}, `}
@@ -440,25 +440,25 @@ export default function OrderStatusPage() {
             </p>
           </div>
 
-          <div className="space-y-2 pt-4 border-t border-slate-100">
-            <h4 className="font-heading font-bold text-base text-slate-800 flex items-center gap-2">
+          <div className="space-y-2 pt-4 border-t border-border-default">
+            <h4 className="font-heading font-bold text-base text-text-primary flex items-center gap-2">
               <span>💳</span> Payment Status
             </h4>
             <div className="flex items-center gap-2">
               <span className="badge-stock badge-in-stock capitalize text-xs">
                 {order.payment?.status || 'Paid'}
               </span>
-              <span className="text-[11px] text-slate-400">
+              <span className="text-[11px] text-text-tertiary">
                 via {order.payment?.provider === 'paystack' ? 'Paystack' : (order.payment?.provider || 'Paystack')}
               </span>
             </div>
           </div>
 
-          <div className="pt-6 border-t border-slate-100 space-y-3">
+          <div className="pt-6 border-t border-border-default space-y-3">
             <Link href="/products" className="btn-blue w-full text-center text-xs !py-3 block">
               Continue Shopping →
             </Link>
-            <Link href="/auth" className="text-xs text-[#4A7A99] font-semibold text-center block hover:underline">
+            <Link href="/auth" className="text-xs text-action-primary font-semibold text-center block hover:underline">
               Create / Sign In to Account
             </Link>
           </div>

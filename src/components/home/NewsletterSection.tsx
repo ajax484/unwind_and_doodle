@@ -71,15 +71,15 @@ export default function NewsletterSection({
   return (
     <section className="w-full bg-white py-16 sm:py-24 lg:py-32 relative overflow-hidden">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-[#F4F8FA] border-2 border-[#EDF3F7] rounded-3xl p-8 sm:p-14 text-center space-y-6 relative overflow-hidden shadow-xs">
+        <div className="bg-bg-subtle border-2 border-border-default rounded-3xl p-8 sm:p-14 text-center space-y-6 relative overflow-hidden shadow-xs">
           <div className="space-y-2 max-w-xl mx-auto">
-            <span className="text-xs font-heading font-semibold uppercase tracking-wider text-[#A7C2D4] block">
+            <span className="text-xs font-heading font-semibold uppercase tracking-wider text-brand-blue block">
               The Mindful Letter
             </span>
-            <h2 className="font-heading text-2xl sm:text-4xl font-bold text-[#243342]">
+            <h2 className="font-heading text-2xl sm:text-4xl font-bold text-text-primary">
               Stay in the loop.
             </h2>
-            <p className="text-xs sm:text-sm text-[#52657A] leading-relaxed">
+            <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">
               New product editions, creative journaling prompts, and occasional quiet inspirations in your inbox. No spam.
             </p>
           </div>
@@ -107,7 +107,7 @@ export default function NewsletterSection({
             {message && (
               <p
                 className={`text-xs font-medium ${
-                  status === 'success' ? 'text-[#1F7A4D]' : 'text-[#B33948]'
+                  status === 'success' ? 'text-status-success-text' : 'text-status-danger-text'
                 }`}
               >
                 {message}
@@ -115,7 +115,7 @@ export default function NewsletterSection({
             )}
           </form>
 
-          <p className="text-[11px] text-[#8295A8]">
+          <p className="text-[11px] text-text-tertiary">
             By subscribing you agree to receive updates from Unwind &amp; Doodle. Unsubscribe anytime.
           </p>
         </div>

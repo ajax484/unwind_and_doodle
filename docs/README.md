@@ -7,7 +7,7 @@ Welcome to the **Unwind & Doodle** engineering documentation. Unwind & Doodle is
 ## 📚 Quick Navigation
 
 - [System Architecture](file:///c:/Users/USER/work/unwind_and_doodle/docs/architecture.md) — Core subsystems, data flow, auth matrix, and payment integrations.
-- [Changelog Directory](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/README.md) — Comprehensive index of all 60+ feature change logs.
+- [Changelog Directory](file:///c:/Users/USER/work/unwind_and_doodle/docs/changes/README.md) — Comprehensive categorized index of all feature change logs across 8 domains.
 - [Testing Guide](#testing-structure) — Test suite organization, Vitest configuration, and mock conventions.
 
 ---

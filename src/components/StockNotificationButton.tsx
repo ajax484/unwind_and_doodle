@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Button from '@/components/Button';
 
 interface StockNotificationButtonProps {
   productId: string;
@@ -44,7 +45,7 @@ export default function StockNotificationButton({
 
   if (subscribed) {
     return (
-      <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-4 py-2.5 rounded-xl font-medium">
+      <div className="flex items-center gap-2 text-xs text-status-success-text bg-status-success-bg border border-status-success-accent/30 px-4 py-2.5 rounded-xl font-medium">
         <span>✓</span> We will email you when {productName} is back in stock!
       </div>
     );
@@ -52,15 +53,17 @@ export default function StockNotificationButton({
 
   return (
     <div className="space-y-2">
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="md"
         onClick={handleSubscribe}
         disabled={loading}
-        className="w-full bg-[#EBF3F8] hover:bg-[#D9E9F2] text-[#243342] border border-[#CBDDE8] px-4 py-3 rounded-2xl font-heading font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer disabled:opacity-50"
+        loading={loading}
+        leadingIcon={<span>🔔</span>}
+        className="w-full rounded-2xl"
       >
-        <span>🔔</span>
         {loading ? 'Subscribing...' : 'Notify Me When Available'}
-      </button>
+      </Button>
       {error && <p className="text-[11px] text-red-500 text-center">{error}</p>}
     </div>
   );

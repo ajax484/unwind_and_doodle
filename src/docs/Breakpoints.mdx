@@ -1,0 +1,134 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Design System/Responsive & Breakpoints" />
+
+# Responsive & Breakpoints
+
+Canonical breakpoint primitives for the Unwind & Doodle design system.
+These values are the **single source of truth** across Figma, Tailwind CSS, React components, and Storybook.
+
+---
+
+## Breakpoint Primitives
+
+| Token            |    Value | Tailwind | Semantic Range         |
+| :--------------- | -------: | :------- | :--------------------- |
+| `Breakpoint/SM`  |  `640px` | `sm:`    | Small-screen threshold |
+| `Breakpoint/MD`  |  `768px` | `md:`    | Tablet layout          |
+| `Breakpoint/LG`  | `1024px` | `lg:`    | Desktop layout         |
+| `Breakpoint/XL`  | `1280px` | `xl:`    | Wide desktop           |
+| `Breakpoint/2XL` | `1536px` | `2xl:`   | Large-display          |
+
+All values match Tailwind CSS v4 defaults. **No custom breakpoint definitions are needed.**
+
+---
+
+## Figma to Code Mapping
+
+| Figma Token      |    Value | Tailwind | Status   |
+| :--------------- | -------: | :------- | :------- |
+| `Breakpoint/SM`  |  `640px` | `sm`     | MATCH    |
+| `Breakpoint/MD`  |  `768px` | `md`     | MATCH    |
+| `Breakpoint/LG`  | `1024px` | `lg`     | MATCH    |
+| `Breakpoint/XL`  | `1280px` | `xl`     | MATCH    |
+| `Breakpoint/2XL` | `1536px` | `2xl`    | MATCH    |
+
+---
+
+## Responsive Semantics
+
+These are **layout behavior labels**, not device categories.
+Do not create separate Mobile/Tablet/Desktop tokens.
+
+| Label          |        Range  | Description                         |
+| :------------- | ------------: | :---------------------------------- |
+| Mobile         |    `< 768px`  | Single-column, compact layout       |
+| Tablet         | `768-1023px`  | Transitional multi-column layout    |
+| Desktop        | `1024-1279px` | Standard desktop layout             |
+| Wide Desktop   | `1280-1535px` | Wider containers, more columns      |
+| Large Display  |   `>= 1536px` | Large-screen optimised layout       |
+
+---
+
+## Responsive Principles
+
+### Mobile First
+Design and implement starting from the smallest practical layout.
+Progressively enhance at larger breakpoints using `sm:`, `md:`, `lg:`, `xl:`, `2xl:` prefixes.
+
+### Content-Driven
+Use breakpoints **only when the composition needs to change**.
+Do not introduce breakpoints because a device category exists.
+
+### Fluid Where Possible
+Prefer fluid widths, spacing, and grids.
+A layout that remains coherent without a breakpoint should not have one.
+
+### Structural Breakpoints
+Use breakpoints for meaningful layout changes:
+- Navigation transformation (hamburger to horizontal nav)
+- Column count changes in grids
+- Sidebar visibility
+- Content stacking / un-stacking
+- Drawer vs inline panel behaviour
+- Table overflow vs full table
+- Multi-column forms
+- Hero composition
+
+### Avoid Breakpoint Hacks
+Many narrowly targeted media queries to fix individual visual problems signal a component architecture issue.
+Treat layout exceptions as a refactor opportunity, not a breakpoint opportunity.
+
+---
+
+## Container Guidance
+
+| Context         | Horizontal Padding      | Token         |
+| :-------------- | :---------------------- | :------------ |
+| Mobile          | `16px` (`px-4`)         | `--spacing-4` |
+| Desktop and up  | `32px` (`px-8`)         | `--spacing-8` |
+| Large layouts   | bounded container above | existing only |
+
+Do not create new spacing tokens for container behaviour.
+
+---
+
+## Grid Guidance
+
+These are **guidelines**, not hard requirements. Components determine their own column behaviour.
+
+| Breakpoint           | Typical Column Count                            |
+| :------------------- | :---------------------------------------------- |
+| Mobile (< 768px)     | 1-2 columns (depending on component width)      |
+| Tablet (>= 768px)    | 2-3 columns                                     |
+| Desktop (>= 1024px)  | 3-4 columns                                     |
+| Wide (>= 1280px)     | 4+ columns (only when content remains readable) |
+
+---
+
+## Component Responsive Strategies
+
+Components fall into three responsive behaviours:
+
+### Fluid
+Scales naturally without structural changes.
+Examples: Button, Badge, Avatar, form controls
+
+### Reflow
+Changes arrangement at a breakpoint.
+Examples: ProductCard grids, HeroSection, Footer, DataTable layouts
+
+### Transform
+Changes interaction or layout mode at a breakpoint.
+Examples: Navbar, CartDrawer, AdminLayout, OrderStatusTimeline
+
+This is guidance only. Do not modify existing components based on this classification.
+
+---
+
+## Current Responsive Status
+
+As of Phase 8B, no responsive utility classes (sm:, md:, lg:, xl:, 2xl:) are used in the codebase,
+and no custom @media queries exist. The codebase is pre-responsive.
+
+Responsive implementation will be applied during page-level and component QA passes in subsequent phases.

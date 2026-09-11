@@ -285,13 +285,13 @@ function AuthContent() {
       <div className="max-w-md w-full">
         {/* Brand / Title Header */}
         <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#FBF0F2] to-[#EBF3F8] text-[#D99BA3] flex items-center justify-center font-heading font-bold text-2xl mx-auto mb-3 shadow-xs border border-[#E2ECF2]">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-bg-accent to-bg-brand text-brand-rose flex items-center justify-center font-heading font-bold text-2xl mx-auto mb-3 shadow-xs border border-border-default">
             ✨
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold font-heading text-slate-800 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold font-heading text-text-primary tracking-tight">
             {activeTab === 'signin' ? 'Welcome Back' : 'Create Your Account'}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          <p className="text-xs sm:text-sm text-text-secondary mt-1">
             {activeTab === 'signin'
               ? 'Sign in to access your orders, downloads, and saved addresses'
               : 'Join Unwind & Doodle for easy reorders and instant digital downloads'}
@@ -299,9 +299,9 @@ function AuthContent() {
         </div>
 
         {/* Card Box */}
-        <div className="bg-white border border-[#E2ECF2] rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+        <div className="bg-bg-surface border border-border-default rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
           {/* Main Tab Toggle: Sign In vs Sign Up */}
-          <div className="flex bg-slate-100 p-1 rounded-2xl">
+          <div className="flex bg-bg-subtle p-1 rounded-2xl">
             <button
               type="button"
               onClick={() => {
@@ -311,8 +311,8 @@ function AuthContent() {
               }}
               className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
                 activeTab === 'signin'
-                  ? 'bg-white text-slate-800 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-bg-surface text-text-primary shadow-xs'
+                  : 'text-text-secondary hover:text-text-primary'
               }`}
             >
               Sign In
@@ -326,8 +326,8 @@ function AuthContent() {
               }}
               className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
                 activeTab === 'signup'
-                  ? 'bg-white text-slate-800 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-bg-surface text-text-primary shadow-xs'
+                  : 'text-text-secondary hover:text-text-primary'
               }`}
             >
               Create Account
@@ -339,10 +339,10 @@ function AuthContent() {
             type="button"
             onClick={handleGoogleSignIn}
             disabled={googleLoading || loading}
-            className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 active:bg-slate-100 text-xs font-bold text-slate-700 transition-all disabled:opacity-50 cursor-pointer shadow-xs"
+            className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl border border-border-default hover:bg-bg-subtle active:bg-bg-brand/20 text-xs font-bold text-text-primary transition-all disabled:opacity-50 cursor-pointer shadow-xs"
           >
             {googleLoading ? (
-              <div className="w-4 h-4 rounded-full border-2 border-slate-400 border-t-transparent animate-spin" />
+              <div className="w-4 h-4 rounded-full border-2 border-border-brand border-t-transparent animate-spin" />
             ) : (
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path
@@ -368,22 +368,22 @@ function AuthContent() {
 
           {/* Divider */}
           <div className="relative flex py-1 items-center">
-            <div className="grow border-t border-slate-200"></div>
-            <span className="shrink mx-4 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+            <div className="grow border-t border-border-default"></div>
+            <span className="shrink mx-4 text-[11px] font-semibold text-text-tertiary uppercase tracking-wider">
               Or with email
             </span>
-            <div className="grow border-t border-slate-200"></div>
+            <div className="grow border-t border-border-default"></div>
           </div>
 
           {/* Alert / Error / Success Messages */}
           {error && (
-            <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium leading-relaxed animate-in fade-in">
+            <div className="p-3.5 rounded-2xl bg-status-danger-bg border border-status-danger-accent/30 text-status-danger-accent text-xs font-medium leading-relaxed animate-in fade-in">
               {error}
             </div>
           )}
 
           {successMessage && (
-            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium leading-relaxed animate-in fade-in">
+            <div className="p-3.5 rounded-2xl bg-status-success-bg border border-status-success-accent/30 text-status-success-accent text-xs font-medium leading-relaxed animate-in fade-in">
               {successMessage}
             </div>
           )}
@@ -392,7 +392,7 @@ function AuthContent() {
           {activeTab === 'signin' ? (
             <div className="space-y-4">
               {/* Secondary Toggle: Password vs Email Code */}
-              <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-200/60 text-xs">
+              <div className="flex bg-bg-subtle p-1 rounded-xl border border-border-default/60 text-xs">
                 <button
                   type="button"
                   onClick={() => {
@@ -401,8 +401,8 @@ function AuthContent() {
                   }}
                   className={`flex-1 py-1.5 font-bold rounded-lg transition-all ${
                     signInMethod === 'password'
-                      ? 'bg-white text-[#D99BA3] shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800'
+                      ? 'bg-bg-surface text-action-primary shadow-xs'
+                      : 'text-text-secondary hover:text-text-primary'
                   }`}
                 >
                   Password
@@ -416,8 +416,8 @@ function AuthContent() {
                   }}
                   className={`flex-1 py-1.5 font-bold rounded-lg transition-all ${
                     signInMethod === 'otp'
-                      ? 'bg-white text-[#D99BA3] shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800'
+                      ? 'bg-bg-surface text-action-primary shadow-xs'
+                      : 'text-text-secondary hover:text-text-primary'
                   }`}
                 >
                   Email Code / Magic Link
@@ -428,24 +428,24 @@ function AuthContent() {
                 /* Form 1A: Customer Password Sign In */
                 <form onSubmit={handlePasswordSignIn} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Email Address</label>
+                    <label className="block text-xs font-bold text-text-primary mb-1.5">Email Address</label>
                     <input
                       type="email"
                       required
                       placeholder="you@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-[#D99BA3] focus:ring-1 focus:ring-[#D99BA3] transition-colors"
+                      className="w-full px-3.5 py-2.5 bg-bg-subtle/50 border border-border-input rounded-xl text-xs text-text-primary placeholder:text-text-tertiary focus:outline-hidden focus:border-action-primary focus:ring-1 focus:ring-action-primary transition-colors"
                     />
                   </div>
 
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-bold text-slate-700">Password</label>
+                      <label className="block text-xs font-bold text-text-primary">Password</label>
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="text-[11px] font-semibold text-[#D99BA3] hover:text-[#C67D87]"
+                        className="text-[11px] font-semibold text-action-primary hover:text-action-primary-hover"
                       >
                         {showPassword ? 'Hide' : 'Show'}
                       </button>
@@ -456,14 +456,14 @@ function AuthContent() {
                       placeholder="••••••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-[#D99BA3] focus:ring-1 focus:ring-[#D99BA3] transition-colors"
+                      className="w-full px-3.5 py-2.5 bg-bg-subtle/50 border border-border-input rounded-xl text-xs text-text-primary placeholder:text-text-tertiary focus:outline-hidden focus:border-action-primary focus:ring-1 focus:ring-action-primary transition-colors"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-3 px-4 rounded-xl bg-[#D99BA3] hover:bg-[#C67D87] active:bg-[#B56F79] text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-sm"
+                    className="w-full py-3 px-4 rounded-xl bg-action-primary hover:bg-action-primary-hover active:bg-action-primary-deep text-text-inverse text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-sm"
                   >
                     {loading ? 'Signing In...' : 'Sign In →'}
                   </button>
@@ -472,21 +472,21 @@ function AuthContent() {
                 /* Form 1B: OTP / Magic Link Step 1 */
                 <form onSubmit={handleSendOtp} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Email Address</label>
+                    <label className="block text-xs font-bold text-text-primary mb-1.5">Email Address</label>
                     <input
                       type="email"
                       required
                       placeholder="you@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-[#D99BA3] focus:ring-1 focus:ring-[#D99BA3] transition-colors"
+                      className="w-full px-3.5 py-2.5 bg-bg-subtle/50 border border-border-input rounded-xl text-xs text-text-primary placeholder:text-text-tertiary focus:outline-hidden focus:border-action-primary focus:ring-1 focus:ring-action-primary transition-colors"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-3 px-4 rounded-xl bg-[#D99BA3] hover:bg-[#C67D87] active:bg-[#B56F79] text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-sm"
+                    className="w-full py-3 px-4 rounded-xl bg-action-primary hover:bg-action-primary-hover active:bg-action-primary-deep text-text-inverse text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-sm"
                   >
                     {loading ? 'Sending Code...' : 'Send Verification Code →'}
                   </button>
@@ -496,11 +496,11 @@ function AuthContent() {
                 <form onSubmit={handleVerifyOtp} className="space-y-4">
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-bold text-slate-700">6-Digit Code</label>
+                      <label className="block text-xs font-bold text-text-primary">6-Digit Code</label>
                       <button
                         type="button"
                         onClick={() => setOtpStep('email')}
-                        className="text-[11px] font-semibold text-[#D99BA3] hover:text-[#C67D87]"
+                        className="text-[11px] font-semibold text-action-primary hover:text-action-primary-hover"
                       >
                         Change Email
                       </button>
@@ -512,26 +512,26 @@ function AuthContent() {
                       placeholder="123456"
                       value={otp}
                       onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                      className="w-full px-3.5 py-3 bg-slate-50/50 border border-slate-200 rounded-xl text-base text-center tracking-[0.4em] font-mono text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-[#D99BA3] focus:ring-1 focus:ring-[#D99BA3] transition-colors"
+                      className="w-full px-3.5 py-3 bg-bg-subtle/50 border border-border-input rounded-xl text-base text-center tracking-[0.4em] font-mono text-text-primary placeholder:text-text-tertiary focus:outline-hidden focus:border-action-primary focus:ring-1 focus:ring-action-primary transition-colors"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={loading || otp.length !== 6}
-                    className="w-full py-3 px-4 rounded-xl bg-[#D99BA3] hover:bg-[#C67D87] active:bg-[#B56F79] text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-sm"
+                    className="w-full py-3 px-4 rounded-xl bg-action-primary hover:bg-action-primary-hover active:bg-action-primary-deep text-text-inverse text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-sm"
                   >
                     {loading ? 'Verifying...' : 'Verify Code & Sign In →'}
                   </button>
 
                   <div className="text-center pt-1">
                     {countdown > 0 ? (
-                      <span className="text-[11px] text-slate-400">Resend code in {countdown}s</span>
+                      <span className="text-[11px] text-text-tertiary">Resend code in {countdown}s</span>
                     ) : (
                       <button
                         type="button"
                         onClick={handleSendOtp}
-                        className="text-[11px] font-semibold text-[#D99BA3] hover:text-[#C67D87]"
+                        className="text-[11px] font-semibold text-action-primary hover:text-action-primary-hover"
                       >
                         Didn&apos;t receive code? Resend
                       </button>
@@ -545,48 +545,48 @@ function AuthContent() {
             <form onSubmit={handleCustomerSignUp} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">First Name</label>
+                  <label className="block text-xs font-bold text-text-primary mb-1.5">First Name</label>
                   <input
                     type="text"
                     required
                     placeholder="Ada"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-[#D99BA3] focus:ring-1 focus:ring-[#D99BA3] transition-colors"
+                    className="w-full px-3.5 py-2.5 bg-bg-subtle/50 border border-border-input rounded-xl text-xs text-text-primary placeholder:text-text-tertiary focus:outline-hidden focus:border-action-primary focus:ring-1 focus:ring-action-primary transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Last Name</label>
+                  <label className="block text-xs font-bold text-text-primary mb-1.5">Last Name</label>
                   <input
                     type="text"
                     required
                     placeholder="Okonkwo"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-[#D99BA3] focus:ring-1 focus:ring-[#D99BA3] transition-colors"
+                    className="w-full px-3.5 py-2.5 bg-bg-subtle/50 border border-border-input rounded-xl text-xs text-text-primary placeholder:text-text-tertiary focus:outline-hidden focus:border-action-primary focus:ring-1 focus:ring-action-primary transition-colors"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">Email Address</label>
+                <label className="block text-xs font-bold text-text-primary mb-1.5">Email Address</label>
                 <input
                   type="email"
                   required
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-[#D99BA3] focus:ring-1 focus:ring-[#D99BA3] transition-colors"
+                  className="w-full px-3.5 py-2.5 bg-bg-subtle/50 border border-border-input rounded-xl text-xs text-text-primary placeholder:text-text-tertiary focus:outline-hidden focus:border-action-primary focus:ring-1 focus:ring-action-primary transition-colors"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-slate-700">Create Password</label>
+                  <label className="block text-xs font-bold text-text-primary">Create Password</label>
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="text-[11px] font-semibold text-[#D99BA3] hover:text-[#C67D87]"
+                    className="text-[11px] font-semibold text-action-primary hover:text-action-primary-hover"
                   >
                     {showPassword ? 'Hide' : 'Show'}
                   </button>
@@ -597,7 +597,7 @@ function AuthContent() {
                   placeholder="At least 6 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-[#D99BA3] focus:ring-1 focus:ring-[#D99BA3] transition-colors"
+                  className="w-full px-3.5 py-2.5 bg-bg-subtle/50 border border-border-input rounded-xl text-xs text-text-primary placeholder:text-text-tertiary focus:outline-hidden focus:border-action-primary focus:ring-1 focus:ring-action-primary transition-colors"
                 />
               </div>
 
@@ -607,9 +607,9 @@ function AuthContent() {
                   id="marketingConsent"
                   checked={marketingConsent}
                   onChange={(e) => setMarketingConsent(e.target.checked)}
-                  className="mt-0.5 rounded border-slate-300 text-[#D99BA3] focus:ring-[#D99BA3]"
+                  className="mt-0.5 rounded border-border-input text-action-primary focus:ring-action-primary"
                 />
-                <label htmlFor="marketingConsent" className="text-[11px] text-slate-500 leading-tight">
+                <label htmlFor="marketingConsent" className="text-[11px] text-text-secondary leading-tight">
                   Keep me updated on new coloring book releases, bundles, and discounts.
                 </label>
               </div>
@@ -617,7 +617,7 @@ function AuthContent() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 px-4 rounded-xl bg-[#D99BA3] hover:bg-[#C67D87] active:bg-[#B56F79] text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-sm"
+                className="w-full py-3 px-4 rounded-xl bg-action-primary hover:bg-action-primary-hover active:bg-action-primary-deep text-text-inverse text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-sm"
               >
                 {loading ? 'Creating Account...' : 'Create Customer Account →'}
               </button>
@@ -629,14 +629,14 @@ function AuthContent() {
         <div className="mt-8 text-center space-y-3">
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors"
           >
             <span>←</span>
             <span>Back to Storefront</span>
           </Link>
-          <div className="text-[11px] text-slate-400">
+          <div className="text-[11px] text-text-tertiary">
             Store Administrator or Team Member?{' '}
-            <Link href="/admin/login" className="text-[#D99BA3] hover:text-[#C67D87] font-semibold underline">
+            <Link href="/admin/login" className="text-action-primary hover:text-action-primary-hover font-semibold underline">
               Admin Portal
             </Link>
           </div>
@@ -651,7 +651,7 @@ export default function AuthPage() {
     <Suspense
       fallback={
         <div className="min-h-[80vh] flex items-center justify-center p-4">
-          <div className="w-8 h-8 rounded-full border-2 border-[#D99BA3] border-t-transparent animate-spin" />
+          <div className="w-8 h-8 rounded-full border-2 border-brand-rose border-t-transparent animate-spin" />
         </div>
       }
     >

@@ -4,7 +4,8 @@ import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminOrderListItem, AdminOrderListResponse } from '@/types/admin-order';
-import OrderStatusBadge from '@/components/admin/OrderStatusBadge';
+import OrderStatusBadge from '@/components/OrderStatusBadge';
+import { Pagination } from '@/components/Pagination';
 
 function OrdersListContent() {
   const router = useRouter();
@@ -139,7 +140,7 @@ function OrdersListContent() {
           </span>
           <Link
             href="/admin/orders/manual/new"
-            className="px-4 py-2 rounded-xl text-xs font-heading font-bold bg-[#1E293B] hover:bg-slate-800 text-white transition-colors shadow-xs flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl text-xs font-heading font-bold bg-neutral-charcoal hover:bg-neutral-charcoal/90 text-text-inverse transition-colors shadow-xs flex items-center gap-1.5"
           >
             + Create Manual Order
           </Link>
@@ -157,7 +158,7 @@ function OrdersListContent() {
               onClick={() => updateFilters({ status: tab.value, page: 1 })}
               className={`px-3.5 py-2 rounded-xl text-xs font-heading font-semibold whitespace-nowrap transition-all cursor-pointer ${
                 isActive
-                  ? 'bg-[#1E293B] text-white shadow-xs'
+                  ? 'bg-neutral-charcoal text-text-inverse shadow-xs'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >
@@ -390,25 +391,14 @@ function OrdersListContent() {
               {pagination.total} total orders)
             </span>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={pagination.page <= 1 || loading}
-                onClick={() => updateFilters({ page: pagination.page - 1 })}
-                className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold disabled:opacity-40 cursor-pointer shadow-xs"
-              >
-                ← Previous
-              </button>
-
-              <button
-                type="button"
-                disabled={pagination.page >= pagination.totalPages || loading}
-                onClick={() => updateFilters({ page: pagination.page + 1 })}
-                className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold disabled:opacity-40 cursor-pointer shadow-xs"
-              >
-                Next →
-              </button>
-            </div>
+            <Pagination
+              size="sm"
+              currentPage={pagination.page}
+              totalPages={pagination.totalPages}
+              onPageChange={(p) => updateFilters({ page: p })}
+              showLabels
+              aria-label="Admin orders table pagination"
+            />
           </div>
         )}
       </div>

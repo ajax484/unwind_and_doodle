@@ -1,0 +1,127 @@
+import { Meta, Title, Subtitle, ColorPalette, ColorItem } from '@storybook/addon-docs/blocks';
+
+<Meta title="Design System/Design Tokens" />
+
+# Design Tokens
+
+<Subtitle>Curated color scales, typography rules, border radii, and elevation levels powering Unwind & Doodle.</Subtitle>
+
+Design tokens are the visual atoms of our design system. In code, they are configured in `src/app/globals.css` via the Tailwind CSS `@theme` directive and exposed through utility classes.
+
+---
+
+## 🎨 Color Tokens
+
+### Brand Colors
+Our signature palette balances a warm mindful rose with a serene coastal blue.
+
+<ColorPalette>
+  <ColorItem
+    title="Brand Rose"
+    subtitle="--color-brand-rose-*"
+    colors={{
+      Subtle: '#FDF7F8',
+      Light: '#FBF0F2',
+      Base: '#D99BA3',
+      Dark: '#C67D87',
+      Deep: '#9E4D58',
+    }}
+  />
+  <ColorItem
+    title="Brand Blue"
+    subtitle="--color-brand-blue-*"
+    colors={{
+      Subtle: '#F4F8FA',
+      Light: '#EBF3F8',
+      Base: '#A7C2D4',
+      Dark: '#7FA6BF',
+      Deep: '#4A7A99',
+    }}
+  />
+</ColorPalette>
+
+### Neutrals
+Calibrated slate and charcoal tones provide high-contrast legibility for text, borders, and surfaces.
+
+<ColorPalette>
+  <ColorItem
+    title="Neutrals"
+    subtitle="--color-neutral-*"
+    colors={{
+      White: '#FFFFFF',
+      Cream: '#FFFDF7',
+      'Border Soft': '#EDF3F7',
+      'Border Input': '#DCE7EE',
+      Placeholder: '#9DB0C2',
+      Muted: '#8295A8',
+      Slate: '#52657A',
+      Charcoal: '#243342',
+    }}
+  />
+</ColorPalette>
+
+### Semantic Status Colors
+Stateful operational feedback colors for alerts, badges, order statuses, and toasts.
+
+<ColorPalette>
+  <ColorItem
+    title="Success (Green)"
+    subtitle="In Stock / Delivered / Confirmed"
+    colors={{
+      Background: '#EBF8F2',
+      Text: '#1F7A4D',
+      Accent: '#10B981',
+    }}
+  />
+  <ColorItem
+    title="Warning (Amber)"
+    subtitle="Low Stock / Pending / Away"
+    colors={{
+      Background: '#FFFBEB',
+      Text: '#B45309',
+      Accent: '#F59E0B',
+    }}
+  />
+  <ColorItem
+    title="Danger (Red)"
+    subtitle="Out of Stock / Cancelled / Error"
+    colors={{
+      Background: '#FDF0F2',
+      Text: '#B33948',
+      Accent: '#EF4444',
+    }}
+  />
+  <ColorItem
+    title="Info (Indigo)"
+    subtitle="Shipped / Processing / Updates"
+    colors={{
+      Background: '#EEF2FF',
+      Text: '#4338CA',
+      Accent: '#6366F1',
+    }}
+  />
+</ColorPalette>
+
+---
+
+## ✍️ Typography Tokens
+
+Our design system uses two distinct typefaces:
+
+| Token | CSS Variable | Font Family | Usage |
+| :--- | :--- | :--- | :--- |
+| **`font-heading`** | `--font-heading` | `'Fredoka', cursive, sans-serif` | Brand titles, card headings, section headers, badges |
+| **`font-body`** | `--font-body` | `'Plus Jakarta Sans', sans-serif` | Body text, captions, buttons, forms, tables |
+
+---
+
+## 🔘 Corner Radius Tokens
+
+Radius values create consistent, friendly, and tactile rounded geometry.
+
+| Token | Class | Pixel Value | Application |
+| :--- | :--- | :--- | :--- |
+| **Small** | `rounded-lg` | `8px` | Badges, tags, form input controls |
+| **Medium** | `rounded-xl` | `12px` | Buttons, navigation links, alert cards |
+| **Large** | `rounded-2xl` | `16px` | Product cards, modals, popovers |
+| **Pill / Circle** | `rounded-full` | `9999px` | Avatars, steppers, cart badges, filter chips |

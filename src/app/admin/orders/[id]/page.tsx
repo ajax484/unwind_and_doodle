@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminOrderDetail } from "@/types/admin-order";
-import OrderStatusBadge from "@/components/admin/OrderStatusBadge";
+import OrderStatusBadge from "@/components/OrderStatusBadge";
 
 export default function AdminOrderDetailPage({
   params,

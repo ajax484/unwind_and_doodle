@@ -18,8 +18,8 @@ export default function AdminUnauthorizedPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F7F9] flex items-center justify-center p-4 sm:p-6">
-      <div className="max-w-md w-full bg-white rounded-3xl p-8 sm:p-10 border border-slate-200/80 shadow-sm text-center space-y-6">
+    <div className="min-h-screen bg-bg-subtle flex items-center justify-center p-4 sm:p-6">
+      <div className="max-w-md w-full bg-bg-surface rounded-3xl p-8 sm:p-10 border border-border-default shadow-sm text-center space-y-6">
         {/* Shield Icon */}
         <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-3xl mx-auto border border-amber-100 shadow-xs">
           🛡️
@@ -27,15 +27,15 @@ export default function AdminUnauthorizedPage() {
 
         {/* Header */}
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold font-heading text-slate-900">Access Denied</h1>
-          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+          <h1 className="text-2xl font-bold font-heading text-text-primary">Access Denied</h1>
+          <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">
             You don&apos;t have permission to access the store administration area.
           </p>
         </div>
 
         {/* Security Notice */}
-        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-xs text-slate-500 text-left space-y-1.5">
-          <div className="font-semibold text-slate-700 flex items-center gap-1.5">
+        <div className="p-4 rounded-2xl bg-bg-subtle border border-border-default/60 text-xs text-text-secondary text-left space-y-1.5">
+          <div className="font-semibold text-text-primary flex items-center gap-1.5">
             <span>ℹ️</span> Organization Membership Required
           </div>
           <p className="text-[11px] leading-relaxed">
@@ -48,20 +48,20 @@ export default function AdminUnauthorizedPage() {
           <button
             type="button"
             onClick={handleSwitchAccount}
-            className="w-full py-3.5 px-4 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white text-xs sm:text-sm font-heading font-bold transition-colors shadow-sm cursor-pointer"
+            className="w-full py-3.5 px-4 rounded-2xl bg-action-primary hover:bg-action-primary-hover active:bg-action-primary-deep text-text-inverse text-xs sm:text-sm font-heading font-bold transition-colors shadow-sm cursor-pointer"
           >
             Sign In with Different Account
           </button>
 
           <Link
             href="/"
-            className="w-full block py-3 px-4 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold transition-colors"
+            className="w-full block py-3 px-4 rounded-2xl border border-border-default hover:bg-bg-subtle text-text-primary text-xs sm:text-sm font-semibold transition-colors"
           >
             Return to Store
           </Link>
         </div>
 
-        <div className="text-[11px] text-slate-400">
+        <div className="text-[11px] text-text-tertiary">
           Unwind &amp; Doodle Security Boundary
         </div>
       </div>

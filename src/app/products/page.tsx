@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useTransition, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import ProductCard from '@/components/ProductCard';
+import { Pagination } from '@/components/Pagination';
 import { CatalogProductItem } from '@/services/catalog.service';
 
 interface CategoryItem {
@@ -173,13 +174,13 @@ function ProductsContent() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 space-y-10">
       {/* 1. CATALOG HEADER */}
       <div className="space-y-3">
-        <span className="text-xs font-heading font-semibold uppercase tracking-wider text-[#A7C2D4] block">
+        <span className="text-xs font-heading font-semibold uppercase tracking-wider text-brand-blue block">
           Collection Catalog
         </span>
-        <h1 className="font-heading text-4xl sm:text-5xl font-bold tracking-tight text-[#243342]">
+        <h1 className="font-heading text-4xl sm:text-5xl font-bold tracking-tight text-text-primary">
           Shop
         </h1>
-        <p className="text-sm sm:text-base text-[#52657A] max-w-xl">
+        <p className="text-sm sm:text-base text-text-secondary max-w-xl">
           Everything made for your creative moments.
         </p>
       </div>
@@ -195,8 +196,8 @@ function ProductsContent() {
               onClick={() => handleCategoryClick(cat.slug)}
               className={`px-4 py-2 rounded-full text-xs sm:text-sm font-heading font-semibold whitespace-nowrap transition-all ${
                 isSelected
-                  ? 'bg-[#D99BA3] text-white shadow-xs'
-                  : 'bg-[#F4F8FA] hover:bg-[#EBF3F8] text-[#52657A] border border-[#EDF3F7]'
+                  ? 'bg-action-primary text-text-inverse shadow-xs'
+                  : 'bg-bg-subtle hover:bg-bg-brand text-text-secondary border border-border-default'
               }`}
             >
               {cat.name}
@@ -206,7 +207,7 @@ function ProductsContent() {
       </div>
 
       {/* 3. TOOLBAR (Search, Availability Toggle, Sorting, Count) */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-4 border-t border-[#EDF3F7]">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-4 border-t border-border-default">
         {/* Left: Search Input & In Stock Filter */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
           {/* Live Search */}
@@ -218,14 +219,14 @@ function ProductsContent() {
               onChange={(e) => handleSearchChange(e.target.value)}
               className="form-input text-xs sm:text-sm !py-2.5 !pl-9"
             />
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8295A8] text-xs">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary text-xs">
               🔍
             </span>
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => handleSearchChange('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8295A8] hover:text-[#243342] text-xs font-bold"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary text-xs font-bold"
                 aria-label="Clear search"
               >
                 ✕
@@ -239,12 +240,12 @@ function ProductsContent() {
             onClick={handleInStockToggle}
             className={`px-3.5 py-2.5 rounded-xl border text-xs font-heading font-semibold transition-colors flex items-center justify-center gap-2 ${
               inStockOnly
-                ? 'border-[#D99BA3] bg-[#FBF0F2] text-[#D99BA3]'
-                : 'border-[#EDF3F7] bg-white text-[#52657A] hover:bg-[#F4F8FA]'
+                ? 'border-border-accent bg-bg-accent text-action-primary'
+                : 'border-border-default bg-bg-surface text-text-secondary hover:bg-bg-subtle'
             }`}
           >
             <span
-              className={`w-2 h-2 rounded-full ${inStockOnly ? 'bg-[#D99BA3]' : 'bg-[#DCE7EE]'}`}
+              className={`w-2 h-2 rounded-full ${inStockOnly ? 'bg-action-primary' : 'bg-border-input'}`}
             />
             <span>In stock only</span>
           </button>
@@ -252,19 +253,19 @@ function ProductsContent() {
 
         {/* Right: Sort Dropdown & Product Count */}
         <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
-          <span className="text-xs font-heading font-semibold text-[#8295A8] whitespace-nowrap">
+          <span className="text-xs font-heading font-semibold text-text-tertiary whitespace-nowrap">
             {loading ? 'Loading...' : `${totalCount} product${totalCount === 1 ? '' : 's'}`}
           </span>
 
           <div className="flex items-center gap-2">
-            <label htmlFor="catalog-sort" className="text-xs font-heading font-semibold text-[#52657A] hidden sm:inline">
+            <label htmlFor="catalog-sort" className="text-xs font-heading font-semibold text-text-secondary hidden sm:inline">
               Sort:
             </label>
             <select
               id="catalog-sort"
               value={selectedSort}
               onChange={handleSortChange}
-              className="form-input text-xs font-heading font-semibold !py-2 !px-3 bg-white border border-[#EDF3F7] rounded-xl text-[#243342] cursor-pointer"
+              className="form-input text-xs font-heading font-semibold !py-2 !px-3 bg-bg-surface border border-border-default rounded-xl text-text-primary cursor-pointer"
             >
               <option value="featured">Featured</option>
               <option value="newest">Newest</option>
@@ -277,36 +278,36 @@ function ProductsContent() {
 
       {/* Active Filter Tags */}
       {hasActiveFilters && (
-        <div className="flex items-center gap-2 flex-wrap text-xs text-[#52657A]">
+        <div className="flex items-center gap-2 flex-wrap text-xs text-text-secondary">
           <span className="font-heading font-semibold">Active filters:</span>
           {selectedCategory && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#EBF3F8] text-[#4A7A99] font-heading font-semibold">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bg-brand text-text-brand font-heading font-semibold">
               Category: {categories.find((c) => c.slug === selectedCategory)?.name || selectedCategory}
               <button
                 type="button"
                 onClick={() => handleCategoryClick('')}
-                className="hover:text-[#243342]"
+                className="hover:text-text-primary"
               >
                 ✕
               </button>
             </span>
           )}
           {searchQuery && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#EBF3F8] text-[#4A7A99] font-heading font-semibold">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bg-brand text-text-brand font-heading font-semibold">
               Search: "{searchQuery}"
               <button
                 type="button"
                 onClick={() => handleSearchChange('')}
-                className="hover:text-[#243342]"
+                className="hover:text-text-primary"
               >
                 ✕
               </button>
             </span>
           )}
           {inStockOnly && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#EBF3F8] text-[#4A7A99] font-heading font-semibold">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bg-brand text-text-brand font-heading font-semibold">
               In Stock
-              <button type="button" onClick={handleInStockToggle} className="hover:text-[#243342]">
+              <button type="button" onClick={handleInStockToggle} className="hover:text-text-primary">
                 ✕
               </button>
             </span>
@@ -314,7 +315,7 @@ function ProductsContent() {
           <button
             type="button"
             onClick={handleClearFilters}
-            className="text-[#D99BA3] hover:text-[#C67D87] font-heading font-bold ml-2 underline"
+            className="text-action-primary hover:text-action-primary-hover font-heading font-bold ml-2 underline"
           >
             Clear all
           </button>
@@ -325,21 +326,21 @@ function ProductsContent() {
       {loading ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <div key={i} className="card-soft h-72 sm:h-84 animate-pulse bg-[#F4F8FA] rounded-2xl" />
+            <div key={i} className="card-soft h-72 sm:h-84 animate-pulse bg-bg-subtle rounded-2xl" />
           ))}
         </div>
       ) : error ? (
-        <div className="p-8 text-center text-[#B33948] bg-[#FDF0F2] rounded-2xl max-w-md mx-auto">
+        <div className="p-8 text-center text-status-danger-text bg-status-danger-bg rounded-2xl max-w-md mx-auto">
           <p className="text-xs sm:text-sm font-medium">{error}</p>
         </div>
       ) : products.length === 0 ? (
-        <div className="p-16 text-center bg-[#F4F8FA] rounded-3xl max-w-lg mx-auto space-y-4 border border-[#EDF3F7]">
-          <div className="w-16 h-16 rounded-full bg-white text-[#D99BA3] flex items-center justify-center text-3xl mx-auto shadow-xs">
+        <div className="p-16 text-center bg-bg-subtle rounded-3xl max-w-lg mx-auto space-y-4 border border-border-default">
+          <div className="w-16 h-16 rounded-full bg-bg-surface text-action-primary flex items-center justify-center text-3xl mx-auto shadow-xs">
             🔍
           </div>
           <div className="space-y-1">
-            <h3 className="font-heading font-bold text-xl text-[#243342]">No Products Found</h3>
-            <p className="text-xs sm:text-sm text-[#52657A]">
+            <h3 className="font-heading font-bold text-xl text-text-primary">No Products Found</h3>
+            <p className="text-xs sm:text-sm text-text-secondary">
               We couldn't find any products matching your search or filters.
             </p>
           </div>
@@ -373,50 +374,17 @@ function ProductsContent() {
 
       {/* 5. PAGINATION (If multiple pages exist) */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 pt-8 border-t border-[#EDF3F7]">
-          <button
-            type="button"
-            disabled={currentPage <= 1}
-            onClick={() => {
-              const prev = Math.max(1, currentPage - 1);
-              setCurrentPage(prev);
-              updateUrlParams({ page: prev });
+        <div className="flex items-center justify-center pt-8 border-t border-border-default">
+          <Pagination
+            size="md"
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={(page) => {
+              setCurrentPage(page);
+              updateUrlParams({ page });
             }}
-            className="px-3.5 py-2 rounded-xl border border-[#EDF3F7] bg-white hover:bg-[#F4F8FA] text-xs font-heading font-semibold text-[#243342] disabled:opacity-40"
-          >
-            ← Previous
-          </button>
-
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
-            <button
-              key={pg}
-              type="button"
-              onClick={() => {
-                setCurrentPage(pg);
-                updateUrlParams({ page: pg });
-              }}
-              className={`w-9 h-9 rounded-xl text-xs font-heading font-bold transition-colors ${
-                currentPage === pg
-                  ? 'bg-[#D99BA3] text-white'
-                  : 'bg-white border border-[#EDF3F7] text-[#52657A] hover:bg-[#F4F8FA]'
-              }`}
-            >
-              {pg}
-            </button>
-          ))}
-
-          <button
-            type="button"
-            disabled={currentPage >= totalPages}
-            onClick={() => {
-              const next = Math.min(totalPages, currentPage + 1);
-              setCurrentPage(next);
-              updateUrlParams({ page: next });
-            }}
-            className="px-3.5 py-2 rounded-xl border border-[#EDF3F7] bg-white hover:bg-[#F4F8FA] text-xs font-heading font-semibold text-[#243342] disabled:opacity-40"
-          >
-            Next →
-          </button>
+            aria-label="Product catalog pagination"
+          />
         </div>
       )}
     </div>
@@ -425,7 +393,7 @@ function ProductsContent() {
 
 export default function ProductsPage() {
   return (
-    <Suspense fallback={<div className="max-w-7xl mx-auto p-12 text-center text-xs font-heading text-[#8295A8]">Loading catalog...</div>}>
+    <Suspense fallback={<div className="max-w-7xl mx-auto p-12 text-center text-xs font-heading text-text-tertiary">Loading catalog...</div>}>
       <ProductsContent />
     </Suspense>
   );

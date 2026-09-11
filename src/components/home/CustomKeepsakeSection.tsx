@@ -3,45 +3,45 @@ import Link from 'next/link';
 
 export default function CustomKeepsakeSection() {
   return (
-    <section className="w-full bg-[#243342] text-white py-16 sm:py-24 lg:py-32 relative overflow-hidden">
+    <section className="w-full bg-neutral-charcoal text-white py-16 sm:py-24 lg:py-32 relative overflow-hidden">
       {/* Subtle logo blobs inside full-width dark section */}
-      <div className="absolute top-0 right-0 w-96 sm:w-[600px] h-96 sm:h-[600px] rounded-full bg-[#A7C2D4]/12 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-96 sm:w-[600px] h-96 sm:h-[600px] rounded-full bg-[#D99BA3]/12 blur-3xl pointer-events-none" />
+      <div className="absolute top-0 right-0 w-96 sm:w-[600px] h-96 sm:h-[600px] rounded-full bg-brand-blue/12 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-96 sm:w-[600px] h-96 sm:h-[600px] rounded-full bg-brand-rose/12 blur-3xl pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           {/* Left: Headline & Explanation */}
           <div className="lg:col-span-6 space-y-6">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#36495C] text-[11px] font-heading font-semibold tracking-wide uppercase text-[#EDF3F7]">
-              <span className="text-[#D99BA3]">✨</span>
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neutral-footer-border text-[11px] font-heading font-semibold tracking-wide uppercase text-neutral-cream">
+              <span className="text-brand-rose">✨</span>
               <span>Personalized Keepsake Books</span>
             </div>
 
             <h2 className="font-heading text-3xl sm:text-5xl font-bold tracking-tight leading-tight text-white">
               Turn your memories into <br />
-              <span className="text-[#D99BA3]">coloring pages.</span>
+              <span className="text-brand-rose">coloring pages.</span>
             </h2>
 
-            <p className="text-sm sm:text-base text-[#A5B8C8] leading-relaxed">
+            <p className="text-sm sm:text-base text-brand-blue leading-relaxed">
               Upload your favorite photos from family celebrations, vacations, weddings, or cherished moments. Our artists transform them into bespoke line art bound into a personalized coloring book.
             </p>
 
             {/* 3-Step Visual Process */}
-            <div className="grid grid-cols-3 gap-3 pt-4 pb-2 border-y border-[#36495C] text-xs">
+            <div className="grid grid-cols-3 gap-3 pt-4 pb-2 border-y border-border-inverse text-xs">
               <div className="space-y-1">
-                <span className="text-[#A7C2D4] font-heading font-bold text-base block">01.</span>
+                <span className="text-brand-blue font-heading font-bold text-base block">01.</span>
                 <span className="font-heading font-bold text-white block">Your Photo</span>
-                <span className="text-[11px] text-[#8295A8] block">Upload your moments</span>
+                <span className="text-[11px] text-text-tertiary block">Upload your moments</span>
               </div>
               <div className="space-y-1">
-                <span className="text-[#D99BA3] font-heading font-bold text-base block">02.</span>
+                <span className="text-brand-rose font-heading font-bold text-base block">02.</span>
                 <span className="font-heading font-bold text-white block">Line Art</span>
-                <span className="text-[11px] text-[#8295A8] block">Drawn into coloring pages</span>
+                <span className="text-[11px] text-text-tertiary block">Drawn into coloring pages</span>
               </div>
               <div className="space-y-1">
-                <span className="text-[#A7C2D4] font-heading font-bold text-base block">03.</span>
+                <span className="text-brand-blue font-heading font-bold text-base block">03.</span>
                 <span className="font-heading font-bold text-white block">Bound Book</span>
-                <span className="text-[11px] text-[#8295A8] block">Delivered to your door</span>
+                <span className="text-[11px] text-text-tertiary block">Delivered to your door</span>
               </div>
             </div>
 
@@ -59,28 +59,28 @@ export default function CustomKeepsakeSection() {
           {/* Right: Dual Process Cards */}
           <div className="lg:col-span-6">
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[#1B2733] rounded-2xl p-6 flex flex-col justify-between space-y-8 border border-[#36495C]">
-                <span className="text-xs uppercase font-heading font-semibold tracking-wider text-[#A7C2D4]">
+              <div className="bg-neutral-charcoal/80 rounded-2xl p-6 flex flex-col justify-between space-y-8 border border-border-inverse">
+                <span className="text-xs uppercase font-heading font-semibold tracking-wider text-brand-blue">
                   Input
                 </span>
                 <div className="text-center py-6">
                   <span className="text-4xl mb-2 block">📸</span>
                   <span className="font-heading font-bold text-sm text-white block">Favorite Photo</span>
-                  <span className="text-[11px] text-[#8295A8]">Portraits, family, &amp; pets</span>
+                  <span className="text-[11px] text-text-tertiary">Portraits, family, &amp; pets</span>
                 </div>
-                <span className="text-[10px] text-[#8295A8] text-center">Step 1 • Digital Upload</span>
+                <span className="text-[10px] text-text-tertiary text-center">Step 1 • Digital Upload</span>
               </div>
 
-              <div className="bg-[#1B2733] rounded-2xl p-6 flex flex-col justify-between space-y-8 border border-[#36495C]">
-                <span className="text-xs uppercase font-heading font-semibold tracking-wider text-[#D99BA3]">
+              <div className="bg-neutral-charcoal/80 rounded-2xl p-6 flex flex-col justify-between space-y-8 border border-border-inverse">
+                <span className="text-xs uppercase font-heading font-semibold tracking-wider text-brand-rose">
                   Output
                 </span>
                 <div className="text-center py-6">
                   <span className="text-4xl mb-2 block">📖</span>
                   <span className="font-heading font-bold text-sm text-white block">Printed Keepsake</span>
-                  <span className="text-[11px] text-[#8295A8]">160gsm archival finish</span>
+                  <span className="text-[11px] text-text-tertiary">160gsm archival finish</span>
                 </div>
-                <span className="text-[10px] text-[#8295A8] text-center">Step 2 • Hand-Bound</span>
+                <span className="text-[10px] text-text-tertiary text-center">Step 2 • Hand-Bound</span>
               </div>
             </div>
           </div>

@@ -1,0 +1,62 @@
+import { Meta, Title, Subtitle } from '@storybook/addon-docs/blocks';
+
+<Meta title="Design System/Introduction" />
+
+# Unwind & Doodle Design System
+
+<Subtitle>Canonical component library, design tokens, and interactive documentation for mindful coloring commerce.</Subtitle>
+
+Welcome to the **Unwind & Doodle** design system documentation. This interactive Storybook catalog bridges our canonical **Figma design system** with our production **Next.js & React implementation**.
+
+---
+
+## 🏛️ Tri-Directional Alignment Philosophy
+
+Our design system adheres to a strict tri-directional reconciliation model:
+
+```text
+Figma (Canonical Visual & Design Spec)
+   │
+   ▼
+Canonical Component Specification
+   │
+   ▼
+React Implementation (Canonical Behavior & API Spec)
+   │
+   ▼
+Storybook (Interactive Implementation Reference & Controls)
+```
+
+1. **Figma Canvas**: Visual source of truth for variant matrices, layout constraints, color variables, and typography.
+2. **React Implementation**: Canonical behavioral, accessibility, and API contract adhering strictly to `class-variance-authority` (CVA) and `@/lib/utils` `cn()`.
+3. **Storybook Catalog**: Interactive workbench powered by `@storybook/addon-mcp`, `@storybook/addon-a11y`, and `@storybook/addon-vitest` for automated testing and inspection.
+
+---
+
+## 🧩 Component Architecture & Hierarchy
+
+Components are categorized into strict Atomic Design tiers:
+
+* **Atoms**: Foundational, single-purpose primitives (`Button`, `Badge`, `Spinner`, `Skeleton`, `Avatar`).
+* **Molecules**: Small compositions of atoms (`Toast`, `CustomizationUploader`, `OrderStatusTimeline`, `AddressCard`, `EmptyState`).
+* **Organisms**: Complex page sections and interactive overlays (`Navbar`, `Footer`, `CartDrawer`, `ReviewModal`, `DataTable`).
+
+---
+
+## 🚀 Key Features
+
+* **Tailwind CSS @theme Tokens**: All styling is driven by semantic CSS custom properties defined in `src/app/globals.css`.
+* **Zero Hardcoded Hex Codes**: Primitives are bound to semantic tokens (`bg-bg-subtle`, `text-text-primary`, `bg-brand-rose`, etc.).
+* **Automatic Documentation (`autodocs`)**: Every component features a live Docs page with TypeScript prop definitions, JSDoc descriptions, and interactive canvas examples.
+* **Model Context Protocol (MCP) Integration**: Fully connected via `@storybook/addon-mcp` on `http://localhost:6006/mcp` for agentic test execution, story discovery, and live preview generation.
+
+---
+
+## 📖 Explore the Design System
+
+* [Design Tokens](?path=/docs/design-system-design-tokens--docs): Color palettes, typography scales, spacing, and radius tokens.
+* [Button Atom](?path=/docs/design-system-atoms-button--docs): Primary interaction primitive with variants and steppers.
+* [Badge Atom](?path=/docs/design-system-atoms-badge--docs): Status labeling and e-commerce tag indicator.
+* [Avatar Atom](?path=/docs/design-system-atoms-avatar--docs): User identity avatar with image and initials fallback.
+* [Spinner Atom](?path=/docs/design-system-atoms-spinner--docs): Asynchronous operation activity feedback.
+* [Skeleton Atom](?path=/docs/design-system-atoms-skeleton--docs): Content loading wireframe placeholders.

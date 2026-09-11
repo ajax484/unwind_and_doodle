@@ -42,13 +42,24 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className={`${fredoka.variable} ${plusJakartaSans.variable} antialiased min-h-screen flex flex-col bg-[#FFFDF7] text-slate-800`}>
+      <body className={`${fredoka.variable} ${plusJakartaSans.variable} antialiased min-h-screen flex flex-col bg-bg-default text-text-primary`}>
         <CartProvider>
           <Navbar />
           <main className="flex-grow">{children}</main>
           <Footer />
           <CartDrawer />
-          <Toaster position="top-right" richColors closeButton />
+          <Toaster
+            position="top-right"
+            richColors
+            closeButton
+            toastOptions={{
+              className: 'rounded-2xl font-body shadow-card border',
+              classNames: {
+                title: 'font-heading font-semibold text-[15px]',
+                description: 'font-body text-[13px]',
+              },
+            }}
+          />
         </CartProvider>
       </body>
     </html>

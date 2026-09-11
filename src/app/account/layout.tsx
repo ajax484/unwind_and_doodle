@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { Avatar } from '@/components/Avatar';
 
 interface CustomerData {
   firstName: string | null;
@@ -70,19 +71,24 @@ export default function AccountLayout({
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
         {/* Left Sidebar Navigation */}
         <aside className="lg:col-span-1 space-y-6">
-          <div className="card-soft p-6 bg-white border border-[#E2ECF2] shadow-xs space-y-6">
+          <div className="card-soft p-6 bg-white border border-border-default shadow-xs space-y-6">
             {/* User Profile Snippet */}
-            <div className="flex items-center gap-3 pb-6 border-b border-slate-100">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#FBF0F2] to-[#EBF3F8] text-[#D99BA3] flex items-center justify-center font-heading font-bold text-lg border border-[#E2ECF2]">
-                {(customer?.firstName?.charAt(0) || customer?.email?.charAt(0) || 'U').toUpperCase()}
-              </div>
+            <div className="flex items-center gap-3 pb-6 border-b border-border-default">
+              <Avatar
+                size="lg"
+                name={
+                  customer?.firstName
+                    ? `${customer.firstName} ${customer.lastName || ''}`.trim()
+                    : customer?.email || undefined
+                }
+              />
               <div className="overflow-hidden">
-                <h3 className="font-heading font-bold text-sm text-slate-800 truncate">
+                <h3 className="font-heading font-bold text-sm text-text-primary truncate">
                   {customer?.firstName
                     ? `${customer.firstName} ${customer.lastName || ''}`.trim()
                     : 'Customer Account'}
                 </h3>
-                <p className="text-[11px] text-slate-400 truncate">{customer?.email}</p>
+                <p className="text-[11px] text-text-tertiary truncate">{customer?.email}</p>
               </div>
             </div>
 
@@ -100,8 +106,8 @@ export default function AccountLayout({
                     href={item.href}
                     className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
                       isActive
-                        ? 'bg-[#FBF0F2] text-[#D99BA3] shadow-xs'
-                        : 'text-[#52657A] hover:bg-[#F4F8FA] hover:text-[#243342]'
+                        ? 'bg-bg-accent text-brand-rose shadow-xs'
+                        : 'text-text-secondary hover:bg-bg-subtle hover:text-text-primary'
                     }`}
                   >
                     <span>{item.icon}</span>
@@ -112,11 +118,11 @@ export default function AccountLayout({
             </nav>
 
             {/* Sign Out Button */}
-            <div className="pt-4 border-t border-slate-100">
+            <div className="pt-4 border-t border-border-default">
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-status-danger-accent hover:bg-status-danger-bg transition-colors cursor-pointer"
               >
                 <span>🚪</span>
                 <span>Sign Out</span>

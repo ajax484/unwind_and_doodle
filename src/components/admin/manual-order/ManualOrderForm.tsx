@@ -587,7 +587,7 @@ export function ManualOrderForm() {
                 <button
                   type="button"
                   onClick={() => setIsProductPickerOpen(true)}
-                  className="px-4 py-2 rounded-xl text-xs font-heading font-bold bg-[#1E293B] hover:bg-slate-800 text-white transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-heading font-bold bg-neutral-charcoal hover:bg-neutral-charcoal/90 text-text-inverse transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
                 >
                   + Add Products / Bundles
                 </button>

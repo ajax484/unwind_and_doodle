@@ -84,7 +84,7 @@ function CallbackContent() {
             <p className="text-slate-600 text-sm">{errorMessage}</p>
           </div>
           <div className="flex items-center justify-center gap-3">
-            <Link href="/" className="btn-pink text-xs px-6!">
+            <Link href="/" className="btn-primary text-xs px-6!">
               Return Home
             </Link>
           </div>

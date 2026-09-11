@@ -107,7 +107,7 @@ export function ManualOrderSuccessModal({ isOpen, data, onReset, onClose }: Manu
                 className={`px-4 py-2.5 rounded-xl text-xs font-heading font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                   copied
                     ? 'bg-emerald-600 text-white'
-                    : 'bg-[#1E293B] hover:bg-slate-800 text-white'
+                    : 'bg-neutral-charcoal hover:bg-neutral-charcoal/90 text-text-inverse'
                 }`}
               >
                 {copied ? '✓ Copied!' : '📋 Copy Link'}
