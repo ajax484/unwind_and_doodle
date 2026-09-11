@@ -5,6 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminOrderDetail } from "@/types/admin-order";
 import OrderStatusBadge from "@/components/OrderStatusBadge";
+import Button from "@/components/Button";
+import Modal from "@/components/Modal";
+import TextInput from "@/components/TextInput";
+import Textarea from "@/components/Textarea";
+import AlertBanner from "@/components/AlertBanner";
+import Breadcrumbs from "@/components/Breadcrumbs";
+import Skeleton from "@/components/Skeleton";
 
 export default function AdminOrderDetailPage({
   params,
@@ -187,27 +194,41 @@ export default function AdminOrderDetailPage({
 
   if (loading && !order) {
     return (
-      <div className="space-y-4 animate-pulse p-4">
-        <div className="h-10 bg-slate-200 rounded-2xl w-1/3" />
-        <div className="h-64 bg-slate-100 rounded-3xl" />
+      <div className="space-y-6 p-4 sm:p-6" data-testid="order-detail-skeleton">
+        <div className="flex flex-col gap-2">
+          <Skeleton type="text" size="sm" className="w-36 h-4" />
+          <Skeleton type="custom" className="h-24 w-full rounded-2xl" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            <Skeleton type="custom" className="h-96 w-full rounded-2xl" />
+            <Skeleton type="custom" className="h-48 w-full rounded-2xl" />
+          </div>
+          <div className="space-y-6">
+            <Skeleton type="custom" className="h-44 w-full rounded-2xl" />
+            <Skeleton type="custom" className="h-44 w-full rounded-2xl" />
+            <Skeleton type="custom" className="h-56 w-full rounded-2xl" />
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error && !order) {
     return (
-      <div className="p-8 rounded-3xl bg-white border border-red-200 text-center space-y-4">
+      <div className="p-8 rounded-2xl bg-bg-surface border border-status-danger-accent/30 text-center space-y-4 shadow-card max-w-lg mx-auto my-12">
         <div className="text-3xl">⚠️</div>
-        <h3 className="font-heading font-bold text-lg text-slate-800">
+        <h3 className="font-heading font-bold text-lg text-text-primary">
           Order Not Found
         </h3>
-        <p className="text-xs text-slate-500">{error}</p>
-        <Link
+        <p className="text-xs text-text-secondary">{error}</p>
+        <Button
           href="/admin/orders"
-          className="inline-block px-4 py-2 rounded-xl bg-slate-800 text-white text-xs font-semibold"
+          variant="primary"
+          size="sm"
         >
           ← Return to Orders
-        </Link>
+        </Button>
       </div>
     );
   }
@@ -218,39 +239,32 @@ export default function AdminOrderDetailPage({
   const isPending = currentStatus === "pending";
   const isConfirmed = currentStatus === "confirmed";
   const isShipped = currentStatus === "shipped";
-  const isReceived = currentStatus === "received";
-  const isCancelled = currentStatus === "cancelled";
-  const isRefunded = currentStatus === "refunded";
-
   const isEligibleForCancellation = [
     "created",
     "pending",
     "confirmed",
     "shipped",
   ].includes(currentStatus);
-  const isEligibleForRefund = !isRefunded && currentStatus !== "created";
+  const isEligibleForRefund =
+    currentStatus !== "refunded" && currentStatus !== "created";
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* 1. Top Breadcrumb & Actions Bar */}
       <div className="space-y-4">
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <Link
-            href="/admin/orders"
-            className="hover:text-slate-600 transition-colors"
-          >
-            ← Back to Orders
-          </Link>
-          <span>/</span>
-          <span className="font-mono text-slate-600 font-bold">
-            {order.orderNumber}
-          </span>
-        </div>
+        <Breadcrumbs
+          size="md"
+          showHome={false}
+          items={[
+            { label: "Orders", href: "/admin/orders" },
+            { label: order.orderNumber, isCurrent: true },
+          ]}
+        />
 
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-bg-surface p-5 sm:p-6 rounded-2xl border border-border-default shadow-card">
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h2 className="text-2xl font-bold font-heading text-slate-900 font-mono tracking-tight">
+              <h2 className="text-xl sm:text-2xl font-bold font-heading text-text-primary font-mono tracking-tight">
                 {order.orderNumber}
               </h2>
               <OrderStatusBadge status={order.status} />
@@ -259,9 +273,9 @@ export default function AdminOrderDetailPage({
                 type="payment"
               />
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-text-secondary">
               Placed on{" "}
-              <strong className="text-slate-700">
+              <strong className="text-text-primary">
                 {formatDate(order.createdAt)}
               </strong>{" "}
               • Warehouse: {order.warehouse.name || "Main Hub"}
@@ -272,111 +286,107 @@ export default function AdminOrderDetailPage({
           <div className="flex flex-wrap items-center gap-2.5">
             {((order.paymentStatus || "pending") === "pending" ||
               order.status === "created") && (
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => handleRevalidatePayment()}
                 disabled={revalidating || actionLoading}
-                className="px-3.5 py-2.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold font-heading shadow-2xs transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                loading={revalidating}
               >
-                {revalidating ? (
-                  <>
-                    <span className="w-3.5 h-3.5 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
-                    Revalidating...
-                  </>
-                ) : (
-                  <>
-                    <span>🔄</span> Revalidate Payment
-                  </>
-                )}
-              </button>
+                <span>🔄</span> Revalidate Payment
+              </Button>
             )}
 
             {isPending && (
-              <button
-                type="button"
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={() => setShowConfirmModal(true)}
                 disabled={actionLoading}
-                className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold font-heading shadow-xs transition-all cursor-pointer disabled:opacity-50"
               >
                 ✓ Confirm Order
-              </button>
+              </Button>
             )}
 
             {isConfirmed && (
-              <button
-                type="button"
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={() => setShowShipModal(true)}
                 disabled={actionLoading}
-                className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold font-heading shadow-xs transition-all cursor-pointer disabled:opacity-50"
               >
                 🚚 Mark as Shipped
-              </button>
+              </Button>
             )}
 
             {isShipped && (
-              <button
-                type="button"
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={() => handleTransition("received")}
                 disabled={actionLoading}
-                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold font-heading shadow-xs transition-all cursor-pointer disabled:opacity-50"
               >
                 📦 Mark as Received
-              </button>
+              </Button>
             )}
 
             {isEligibleForCancellation && (
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setShowCancelModal(true)}
                 disabled={actionLoading}
-                className="px-3.5 py-2.5 rounded-xl border border-rose-200 hover:bg-rose-50 text-rose-600 text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
               >
                 Cancel Order
-              </button>
+              </Button>
             )}
 
             {isEligibleForRefund && (
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setShowRefundModal(true)}
                 disabled={actionLoading}
-                className="px-3.5 py-2.5 rounded-xl border border-purple-200 hover:bg-purple-50 text-purple-700 text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
               >
                 Refund Payment
-              </button>
+              </Button>
             )}
           </div>
         </div>
       </div>
 
       {actionSuccess && (
-        <div className="p-4 bg-emerald-50 text-emerald-800 text-xs rounded-2xl border border-emerald-200 flex items-center gap-2">
-          <span>✓</span> {actionSuccess}
-        </div>
+        <AlertBanner
+          variant="success"
+          size="sm"
+          title={actionSuccess}
+        />
       )}
 
       {error && (
-        <div className="p-4 bg-red-50 text-red-700 text-xs rounded-2xl border border-red-200 flex items-center gap-2">
-          <span>⚠️</span> {error}
-        </div>
+        <AlertBanner
+          variant="danger"
+          size="sm"
+          title={error}
+        />
       )}
 
       {/* 2. Main Order Detail Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
         {/* Left 2 Cols: Order Items & Customizations & Timeline */}
         <div className="lg:col-span-2 space-y-6">
           {/* Order Items Card */}
-          <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-            <h3 className="font-heading font-bold text-base text-slate-900 border-b border-slate-100 pb-3">
+          <div className="p-5 sm:p-6 rounded-2xl bg-bg-surface border border-border-default shadow-card space-y-4">
+            <h3 className="font-heading font-bold text-base text-text-primary border-b border-border-default pb-3">
               Order Items ({order.items.length})
             </h3>
 
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-border-default">
               {order.items.map((item) => (
                 <div key={item.id} className="py-4 space-y-3">
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-0.5">
-                      <div className="font-heading font-bold text-sm text-slate-800 flex items-center gap-2">
+                      <div className="font-heading font-bold text-sm text-text-primary flex items-center gap-2">
                         <span>{item.productName}</span>
                         {(item.productType === "bundle" ||
                           (item.bundleComponents &&
@@ -387,17 +397,17 @@ export default function AdminOrderDetailPage({
                         )}
                       </div>
                       {item.sku && (
-                        <div className="font-mono text-[11px] text-slate-400">
+                        <div className="font-mono text-[11px] text-text-tertiary">
                           SKU: {item.sku}
                         </div>
                       )}
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-text-secondary">
                         {formatCurrency(item.unitPrice)} × {item.quantity}
                       </div>
                     </div>
 
                     <div className="text-right">
-                      <div className="font-heading font-bold text-sm text-slate-900">
+                      <div className="font-heading font-bold text-sm text-text-primary">
                         {formatCurrency(item.totalPrice)}
                       </div>
                     </div>
@@ -406,7 +416,7 @@ export default function AdminOrderDetailPage({
                   {/* Bundle Components List if present */}
                   {item.bundleComponents &&
                     item.bundleComponents.length > 0 && (
-                      <div className="p-3 bg-purple-50/70 rounded-2xl border border-purple-100 space-y-1.5 text-xs">
+                      <div className="p-3 bg-purple-50/70 rounded-xl border border-purple-100 space-y-1.5 text-xs text-purple-900">
                         <div className="flex items-center justify-between text-purple-900 font-heading font-bold text-[11px] uppercase tracking-wider">
                           <span className="flex items-center gap-1.5">
                             <span>📦</span> Included Bundle Components
@@ -434,19 +444,19 @@ export default function AdminOrderDetailPage({
 
                   {/* Add-ons list if present */}
                   {item.addons && item.addons.length > 0 && (
-                    <div className="pl-4 border-l-2 border-slate-200 space-y-1.5 bg-slate-50/50 p-2.5 rounded-r-xl text-xs">
-                      <span className="font-semibold text-slate-500 text-[10px] uppercase tracking-wider block">
+                    <div className="pl-4 border-l-2 border-border-default space-y-1.5 bg-bg-subtle/50 p-2.5 rounded-r-xl text-xs">
+                      <span className="font-semibold text-text-secondary text-[10px] uppercase tracking-wider block">
                         Included Add-ons:
                       </span>
                       {item.addons.map((addon) => (
                         <div
                           key={addon.id}
-                          className="flex items-center justify-between text-slate-700"
+                          className="flex items-center justify-between text-text-secondary"
                         >
                           <span>
                             + {addon.addonName} (×{addon.quantity})
                           </span>
-                          <span className="font-semibold text-slate-900">
+                          <span className="font-semibold text-text-primary">
                             {formatCurrency(addon.totalPrice)}
                           </span>
                         </div>
@@ -456,9 +466,9 @@ export default function AdminOrderDetailPage({
 
                   {/* Coloring Book Theme Customization */}
                   {item.themeCustomization && (
-                    <div className="p-3.5 bg-amber-50/60 rounded-2xl border border-amber-200/70 space-y-2 text-xs">
+                    <div className="p-3.5 bg-status-amber-bg rounded-xl border border-status-amber-accent/30 space-y-2 text-xs">
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-amber-900 flex items-center gap-1.5 font-heading">
+                        <span className="font-semibold text-status-amber-text flex items-center gap-1.5 font-heading">
                           <span>🎨</span> Coloring Book Themes &amp; Cover
                         </span>
                         {item.themeCustomization.coverName && (
@@ -470,8 +480,8 @@ export default function AdminOrderDetailPage({
 
                       {item.themeCustomization.themes &&
                         item.themeCustomization.themes.length > 0 && (
-                          <div className="space-y-1.5 pt-1 border-t border-amber-200/50">
-                            <span className="text-[10px] font-heading font-bold text-amber-800/80 uppercase tracking-wider block">
+                          <div className="space-y-1.5 pt-1 border-t border-status-amber-accent/20">
+                            <span className="text-[10px] font-heading font-bold text-status-amber-text uppercase tracking-wider block">
                               Selected Themes (
                               {item.themeCustomization.themes.length}/3):
                             </span>
@@ -479,7 +489,7 @@ export default function AdminOrderDetailPage({
                               {item.themeCustomization.themes.map((t, idx) => (
                                 <span
                                   key={idx}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white border border-amber-200/80 text-amber-950 font-medium text-xs shadow-2xs"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-bg-surface border border-status-amber-accent/30 text-text-primary font-medium text-xs shadow-2xs"
                                 >
                                   <span>✨</span> {t.themeName}
                                 </span>
@@ -489,12 +499,12 @@ export default function AdminOrderDetailPage({
                         )}
 
                       {item.themeCustomization.coverName && (
-                        <div className="text-slate-700 bg-white/90 p-2.5 rounded-xl border border-amber-200/60 flex items-center justify-between">
-                          <span className="text-[11px] font-semibold text-slate-600">
+                        <div className="text-text-secondary bg-bg-surface/90 p-2.5 rounded-xl border border-status-amber-accent/20 flex items-center justify-between">
+                          <span className="text-[11px] font-semibold text-text-secondary">
                             Personalized Cover Name:
                           </span>
-                          <span className="font-heading font-bold text-slate-900 text-xs">
-                            "{item.themeCustomization.coverName}"
+                          <span className="font-heading font-bold text-text-primary text-xs">
+                            &quot;{item.themeCustomization.coverName}&quot;
                           </span>
                         </div>
                       )}
@@ -503,23 +513,23 @@ export default function AdminOrderDetailPage({
 
                   {/* Photo & Dedication Customization Details */}
                   {item.customization && (
-                    <div className="p-3.5 bg-rose-50/50 rounded-2xl border border-rose-100 space-y-2.5 text-xs">
+                    <div className="p-3.5 bg-brand-rose-subtle rounded-xl border border-border-accent/40 space-y-2.5 text-xs">
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-rose-800 flex items-center gap-1.5 font-heading">
+                        <span className="font-semibold text-text-accent flex items-center gap-1.5 font-heading">
                           <span>✨</span> Custom Keepsake Artwork
                         </span>
-                        <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
+                        <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-brand-rose-light text-text-accent">
                           {item.customization.status}
                         </span>
                       </div>
 
                       {item.customization.notes && (
-                        <div className="text-slate-700 bg-white p-2.5 rounded-xl border border-rose-100/60">
-                          <strong className="text-slate-900 block text-[11px]">
+                        <div className="text-text-secondary bg-bg-surface p-2.5 rounded-xl border border-border-accent/20">
+                          <strong className="text-text-primary block text-[11px]">
                             Customer Dedication / Note:
                           </strong>
                           <p className="italic mt-0.5">
-                            "{item.customization.notes}"
+                            &quot;{item.customization.notes}&quot;
                           </p>
                         </div>
                       )}
@@ -527,7 +537,7 @@ export default function AdminOrderDetailPage({
                       {item.customization.assets &&
                         item.customization.assets.length > 0 && (
                           <div className="space-y-1.5">
-                            <span className="text-[11px] font-semibold text-slate-600 block">
+                            <span className="text-[11px] font-semibold text-text-secondary block">
                               Uploaded Reference Photos (
                               {item.customization.assets.length}):
                             </span>
@@ -538,9 +548,9 @@ export default function AdminOrderDetailPage({
                                   href={asset.assetUrl}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="group relative inline-flex items-center gap-2 p-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-rose-600 hover:border-rose-200 text-xs font-semibold shadow-2xs transition-all"
+                                  className="group relative inline-flex items-center gap-2 p-1.5 rounded-xl bg-bg-surface border border-border-default text-text-secondary hover:text-action-primary hover:border-border-accent text-xs font-semibold shadow-2xs transition-all"
                                 >
-                                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-100">
+                                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-bg-subtle flex-shrink-0 border border-border-default">
                                     <img
                                       src={asset.assetUrl}
                                       alt={`Custom Photo ${idx + 1}`}
@@ -562,24 +572,24 @@ export default function AdminOrderDetailPage({
             </div>
 
             {/* Financial Totals */}
-            <div className="pt-4 border-t border-slate-100 space-y-2 text-xs">
-              <div className="flex justify-between text-slate-600">
+            <div className="pt-4 border-t border-border-default space-y-2 text-xs">
+              <div className="flex justify-between text-text-secondary">
                 <span>Subtotal</span>
                 <span>{formatCurrency(order.subtotal)}</span>
               </div>
               {Number(order.discountTotal) > 0 && (
-                <div className="flex justify-between text-emerald-600">
+                <div className="flex justify-between text-status-green-text">
                   <span>Discount Applied</span>
                   <span>-{formatCurrency(order.discountTotal)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-slate-600">
+              <div className="flex justify-between text-text-secondary">
                 <span>Delivery Fee</span>
                 <span>{formatCurrency(order.deliveryFee)}</span>
               </div>
-              <div className="flex justify-between font-heading font-bold text-base text-slate-900 pt-2 border-t border-slate-100">
+              <div className="flex justify-between font-heading font-bold text-base text-text-primary pt-2 border-t border-border-default">
                 <span>Total Amount</span>
-                <span className="text-rose-500">
+                <span className="text-action-primary">
                   {formatCurrency(order.totalAmount)}
                 </span>
               </div>
@@ -587,27 +597,31 @@ export default function AdminOrderDetailPage({
           </div>
 
           {/* Order Lifecycle Timeline */}
-          <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs">
-            <div className="relative space-y-6">
+          <div className="p-5 sm:p-6 rounded-2xl bg-bg-surface border border-border-default shadow-card space-y-4">
+            <h3 className="font-heading font-bold text-base text-text-primary border-b border-border-default pb-3">
+              Status History &amp; Audit Trail
+            </h3>
+
+            <div className="relative space-y-6 pt-2">
               {/* Timeline line */}
-              <div className="absolute left-1.25 top-1 bottom-1 w-0.5 bg-slate-200" />
+              <div className="absolute left-1.25 top-3 bottom-3 w-0.5 bg-border-default" />
 
               {order.statusHistory.map((hist) => (
                 <div key={hist.id} className="relative flex gap-4">
                   {/* Timeline dot */}
-                  <div className="relative z-10 mt-1.5 h-3 w-3 shrink-0 rounded-full bg-slate-400 border-2 border-white ring-2 ring-slate-100" />
+                  <div className="relative z-10 mt-1.5 h-3 w-3 shrink-0 rounded-full bg-neutral-muted border-2 border-bg-surface ring-2 ring-border-default" />
 
                   {/* Content */}
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2">
-                      <OrderStatusBadge status={hist.status} />
-                      <span className="text-[11px] text-slate-400">
+                      <OrderStatusBadge status={hist.status} size="sm" />
+                      <span className="text-[11px] text-text-tertiary">
                         {formatDate(hist.createdAt)}
                       </span>
                     </div>
 
                     {hist.note && (
-                      <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                      <div className="text-xs text-text-secondary bg-bg-subtle p-2.5 rounded-xl border border-border-default">
                         {hist.note}
                       </div>
                     )}
@@ -621,16 +635,16 @@ export default function AdminOrderDetailPage({
         {/* Right Col: Customer, Shipping & Payment Cards */}
         <div className="space-y-6">
           {/* Customer Information Card */}
-          <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-3">
-            <h3 className="font-heading font-bold text-base text-slate-900 border-b border-slate-100 pb-3">
+          <div className="p-5 sm:p-6 rounded-2xl bg-bg-surface border border-border-default shadow-card space-y-3">
+            <h3 className="font-heading font-bold text-base text-text-primary border-b border-border-default pb-3">
               Customer Information
             </h3>
             <div className="space-y-2 text-xs">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block">
                   Name
                 </span>
-                <span className="text-slate-800 font-semibold text-sm">
+                <span className="text-text-primary font-semibold text-sm">
                   {order.customer.firstName || order.customer.lastName
                     ? `${order.customer.firstName} ${order.customer.lastName}`.trim()
                     : "Guest Customer"}
@@ -638,12 +652,12 @@ export default function AdminOrderDetailPage({
               </div>
 
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block">
                   Email
                 </span>
                 <a
                   href={`mailto:${order.customer.email}`}
-                  className="text-rose-500 hover:underline font-semibold break-all"
+                  className="text-action-primary hover:underline font-semibold break-all"
                 >
                   {order.customer.email}
                 </a>
@@ -651,12 +665,12 @@ export default function AdminOrderDetailPage({
 
               {order.customer.phone && (
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block">
                     Phone
                   </span>
                   <a
                     href={`tel:${order.customer.phone}`}
-                    className="text-slate-800 font-semibold"
+                    className="text-text-primary font-semibold hover:underline"
                   >
                     {order.customer.phone}
                   </a>
@@ -666,12 +680,12 @@ export default function AdminOrderDetailPage({
           </div>
 
           {/* Shipping Information Snapshot Card */}
-          <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-3">
-            <h3 className="font-heading font-bold text-base text-slate-900 border-b border-slate-100 pb-3">
+          <div className="p-5 sm:p-6 rounded-2xl bg-bg-surface border border-border-default shadow-card space-y-3">
+            <h3 className="font-heading font-bold text-base text-text-primary border-b border-border-default pb-3">
               Delivery Address Snapshot
             </h3>
-            <div className="space-y-1.5 text-xs text-slate-700">
-              <div className="font-semibold text-slate-900">
+            <div className="space-y-1.5 text-xs text-text-secondary">
+              <div className="font-semibold text-text-primary">
                 {order.shippingAddress.streetAddress || "Address on file"}
               </div>
               <div>
@@ -680,13 +694,13 @@ export default function AdminOrderDetailPage({
                 {order.shippingAddress.state}
               </div>
               {order.shippingAddress.postalCode && (
-                <div className="text-slate-400">
+                <div className="text-text-tertiary">
                   Postal Code: {order.shippingAddress.postalCode}
                 </div>
               )}
-              <div className="pt-2 text-[11px] text-slate-400">
+              <div className="pt-2 text-[11px] text-text-tertiary">
                 Destination State:{" "}
-                <strong className="text-slate-700">
+                <strong className="text-text-primary">
                   {order.location.name}
                 </strong>
               </div>
@@ -694,12 +708,12 @@ export default function AdminOrderDetailPage({
           </div>
 
           {/* Payment Information Card */}
-          <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-3">
-            <h3 className="font-heading font-bold text-base text-slate-900 border-b border-slate-100 pb-3">
+          <div className="p-5 sm:p-6 rounded-2xl bg-bg-surface border border-border-default shadow-card space-y-3">
+            <h3 className="font-heading font-bold text-base text-text-primary border-b border-border-default pb-3">
               Payment Record
             </h3>
             {order.payments.length === 0 ? (
-              <div className="text-xs text-slate-400">
+              <div className="text-xs text-text-tertiary">
                 No payment records found.
               </div>
             ) : (
@@ -707,45 +721,38 @@ export default function AdminOrderDetailPage({
                 {order.payments.map((p) => (
                   <div
                     key={p.id}
-                    className="space-y-1.5 p-3 rounded-2xl bg-slate-50 border border-slate-100"
+                    className="space-y-1.5 p-3 rounded-xl bg-bg-subtle border border-border-default"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold uppercase tracking-wider text-[10px] text-slate-500">
+                      <span className="font-semibold uppercase tracking-wider text-[10px] text-text-secondary">
                         {p.provider}
                       </span>
-                      <OrderStatusBadge status={p.status} type="payment" />
+                      <OrderStatusBadge status={p.status} type="payment" size="sm" />
                     </div>
-                    <div className="font-heading font-bold text-slate-900 text-sm">
+                    <div className="font-heading font-bold text-text-primary text-sm">
                       {formatCurrency(p.amount)}
                     </div>
                     {p.providerReference && (
-                      <div className="font-mono text-[10px] text-slate-400 break-all">
+                      <div className="font-mono text-[10px] text-text-tertiary break-all">
                         Ref: {p.providerReference}
                       </div>
                     )}
                     {p.paidAt && (
-                      <div className="text-[11px] text-slate-500">
+                      <div className="text-[11px] text-text-tertiary">
                         Paid on: {formatDate(p.paidAt)}
                       </div>
                     )}
                     {p.status === "pending" && (
-                      <button
-                        type="button"
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleRevalidatePayment(p.id)}
                         disabled={revalidating || actionLoading}
-                        className="w-full mt-2 py-1.5 px-3 rounded-xl bg-white border border-amber-300 text-amber-800 hover:bg-amber-50 text-[11px] font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-2xs"
+                        loading={revalidating}
+                        className="w-full mt-2 border-status-warning-accent/40 bg-status-warning-bg text-status-warning-text hover:bg-status-warning-bg/80"
                       >
-                        {revalidating ? (
-                          <>
-                            <span className="w-3 h-3 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
-                            Checking Gateway...
-                          </>
-                        ) : (
-                          <>
-                            <span>🔄</span> Revalidate with Gateway
-                          </>
-                        )}
-                      </button>
+                        <span>🔄</span> Revalidate with Gateway
+                      </Button>
                     )}
                   </div>
                 ))}
@@ -756,241 +763,212 @@ export default function AdminOrderDetailPage({
       </div>
 
       {/* 3. Confirm Order Modal */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white max-w-md w-full rounded-3xl p-6 sm:p-8 space-y-4 shadow-2xl">
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl mx-auto">
-              ✓
-            </div>
-            <div className="text-center space-y-1">
-              <h4 className="font-heading font-bold text-lg text-slate-900">
-                Confirm This Order?
-              </h4>
-              <p className="text-xs text-slate-500">
-                This will move the order from <strong>Pending</strong> to{" "}
-                <strong>Confirmed</strong>, signifying that items and
-                customization specifications have been verified.
-              </p>
-            </div>
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowConfirmModal(false)}
-                disabled={actionLoading}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  handleTransition("confirmed", {
-                    note: "Order confirmed by administrator",
-                  })
-                }
-                disabled={actionLoading}
-                className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs disabled:opacity-50"
-              >
-                {actionLoading ? "Confirming..." : "Yes, Confirm Order"}
-              </button>
-            </div>
+      <Modal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        size="md"
+        title="Confirm This Order?"
+        description="This will move the order from Pending to Confirmed, signifying that items and customization specifications have been verified."
+        footer={
+          <div className="flex items-center justify-end gap-3 pt-2 w-full">
+            <Button
+              variant="outline"
+              size="md"
+              type="button"
+              onClick={() => setShowConfirmModal(false)}
+              disabled={actionLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="secondary"
+              size="md"
+              type="button"
+              onClick={() =>
+                handleTransition("confirmed", {
+                  note: "Order confirmed by administrator",
+                })
+              }
+              loading={actionLoading}
+              disabled={actionLoading}
+              className="bg-action-secondary text-text-inverse hover:bg-action-secondary-hover"
+            >
+              Yes, Confirm Order
+            </Button>
           </div>
+        }
+      >
+        <div className="w-12 h-12 rounded-2xl bg-action-secondary-bg text-action-secondary-text flex items-center justify-center text-2xl mx-auto">
+          ✓
         </div>
-      )}
+      </Modal>
 
       {/* 4. Ship Order Modal */}
-      {showShipModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white max-w-md w-full rounded-3xl p-6 sm:p-8 space-y-4 shadow-2xl">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl mx-auto">
-              🚚
-            </div>
-            <div className="text-center space-y-1">
-              <h4 className="font-heading font-bold text-lg text-slate-900">
-                Ship Order
-              </h4>
-              <p className="text-xs text-slate-500">
-                Enter delivery tracking details for{" "}
-                <strong>{order.orderNumber}</strong>.
-              </p>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-700">
-                  Courier / Carrier
-                </label>
-                <input
-                  type="text"
-                  value={carrier}
-                  onChange={(e) => setCarrier(e.target.value)}
-                  placeholder="e.g. GIG Logistics, DHL, Dispatch"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-700">
-                  Tracking Number / Waybill
-                </label>
-                <input
-                  type="text"
-                  value={trackingNumber}
-                  onChange={(e) => setTrackingNumber(e.target.value)}
-                  placeholder="e.g. GIG-LAG-982319"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowShipModal(false)}
-                disabled={actionLoading}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  handleTransition("shipped", {
-                    trackingNumber: trackingNumber.trim() || undefined,
-                    carrier: carrier.trim() || undefined,
-                    note: `Shipped via ${carrier.trim()} (Tracking: ${trackingNumber.trim() || "N/A"})`,
-                  })
-                }
-                disabled={actionLoading}
-                className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs disabled:opacity-50"
-              >
-                {actionLoading ? "Updating..." : "Confirm Shipment"}
-              </button>
-            </div>
+      <Modal
+        isOpen={showShipModal}
+        onClose={() => setShowShipModal(false)}
+        size="md"
+        title="Ship Order"
+        description={`Enter delivery tracking details for ${order.orderNumber}.`}
+        footer={
+          <div className="flex items-center justify-end gap-3 pt-2 w-full">
+            <Button
+              variant="outline"
+              size="md"
+              type="button"
+              onClick={() => setShowShipModal(false)}
+              disabled={actionLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="secondary"
+              size="md"
+              type="button"
+              onClick={() =>
+                handleTransition("shipped", {
+                  trackingNumber: trackingNumber.trim() || undefined,
+                  carrier: carrier.trim() || undefined,
+                  note: `Shipped via ${carrier.trim()} (Tracking: ${trackingNumber.trim() || "N/A"})`,
+                })
+              }
+              loading={actionLoading}
+              disabled={actionLoading}
+              className="bg-status-indigo-accent text-neutral-white hover:bg-status-indigo-accent/90"
+            >
+              Confirm Shipment
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-status-indigo-bg text-status-indigo-text flex items-center justify-center text-2xl mx-auto">
+            🚚
+          </div>
+          <div className="space-y-3">
+            <TextInput
+              label="Courier / Carrier"
+              value={carrier}
+              onChange={(e) => setCarrier(e.target.value)}
+              placeholder="e.g. GIG Logistics, DHL, Dispatch"
+              size="sm"
+            />
+            <TextInput
+              label="Tracking Number / Waybill"
+              value={trackingNumber}
+              onChange={(e) => setTrackingNumber(e.target.value)}
+              placeholder="e.g. GIG-LAG-982319"
+              size="sm"
+            />
           </div>
         </div>
-      )}
+      </Modal>
 
       {/* 5. Cancel Order Modal */}
-      {showCancelModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white max-w-md w-full rounded-3xl p-6 sm:p-8 space-y-4 shadow-2xl">
-            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-2xl mx-auto">
-              ⚠️
-            </div>
-            <div className="text-center space-y-1">
-              <h4 className="font-heading font-bold text-lg text-slate-900">
-                Cancel Order?
-              </h4>
-              <p className="text-xs text-slate-500">
-                This will cancel order <strong>{order.orderNumber}</strong> and
-                release any active inventory holds.
-              </p>
-            </div>
-
-            <div className="space-y-1 text-xs">
-              <label className="font-semibold text-slate-700">
-                Cancellation Reason
-              </label>
-              <textarea
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                placeholder="Reason for cancellation (e.g. Customer request, Out of stock)"
-                rows={3}
-                className="w-full p-2.5 rounded-xl border border-slate-200 text-xs"
-              />
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowCancelModal(false)}
-                disabled={actionLoading}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Keep Order
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  handleTransition("cancelled", {
-                    note: cancelReason.trim() || "Cancelled by administrator",
-                  })
-                }
-                disabled={actionLoading}
-                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs disabled:opacity-50"
-              >
-                {actionLoading ? "Cancelling..." : "Confirm Cancellation"}
-              </button>
-            </div>
+      <Modal
+        isOpen={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        size="md"
+        title="Cancel Order?"
+        description={`This will cancel order ${order.orderNumber} and release any active inventory holds.`}
+        footer={
+          <div className="flex items-center justify-end gap-3 pt-2 w-full">
+            <Button
+              variant="outline"
+              size="md"
+              type="button"
+              onClick={() => setShowCancelModal(false)}
+              disabled={actionLoading}
+            >
+              Keep Order
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              type="button"
+              onClick={() =>
+                handleTransition("cancelled", {
+                  note: cancelReason.trim() || "Cancelled by administrator",
+                })
+              }
+              loading={actionLoading}
+              disabled={actionLoading}
+              className="bg-status-danger-accent hover:bg-status-danger-accent/90 shadow-none text-neutral-white"
+            >
+              Confirm Cancellation
+            </Button>
           </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-status-danger-bg text-status-danger-text flex items-center justify-center text-2xl mx-auto">
+            ⚠️
+          </div>
+          <Textarea
+            label="Cancellation Reason"
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            placeholder="Reason for cancellation (e.g. Customer request, Out of stock)"
+            rows={3}
+            size="sm"
+          />
         </div>
-      )}
+      </Modal>
 
       {/* 6. Refund Order Modal */}
-      {showRefundModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white max-w-md w-full rounded-3xl p-6 sm:p-8 space-y-4 shadow-2xl">
-            <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center text-2xl mx-auto">
-              💸
-            </div>
-            <div className="text-center space-y-1">
-              <h4 className="font-heading font-bold text-lg text-slate-900">
-                Process Full Refund
-              </h4>
-              <p className="text-xs text-slate-500">
-                Refund full payment of{" "}
-                <strong className="text-purple-700 font-bold">
-                  {formatCurrency(order.totalAmount)}
-                </strong>{" "}
-                back to the customer via Paystack.
-              </p>
-            </div>
-
-            <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100 text-xs text-purple-900 space-y-1">
-              <div className="font-semibold">⚠️ Irreversible Transaction</div>
-              <p className="text-[11px] text-purple-700">
-                Paystack will credit the customer&apos;s original bank
-                account/card directly.
-              </p>
-            </div>
-
-            <div className="space-y-1 text-xs">
-              <label className="font-semibold text-slate-700">
-                Internal Refund Note
-              </label>
-              <input
-                type="text"
-                value={refundReason}
-                onChange={(e) => setRefundReason(e.target.value)}
-                placeholder="e.g. Defective print, Customer returned item"
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs"
-              />
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowRefundModal(false)}
-                disabled={actionLoading}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                onClick={handleRefund}
-                disabled={actionLoading}
-                className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-xs disabled:opacity-50"
-              >
-                {actionLoading
-                  ? "Refunding..."
-                  : `Refund ${formatCurrency(order.totalAmount)}`}
-              </button>
-            </div>
+      <Modal
+        isOpen={showRefundModal}
+        onClose={() => setShowRefundModal(false)}
+        size="md"
+        title="Process Full Refund"
+        description={`Refund full payment of ${formatCurrency(order.totalAmount)} back to the customer via Paystack.`}
+        footer={
+          <div className="flex items-center justify-end gap-3 pt-2 w-full">
+            <Button
+              variant="outline"
+              size="md"
+              type="button"
+              onClick={() => setShowRefundModal(false)}
+              disabled={actionLoading}
+            >
+              Close
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              type="button"
+              onClick={handleRefund}
+              loading={actionLoading}
+              disabled={actionLoading}
+              className="bg-status-purple-base hover:bg-status-purple-base/90 shadow-none text-neutral-white"
+            >
+              {actionLoading
+                ? "Refunding..."
+                : `Refund ${formatCurrency(order.totalAmount)}`}
+            </Button>
           </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-purple-50 text-status-purple-base flex items-center justify-center text-2xl mx-auto">
+            💸
+          </div>
+          <AlertBanner
+            variant="warning"
+            size="sm"
+            title="Irreversible Transaction"
+            description="Paystack will credit the customer's original bank account/card directly."
+          />
+          <TextInput
+            label="Internal Refund Note"
+            value={refundReason}
+            onChange={(e) => setRefundReason(e.target.value)}
+            placeholder="e.g. Defective print, Customer returned item"
+            size="sm"
+          />
         </div>
-      )}
+      </Modal>
     </div>
   );
 }
+

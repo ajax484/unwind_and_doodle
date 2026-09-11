@@ -120,6 +120,10 @@ export interface ButtonProps
   iconOnly?: boolean;
   /** When provided, renders as an accessible Next.js Link component. */
   href?: string;
+  /** Optional link target (e.g. '_blank') when href is provided. */
+  target?: string;
+  /** Optional link rel (e.g. 'noopener noreferrer') when href is provided. */
+  rel?: string;
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -133,6 +137,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       trailingIcon,
       iconOnly = false,
       href,
+      target,
+      rel,
       children,
       className,
       type = 'button',
@@ -172,7 +178,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
     if (href && !disabled && !loading) {
       return (
-        <Link href={href} className={baseClasses} role="button">
+        <Link
+          href={href}
+          target={target}
+          rel={rel}
+          className={baseClasses}
+          role="button"
+        >
           {content}
         </Link>
       );

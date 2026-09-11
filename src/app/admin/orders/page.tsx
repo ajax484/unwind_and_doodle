@@ -1,22 +1,32 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState, useCallback, Suspense } from 'react';
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { AdminOrderListItem, AdminOrderListResponse } from '@/types/admin-order';
-import OrderStatusBadge from '@/components/OrderStatusBadge';
-import { Pagination } from '@/components/Pagination';
+import React, { useEffect, useState, useCallback, Suspense } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  AdminOrderListItem,
+  AdminOrderListResponse,
+} from "@/types/admin-order";
+import Button from "@/components/Button";
+import { Tabs, type TabItem } from "@/components/Tabs";
+import TextInput from "@/components/TextInput";
+import Select from "@/components/Select";
+import AlertBanner from "@/components/AlertBanner";
+import EmptyState from "@/components/EmptyState";
+import Skeleton from "@/components/Skeleton";
+import OrderStatusBadge from "@/components/OrderStatusBadge";
+import { Pagination } from "@/components/Pagination";
 
 function OrdersListContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   // URL state
-  const statusParam = searchParams.get('status') || '';
-  const paymentParam = searchParams.get('paymentStatus') || '';
-  const searchParam = searchParams.get('search') || '';
-  const sortParam = searchParams.get('sortBy') || 'newest';
-  const pageParam = parseInt(searchParams.get('page') || '1', 10);
+  const statusParam = searchParams.get("status") || "";
+  const paymentParam = searchParams.get("paymentStatus") || "";
+  const searchParam = searchParams.get("search") || "";
+  const sortParam = searchParams.get("sortBy") || "newest";
+  const pageParam = parseInt(searchParams.get("page") || "1", 10);
 
   const [data, setData] = useState<AdminOrderListResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,7 +37,7 @@ function OrdersListContent() {
     (newParams: Record<string, string | number | undefined>) => {
       const params = new URLSearchParams(searchParams.toString());
       for (const [k, v] of Object.entries(newParams)) {
-        if (v === undefined || v === '' || v === 'all') {
+        if (v === undefined || v === "" || v === "all") {
           params.delete(k);
         } else {
           params.set(k, String(v));
@@ -35,7 +45,7 @@ function OrdersListContent() {
       }
       router.push(`/admin/orders?${params.toString()}`);
     },
-    [router, searchParams]
+    [router, searchParams],
   );
 
   const fetchOrders = useCallback(async () => {
@@ -44,12 +54,12 @@ function OrdersListContent() {
       setError(null);
 
       const params = new URLSearchParams();
-      if (statusParam) params.set('status', statusParam);
-      if (paymentParam) params.set('paymentStatus', paymentParam);
-      if (searchParam) params.set('search', searchParam);
-      if (sortParam) params.set('sortBy', sortParam);
-      if (pageParam > 1) params.set('page', String(pageParam));
-      params.set('limit', '25');
+      if (statusParam) params.set("status", statusParam);
+      if (paymentParam) params.set("paymentStatus", paymentParam);
+      if (searchParam) params.set("search", searchParam);
+      if (sortParam) params.set("sortBy", sortParam);
+      if (pageParam > 1) params.set("page", String(pageParam));
+      params.set("limit", "25");
 
       const res = await fetch(`/api/admin/orders?${params.toString()}`);
       const json = await res.json();
@@ -57,10 +67,10 @@ function OrdersListContent() {
       if (res.ok && json.success) {
         setData(json.data);
       } else {
-        throw new Error(json.error || 'Failed to fetch orders');
+        throw new Error(json.error || "Failed to fetch orders");
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error loading orders');
+      setError(err instanceof Error ? err.message : "Error loading orders");
     } finally {
       setLoading(false);
     }
@@ -80,14 +90,14 @@ function OrdersListContent() {
   };
 
   const handleClearFilters = () => {
-    setSearchInput('');
-    router.push('/admin/orders');
+    setSearchInput("");
+    router.push("/admin/orders");
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
+    return new Intl.NumberFormat("en-NG", {
+      style: "currency",
+      currency: "NGN",
       maximumFractionDigits: 0,
     }).format(amount);
   };
@@ -95,137 +105,153 @@ function OrdersListContent() {
   const formatDate = (dateStr: string) => {
     try {
       const d = new Date(dateStr);
-      return d.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
+      return d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
       });
     } catch {
       return dateStr;
     }
   };
 
-  const statusTabs = [
-    { label: 'All Orders', value: '' },
-    { label: 'Pending Review', value: 'pending' },
-    { label: 'Confirmed', value: 'confirmed' },
-    { label: 'Shipped', value: 'shipped' },
-    { label: 'Received', value: 'received' },
-    { label: 'Cancelled', value: 'cancelled' },
-    { label: 'Refunded', value: 'refunded' },
+  const statusTabs: TabItem[] = [
+    { id: "", label: "All Orders" },
+    { id: "pending", label: "Pending Review" },
+    { id: "confirmed", label: "Confirmed" },
+    { id: "shipped", label: "Shipped" },
+    { id: "received", label: "Received" },
+    { id: "cancelled", label: "Cancelled" },
+    { id: "refunded", label: "Refunded" },
   ];
 
   const orders = data?.orders || [];
-  const pagination = data?.pagination || { page: 1, limit: 25, total: 0, totalPages: 1 };
-  const hasActiveFilters = Boolean(statusParam || paymentParam || searchParam || sortParam !== 'newest');
+  const pagination = data?.pagination || {
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 1,
+  };
+  const hasActiveFilters = Boolean(
+    statusParam || paymentParam || searchParam || sortParam !== "newest",
+  );
 
   return (
     <div className="space-y-6">
       {/* 1. Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold font-heading text-slate-900 tracking-tight">
+          <h2 className="text-2xl font-bold font-heading text-text-primary tracking-tight">
             Order Management
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Search, filter, track fulfillment, and manage all customer purchases.
-          </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs">
-            Total: <strong className="text-slate-800">{pagination.total}</strong> orders
+          <span className="text-xs font-semibold text-text-secondary bg-bg-surface px-3 py-1.5 rounded-xl border border-border-default shadow-xs">
+            Total:{" "}
+            <strong className="text-text-primary">{pagination.total}</strong>{" "}
+            orders
           </span>
-          <Link
+          <Button
             href="/admin/orders/manual/new"
-            className="px-4 py-2 rounded-xl text-xs font-heading font-bold bg-neutral-charcoal hover:bg-neutral-charcoal/90 text-text-inverse transition-colors shadow-xs flex items-center gap-1.5"
+            variant="primary"
+            size="sm"
           >
             + Create Manual Order
-          </Link>
+          </Button>
         </div>
       </div>
 
       {/* 2. Status Quick Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-200">
-        {statusTabs.map((tab) => {
-          const isActive = statusParam === tab.value;
-          return (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => updateFilters({ status: tab.value, page: 1 })}
-              className={`px-3.5 py-2 rounded-xl text-xs font-heading font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                isActive
-                  ? 'bg-neutral-charcoal text-text-inverse shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      <Tabs
+        tabs={statusTabs}
+        activeTab={statusParam}
+        onChange={(tabId: string) =>
+          updateFilters({ status: tabId, page: 1 })
+        }
+        style="underline"
+        size="sm"
+        aria-label="Order status filters"
+      />
 
       {/* 3. Search and Multi-Filter Controls */}
-      <div className="p-4 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-3">
+      <div className="p-4 rounded-3xl bg-bg-surface border border-border-default shadow-xs space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Search Input */}
-          <form onSubmit={handleSearchSubmit} className="relative sm:col-span-2">
-            <input
-              type="text"
+          <form
+            onSubmit={handleSearchSubmit}
+            className="relative sm:col-span-2 flex items-center"
+          >
+            <TextInput
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search by order #, customer name, email, phone..."
-              className="w-full pl-9 pr-20 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-rose-400"
+              size="md"
+              leadingIcon={
+                <span className="text-sm select-none" aria-hidden="true">
+                  🔍
+                </span>
+              }
+              className="pr-20"
+              aria-label="Search orders"
             />
-            <span className="absolute left-3 top-2.5 text-slate-400 text-sm">🔍</span>
-            <button
+            <Button
               type="submit"
-              className="absolute right-1.5 top-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition-colors cursor-pointer"
+              variant="primary"
+              size="sm"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg font-heading font-semibold"
             >
               Search
-            </button>
+            </Button>
           </form>
 
           {/* Payment Status Dropdown */}
           <div>
-            <select
+            <Select
               value={paymentParam}
-              onChange={(e) => updateFilters({ paymentStatus: e.target.value, page: 1 })}
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-700 bg-white focus:outline-hidden focus:border-rose-400 cursor-pointer"
-            >
-              <option value="">All Payment Statuses</option>
-              <option value="successful">Paid (Successful)</option>
-              <option value="pending">Pending Payment</option>
-              <option value="failed">Failed Payment</option>
-              <option value="refunded">Refunded</option>
-            </select>
+              onChange={(e) =>
+                updateFilters({ paymentStatus: e.target.value, page: 1 })
+              }
+              size="md"
+              aria-label="Filter by payment status"
+              options={[
+                { value: "", label: "All Payment Statuses" },
+                { value: "successful", label: "Paid (Successful)" },
+                { value: "pending", label: "Pending Payment" },
+                { value: "failed", label: "Failed Payment" },
+                { value: "refunded", label: "Refunded" },
+              ]}
+            />
           </div>
 
           {/* Sort Dropdown */}
           <div>
-            <select
+            <Select
               value={sortParam}
-              onChange={(e) => updateFilters({ sortBy: e.target.value, page: 1 })}
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-700 bg-white focus:outline-hidden focus:border-rose-400 cursor-pointer"
-            >
-              <option value="newest">Sort: Newest First</option>
-              <option value="oldest">Sort: Oldest First</option>
-              <option value="highest_total">Sort: Highest Total</option>
-              <option value="lowest_total">Sort: Lowest Total</option>
-            </select>
+              onChange={(e) =>
+                updateFilters({ sortBy: e.target.value, page: 1 })
+              }
+              size="md"
+              aria-label="Sort orders"
+              options={[
+                { value: "newest", label: "Sort: Newest First" },
+                { value: "oldest", label: "Sort: Oldest First" },
+                { value: "highest_total", label: "Sort: Highest Total" },
+                { value: "lowest_total", label: "Sort: Lowest Total" },
+              ]}
+            />
           </div>
         </div>
 
         {hasActiveFilters && (
-          <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-            <span className="text-slate-500">Filtered view active</span>
+          <div className="flex items-center justify-between pt-2 border-t border-border-default text-xs">
+            <span className="text-text-secondary">Filtered view active</span>
             <button
               type="button"
               onClick={handleClearFilters}
-              className="text-rose-500 hover:text-rose-600 font-semibold cursor-pointer"
+              className="text-action-primary hover:text-action-primary-hover font-semibold cursor-pointer transition-colors"
             >
               Clear All Filters ✕
             </button>
@@ -234,51 +260,55 @@ function OrdersListContent() {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 text-red-700 text-xs rounded-2xl border border-red-200 flex items-center justify-between">
-          <span>⚠️ {error}</span>
-          <button type="button" onClick={fetchOrders} className="underline font-bold">
-            Retry
-          </button>
-        </div>
+        <AlertBanner
+          variant="danger"
+          size="sm"
+          description={error}
+          actionLabel="Retry"
+          onAction={fetchOrders}
+          role="alert"
+        />
       )}
 
       {/* 4. Orders Data Presentation (Desktop Table + Mobile Cards) */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
+      <div className="bg-bg-surface rounded-3xl border border-border-default shadow-xs overflow-hidden">
         {loading ? (
-          <div className="p-8 space-y-4 animate-pulse">
+          <div className="p-8 space-y-4">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-14 bg-slate-50 rounded-2xl" />
+              <Skeleton key={i} type="custom" className="h-14 rounded-2xl" />
             ))}
           </div>
         ) : orders.length === 0 ? (
-          <div className="py-16 text-center space-y-3">
-            <div className="w-14 h-14 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center text-3xl mx-auto">
-              📦
-            </div>
-            <h3 className="font-heading font-bold text-base text-slate-800">
-              {hasActiveFilters ? 'No orders match your filters' : 'No orders found'}
-            </h3>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              {hasActiveFilters
-                ? 'Try broadening your search term or adjusting the status/payment filter.'
-                : 'Customer orders will automatically appear in this operational management view.'}
-            </p>
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={handleClearFilters}
-                className="mt-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
-              >
-                Clear Filters
-              </button>
-            )}
+          <div className="py-12 px-4">
+            <EmptyState
+              size="sm"
+              title={
+                hasActiveFilters
+                  ? "No orders match your filters"
+                  : "No orders found"
+              }
+              description={
+                hasActiveFilters
+                  ? "Try broadening your search term or adjusting the status/payment filter."
+                  : "Customer orders will automatically appear in this operational management view."
+              }
+              primaryAction={
+                hasActiveFilters
+                  ? {
+                      label: "Clear Filters",
+                      onClick: handleClearFilters,
+                      variant: "outline",
+                    }
+                  : undefined
+              }
+            />
           </div>
         ) : (
           <>
             {/* Desktop Table View */}
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-600">
-                <thead className="bg-slate-50/80 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+              <table className="w-full text-left text-xs text-text-secondary">
+                <thead className="bg-bg-subtle/80 text-[10px] font-bold uppercase tracking-wider text-text-tertiary border-b border-border-default">
                   <tr>
                     <th className="py-3.5 px-4 font-semibold">Order</th>
                     <th className="py-3.5 px-4 font-semibold">Customer</th>
@@ -287,23 +317,30 @@ function OrdersListContent() {
                     <th className="py-3.5 px-4 font-semibold">Items</th>
                     <th className="py-3.5 px-4 font-semibold">Total</th>
                     <th className="py-3.5 px-4 font-semibold">Date</th>
-                    <th className="py-3.5 px-4 font-semibold text-right">Action</th>
+                    <th className="py-3.5 px-4 font-semibold text-right">
+                      Action
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-border-default">
                   {orders.map((order: AdminOrderListItem) => (
-                    <tr key={order.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
+                    <tr
+                      key={order.id}
+                      className="hover:bg-bg-subtle/60 transition-colors"
+                    >
+                      <td className="py-3.5 px-4 font-mono font-bold text-text-primary">
                         <Link
                           href={`/admin/orders/${order.id}`}
-                          className="hover:text-rose-500 transition-colors"
+                          className="hover:text-action-primary transition-colors"
                         >
                           {order.orderNumber}
                         </Link>
                       </td>
                       <td className="py-3.5 px-4">
-                        <div className="font-semibold text-slate-800">{order.customer.name}</div>
-                        <div className="text-[11px] text-slate-400 truncate max-w-[180px]">
+                        <div className="font-semibold text-text-primary">
+                          {order.customer.name}
+                        </div>
+                        <div className="text-[11px] text-text-tertiary truncate max-w-[180px]">
                           {order.customer.email}
                         </div>
                       </td>
@@ -311,24 +348,30 @@ function OrdersListContent() {
                         <OrderStatusBadge status={order.status} />
                       </td>
                       <td className="py-3.5 px-4">
-                        <OrderStatusBadge status={order.paymentStatus} type="payment" />
+                        <OrderStatusBadge
+                          status={order.paymentStatus}
+                          type="payment"
+                        />
                       </td>
-                      <td className="py-3.5 px-4 font-semibold text-slate-700">
-                        {order.itemCount} {order.itemCount === 1 ? 'item' : 'items'}
+                      <td className="py-3.5 px-4 font-semibold text-text-secondary">
+                        {order.itemCount}{" "}
+                        {order.itemCount === 1 ? "item" : "items"}
                       </td>
-                      <td className="py-3.5 px-4 font-heading font-bold text-slate-900">
+                      <td className="py-3.5 px-4 font-heading font-bold text-text-primary">
                         {formatCurrency(order.totalAmount)}
                       </td>
-                      <td className="py-3.5 px-4 text-slate-400 whitespace-nowrap">
+                      <td className="py-3.5 px-4 text-text-tertiary whitespace-nowrap">
                         {formatDate(order.createdAt)}
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        <Link
+                        <Button
                           href={`/admin/orders/${order.id}`}
-                          className="inline-flex items-center px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 font-semibold transition-all shadow-2xs"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-xl font-semibold shadow-2xs py-1 px-3 min-h-0 text-xs"
                         >
                           View →
-                        </Link>
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -337,44 +380,55 @@ function OrdersListContent() {
             </div>
 
             {/* Mobile Cards View */}
-            <div className="md:hidden divide-y divide-slate-100 p-3 space-y-3">
+            <div className="md:hidden divide-y divide-border-default p-3 space-y-3">
               {orders.map((order: AdminOrderListItem) => (
                 <div
                   key={order.id}
-                  className="p-4 rounded-2xl bg-slate-50/60 border border-slate-100 space-y-3"
+                  className="p-4 rounded-2xl bg-bg-subtle/60 border border-border-default space-y-3"
                 >
                   <div className="flex items-center justify-between">
                     <Link
                       href={`/admin/orders/${order.id}`}
-                      className="font-mono font-bold text-xs text-rose-500"
+                      className="font-mono font-bold text-xs text-action-primary"
                     >
                       {order.orderNumber}
                     </Link>
-                    <span className="font-heading font-bold text-sm text-slate-900">
+                    <span className="font-heading font-bold text-sm text-text-primary">
                       {formatCurrency(order.totalAmount)}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <OrderStatusBadge status={order.status} />
-                    <OrderStatusBadge status={order.paymentStatus} type="payment" />
+                    <OrderStatusBadge
+                      status={order.paymentStatus}
+                      type="payment"
+                    />
                   </div>
 
-                  <div className="text-xs text-slate-600 flex justify-between items-center">
+                  <div className="text-xs text-text-secondary flex justify-between items-center">
                     <div>
-                      <div className="font-semibold text-slate-800">{order.customer.name}</div>
-                      <div className="text-[11px] text-slate-400">{order.customer.email}</div>
+                      <div className="font-semibold text-text-primary">
+                        {order.customer.name}
+                      </div>
+                      <div className="text-[11px] text-text-tertiary">
+                        {order.customer.email}
+                      </div>
                     </div>
-                    <span className="text-[11px] text-slate-400">{formatDate(order.createdAt)}</span>
+                    <span className="text-[11px] text-text-tertiary">
+                      {formatDate(order.createdAt)}
+                    </span>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-200/60 flex justify-end">
-                    <Link
+                  <div className="pt-2 border-t border-border-default flex justify-end">
+                    <Button
                       href={`/admin/orders/${order.id}`}
-                      className="w-full text-center py-2 px-3 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 shadow-2xs"
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-center rounded-xl bg-bg-surface font-semibold text-text-primary shadow-2xs"
                     >
                       View Order Details →
-                    </Link>
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -384,11 +438,15 @@ function OrdersListContent() {
 
         {/* 5. Pagination Footer */}
         {pagination.totalPages > 1 && (
-          <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <span className="text-slate-500">
-              Showing page <strong className="text-slate-800">{pagination.page}</strong> of{' '}
-              <strong className="text-slate-800">{pagination.totalPages}</strong> (
-              {pagination.total} total orders)
+          <div className="p-4 border-t border-border-default bg-bg-subtle/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <span className="text-text-secondary">
+              Showing page{" "}
+              <strong className="text-text-primary">{pagination.page}</strong>{" "}
+              of{" "}
+              <strong className="text-text-primary">
+                {pagination.totalPages}
+              </strong>{" "}
+              ({pagination.total} total orders)
             </span>
 
             <Pagination
@@ -410,7 +468,9 @@ export default function AdminOrdersPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-8 text-center text-slate-400 font-semibold">Loading orders...</div>
+        <div className="p-8 text-center text-text-tertiary font-semibold">
+          Loading orders...
+        </div>
       }
     >
       <OrdersListContent />

@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import NotificationBell from '@/components/NotificationBell';
-import { Avatar } from '@/components/Avatar';
-import { Breadcrumbs, type BreadcrumbItem } from '@/components/Breadcrumbs';
-import { AdminServerSession } from '@/lib/auth-helpers-server';
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import NotificationBell from "@/components/NotificationBell";
+import { Avatar } from "@/components/Avatar";
+import { Breadcrumbs, type BreadcrumbItem } from "@/components/Breadcrumbs";
+import { AdminServerSession } from "@/lib/auth-helpers-server";
 
 export default function AdminLayoutClient({
   children,
@@ -21,12 +21,12 @@ export default function AdminLayoutClient({
 
   const handleSignOut = async () => {
     try {
-      await fetch('/api/auth/signout', { method: 'POST' });
-      window.dispatchEvent(new Event('auth-updated'));
-      router.replace('/admin/login');
+      await fetch("/api/auth/signout", { method: "POST" });
+      window.dispatchEvent(new Event("auth-updated"));
+      router.replace("/admin/login");
     } catch (err) {
-      console.error('Error signing out:', err);
-      router.replace('/admin/login');
+      console.error("Error signing out:", err);
+      router.replace("/admin/login");
     }
   };
 
@@ -35,34 +35,59 @@ export default function AdminLayoutClient({
     setMobileSidebarOpen(false);
   }, [pathname]);
 
-  const role = session?.membership.role?.toLowerCase() || 'staff';
-  const isOwner = role === 'owner';
-  const isAdmin = role === 'admin' || isOwner;
+  const role = session?.membership.role?.toLowerCase() || "staff";
+  const isOwner = role === "owner";
+  const isAdmin = role === "admin" || isOwner;
 
   const navCommerce = [
-    { label: 'Dashboard', href: '/admin', icon: '📊', exact: true },
-    { label: 'Analytics', href: '/admin/analytics', icon: '📈' },
-    { label: 'Orders', href: '/admin/orders', icon: '📦' },
-    { label: 'Products', href: '/admin/products', icon: '🎨', exact: true },
-    { label: 'Bundles', href: '/admin/products/bundles', icon: '🎁' },
-    { label: 'Inventory', href: '/admin/inventory', icon: '📋' },
-    { label: 'Customers', href: '/admin/customers', icon: '👥' },
-    { label: 'Reviews', href: '/admin/reviews', icon: '⭐' },
-    { label: 'Customizations', href: '/admin/customizations', icon: '✂️' },
-    { label: 'Discounts', href: '/admin/discounts', icon: '🏷️' },
+    { label: "Dashboard", href: "/admin", icon: "📊", exact: true },
+    { label: "Analytics", href: "/admin/analytics", icon: "📈" },
+    { label: "Orders", href: "/admin/orders", icon: "📦" },
+    { label: "Products", href: "/admin/products", icon: "🎨", exact: true },
+    { label: "Bundles", href: "/admin/products/bundles", icon: "🎁" },
+    { label: "Inventory", href: "/admin/inventory", icon: "📋" },
+    { label: "Customers", href: "/admin/customers", icon: "👥" },
+    { label: "Reviews", href: "/admin/reviews", icon: "⭐" },
+    { label: "Customizations", href: "/admin/customizations", icon: "✂️" },
+    { label: "Discounts", href: "/admin/discounts", icon: "🏷️" },
   ];
 
   const allNavSettings = [
-    { label: 'Store Settings', href: '/admin/settings', icon: '⚙️', permission: 'organization.manage' },
-    { label: 'Locations', href: '/admin/settings/locations', icon: '📍', permission: 'organization.manage' },
-    { label: 'Warehouses', href: '/admin/settings/warehouses', icon: '🏬', permission: 'organization.manage' },
-    { label: 'Delivery Rates', href: '/admin/settings/delivery', icon: '🚚', permission: 'organization.manage' },
-    { label: 'Team Members', href: '/admin/settings/team', icon: '🛡️', permission: 'team.read' },
+    {
+      label: "Store Settings",
+      href: "/admin/settings",
+      icon: "⚙️",
+      permission: "organization.manage",
+    },
+    {
+      label: "Locations",
+      href: "/admin/settings/locations",
+      icon: "📍",
+      permission: "organization.manage",
+    },
+    {
+      label: "Warehouses",
+      href: "/admin/settings/warehouses",
+      icon: "🏬",
+      permission: "organization.manage",
+    },
+    {
+      label: "Delivery Rates",
+      href: "/admin/settings/delivery",
+      icon: "🚚",
+      permission: "organization.manage",
+    },
+    {
+      label: "Team Members",
+      href: "/admin/settings/team",
+      icon: "🛡️",
+      permission: "team.read",
+    },
   ];
 
   const navSettings = allNavSettings.filter((item) => {
-    if (item.permission === 'team.read') return isAdmin;
-    if (item.permission === 'organization.manage') return isAdmin;
+    if (item.permission === "team.read") return isAdmin;
+    if (item.permission === "organization.manage") return isAdmin;
     return true;
   });
 
@@ -72,50 +97,56 @@ export default function AdminLayoutClient({
   };
 
   const getPageTitle = () => {
-    if (pathname === '/admin') return 'Dashboard';
-    if (pathname.startsWith('/admin/analytics')) return 'Store Analytics';
-    if (pathname.startsWith('/admin/orders')) return 'Order Management';
-    if (pathname.startsWith('/admin/products/bundles')) return 'Product Bundles';
-    if (pathname.startsWith('/admin/products')) return 'Products';
-    if (pathname.startsWith('/admin/inventory')) return 'Inventory & Stock';
-    if (pathname.startsWith('/admin/customers')) return 'Customer Directory';
-    if (pathname.startsWith('/admin/reviews')) return 'Review Moderation';
-    if (pathname.startsWith('/admin/customizations')) return 'Customizations';
-    if (pathname.startsWith('/admin/discounts')) return 'Discounts & Promotions';
-    if (pathname.startsWith('/admin/settings')) return 'Store Settings';
-    return 'Admin Console';
+    if (pathname === "/admin") return "Dashboard";
+    if (pathname.startsWith("/admin/analytics")) return "Store Analytics";
+    if (pathname.startsWith("/admin/orders")) return "Order Management";
+    if (pathname.startsWith("/admin/products/bundles"))
+      return "Product Bundles";
+    if (pathname.startsWith("/admin/products")) return "Products";
+    if (pathname.startsWith("/admin/inventory")) return "Inventory & Stock";
+    if (pathname.startsWith("/admin/customers")) return "Customer Directory";
+    if (pathname.startsWith("/admin/reviews")) return "Review Moderation";
+    if (pathname.startsWith("/admin/customizations")) return "Customizations";
+    if (pathname.startsWith("/admin/discounts"))
+      return "Discounts & Promotions";
+    if (pathname.startsWith("/admin/settings")) return "Store Settings";
+    return "Admin Console";
   };
 
   const getBreadcrumbs = (): BreadcrumbItem[] => {
-    if (pathname === '/admin') {
-      return [{ label: 'Dashboard', isCurrent: true }];
+    if (pathname === "/admin") {
+      return [{ label: "Dashboard", isCurrent: true }];
     }
 
-    const segments = pathname.replace(/^\/admin\/?/, '').split('/').filter(Boolean);
+    const segments = pathname
+      .replace(/^\/admin\/?/, "")
+      .split("/")
+      .filter(Boolean);
     const items: BreadcrumbItem[] = [];
 
     const sectionLabels: Record<string, string> = {
-      analytics: 'Store Analytics',
-      orders: 'Orders',
-      products: 'Products',
-      bundles: 'Bundles',
-      inventory: 'Inventory & Stock',
-      customers: 'Customers',
-      reviews: 'Reviews',
-      customizations: 'Customizations',
-      discounts: 'Discounts',
-      settings: 'Store Settings',
-      locations: 'Locations',
-      warehouses: 'Warehouses',
-      delivery: 'Delivery Rates',
-      team: 'Team Members',
+      analytics: "Store Analytics",
+      orders: "Orders",
+      products: "Products",
+      bundles: "Bundles",
+      inventory: "Inventory & Stock",
+      customers: "Customers",
+      reviews: "Reviews",
+      customizations: "Customizations",
+      discounts: "Discounts",
+      settings: "Store Settings",
+      locations: "Locations",
+      warehouses: "Warehouses",
+      delivery: "Delivery Rates",
+      team: "Team Members",
     };
 
-    let accumulatedPath = '/admin';
+    let accumulatedPath = "/admin";
     segments.forEach((seg, idx) => {
       accumulatedPath += `/${seg}`;
       const isLast = idx === segments.length - 1;
-      const label = sectionLabels[seg] || (seg.length > 12 ? `${seg.slice(0, 8)}…` : seg);
+      const label =
+        sectionLabels[seg] || (seg.length > 12 ? `${seg.slice(0, 8)}…` : seg);
       items.push({
         label,
         href: isLast ? undefined : accumulatedPath,
@@ -134,7 +165,11 @@ export default function AdminLayoutClient({
         <div className="p-5 border-b border-slate-800 flex items-center justify-between">
           <Link href="/admin" className="flex items-center gap-3 group">
             <div className="w-9 h-9 rounded-xl bg-white p-1 flex items-center justify-center shadow-xs">
-              <img src="/logo.png" alt="Admin Logo" className="w-full h-full object-contain" />
+              <img
+                src="/logo.png"
+                alt="Admin Logo"
+                className="w-full h-full object-contain"
+              />
             </div>
             <div>
               <div className="font-heading font-bold text-sm tracking-tight text-white flex items-center gap-1.5">
@@ -149,9 +184,11 @@ export default function AdminLayoutClient({
 
         {/* Store Context Badge */}
         <div className="px-5 py-3 bg-slate-800/40 border-b border-slate-800">
-          <div className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Active Store</div>
+          <div className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">
+            Active Store
+          </div>
           <div className="text-xs font-bold text-slate-100 truncate">
-            {session?.organization.name || 'Unwind & Doodle'}
+            {session?.organization.name || "Unwind & Doodle"}
           </div>
         </div>
 
@@ -171,8 +208,8 @@ export default function AdminLayoutClient({
                     href={item.href}
                     className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
                       active
-                        ? 'bg-rose-500 text-white font-semibold shadow-xs'
-                        : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                        ? "bg-rose-500 text-white font-semibold shadow-xs"
+                        : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
                     }`}
                   >
                     <span className="text-sm">{item.icon}</span>
@@ -197,8 +234,8 @@ export default function AdminLayoutClient({
                     href={item.href}
                     className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
                       active
-                        ? 'bg-rose-500 text-white font-semibold shadow-xs'
-                        : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                        ? "bg-rose-500 text-white font-semibold shadow-xs"
+                        : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
                     }`}
                   >
                     <span className="text-sm">{item.icon}</span>
@@ -234,7 +271,9 @@ export default function AdminLayoutClient({
 
           <div className="relative w-64 max-w-[80vw] bg-neutral-charcoal text-slate-200 flex flex-col h-full z-10 shadow-2xl animate-in slide-in-from-left">
             <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-              <div className="font-heading font-bold text-sm text-white">Unwind &amp; Doodle Admin</div>
+              <div className="font-heading font-bold text-sm text-white">
+                Unwind &amp; Doodle Admin
+              </div>
               <button
                 type="button"
                 onClick={() => setMobileSidebarOpen(false)}
@@ -254,8 +293,8 @@ export default function AdminLayoutClient({
                     onClick={() => setMobileSidebarOpen(false)}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium ${
                       isLinkActive(item.href, item.exact)
-                        ? 'bg-rose-500 text-white font-bold'
-                        : 'text-slate-300 hover:bg-slate-800'
+                        ? "bg-rose-500 text-white font-bold"
+                        : "text-slate-300 hover:bg-slate-800"
                     }`}
                   >
                     <span>{item.icon}</span>
@@ -276,8 +315,8 @@ export default function AdminLayoutClient({
                       onClick={() => setMobileSidebarOpen(false)}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium ${
                         isLinkActive(item.href)
-                          ? 'bg-rose-500 text-white font-bold'
-                          : 'text-slate-300 hover:bg-slate-800'
+                          ? "bg-rose-500 text-white font-bold"
+                          : "text-slate-300 hover:bg-slate-800"
                       }`}
                     >
                       <span>{item.icon}</span>
@@ -313,32 +352,29 @@ export default function AdminLayoutClient({
               className="md:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 transition-colors"
               aria-label="Open Admin Menu"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
               </svg>
             </button>
 
-            <div className="flex flex-col gap-0.5 min-w-0">
-              <div className="hidden sm:block">
-                <Breadcrumbs
-                  size="sm"
-                  showHome
-                  homeHref="/admin"
-                  homeLabel="Admin"
-                  items={getBreadcrumbs()}
-                  className="py-0"
-                />
-              </div>
-              <div className="flex items-baseline gap-2">
-                <h1 className="text-base sm:text-lg font-bold font-heading text-slate-800 leading-tight truncate">
-                  {getPageTitle()}
-                </h1>
-                {session?.organization && (
-                  <span className="text-[11px] text-slate-400 hidden lg:inline">
-                    • {session.organization.name}
-                  </span>
-                )}
-              </div>
+            <div className="hidden sm:block">
+              <Breadcrumbs
+                size="md"
+                homeHref="/admin"
+                homeLabel="Admin"
+                items={getBreadcrumbs()}
+                className="py-0"
+              />
             </div>
           </div>
 
@@ -347,17 +383,23 @@ export default function AdminLayoutClient({
             <div className="flex items-center gap-2.5">
               <Avatar
                 size="sm"
-                name={session?.user.email || 'Admin'}
+                name={session?.user.email || "Admin"}
                 status="online"
               />
               <div className="hidden sm:flex flex-col text-right">
                 <span className="text-xs font-bold text-slate-700 leading-tight">
-                  {session?.user.email || 'Admin User'}
+                  {session?.user.email || "Admin User"}
                 </span>
-                <span className={`text-[10px] font-bold capitalize ${
-                  isOwner ? 'text-amber-600' : isAdmin ? 'text-rose-500' : 'text-blue-500'
-                }`}>
-                  {session?.membership.role || 'Staff'}
+                <span
+                  className={`text-[10px] font-bold capitalize ${
+                    isOwner
+                      ? "text-amber-600"
+                      : isAdmin
+                        ? "text-rose-500"
+                        : "text-blue-500"
+                  }`}
+                >
+                  {session?.membership.role || "Staff"}
                 </span>
               </div>
             </div>
@@ -377,7 +419,9 @@ export default function AdminLayoutClient({
         </header>
 
         {/* Page Body */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">{children}</main>
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          {children}
+        </main>
       </div>
     </div>
   );

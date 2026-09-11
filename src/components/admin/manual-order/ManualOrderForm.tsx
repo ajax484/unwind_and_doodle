@@ -10,6 +10,13 @@ import {
   ManualOrderSuccessModal,
   ManualOrderSuccessData,
 } from "./ManualOrderSuccessModal";
+import TextInput from "@/components/TextInput";
+import Select from "@/components/Select";
+import Textarea from "@/components/Textarea";
+import Button from "@/components/Button";
+import AlertBanner from "@/components/AlertBanner";
+import Badge from "@/components/Badge";
+import Spinner from "@/components/Spinner";
 
 interface CustomerSearchResult {
   id: string;
@@ -436,19 +443,13 @@ export function ManualOrderForm() {
       )}
 
       {formError && (
-        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm font-medium flex items-center justify-between animate-fadeIn">
-          <div className="flex items-center gap-2">
-            <span>⚠️</span>
-            <span>{formError}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setFormError(null)}
-            className="text-rose-500 hover:text-rose-700 cursor-pointer"
-          >
-            ✕
-          </button>
-        </div>
+        <AlertBanner
+          variant="danger"
+          size="md"
+          dismissible
+          onDismiss={() => setFormError(null)}
+          description={formError}
+        />
       )}
 
       <form onSubmit={handleSubmit}>
@@ -456,59 +457,66 @@ export function ManualOrderForm() {
           {/* Left Column (Main Editor - 2 cols) */}
           <div className="lg:col-span-2 space-y-6">
             {/* 1. Customer Section */}
-            <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="p-6 rounded-3xl bg-bg-surface border border-border-default shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-border-default pb-3">
                 <div>
-                  <h3 className="text-base font-heading font-bold text-slate-900">
+                  <h3 className="text-base font-heading font-bold text-text-primary">
                     Customer Details
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-text-secondary">
                     Search existing customers or enter guest details.
                   </p>
                 </div>
                 {selectedCustomerId && (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={handleClearSelectedCustomer}
-                    className="text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                    className="text-xs font-semibold text-action-primary hover:bg-action-primary/10 rounded-lg min-h-0 py-1 px-2.5"
                   >
                     Clear Selected Customer
-                  </button>
+                  </Button>
                 )}
               </div>
 
               {/* Customer Search Bar */}
               {!selectedCustomerId && (
                 <div className="relative">
-                  <label className="text-xs font-semibold text-slate-700 mb-1 block">
+                  <label className="text-xs font-semibold text-text-primary mb-1 block">
                     Search Existing Customer
                   </label>
-                  <input
-                    type="text"
+                  <TextInput
                     value={customerSearch}
                     onChange={(e) => setCustomerSearch(e.target.value)}
                     placeholder="Search customer by name or email..."
-                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+                    size="sm"
+                    leadingIcon={
+                      <span className="text-text-tertiary select-none" aria-hidden="true">
+                        🔍
+                      </span>
+                    }
+                    aria-label="Search customer by name or email"
                   />
                   {customerResults.length > 0 && (
-                    <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+                    <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-bg-surface border border-border-default rounded-2xl shadow-dropdown overflow-hidden max-h-48 overflow-y-auto">
                       {customerResults.map((c) => (
                         <button
                           key={c.id}
                           type="button"
                           onClick={() => handleSelectCustomer(c)}
-                          className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-none flex items-center justify-between transition-colors cursor-pointer"
+                          className="w-full text-left px-4 py-2.5 hover:bg-bg-subtle border-b border-border-default last:border-none flex items-center justify-between transition-colors cursor-pointer"
                         >
                           <div>
-                            <p className="text-xs font-bold text-slate-800">
+                            <p className="text-xs font-bold text-text-primary">
                               {c.first_name || ""} {c.last_name || ""}
                             </p>
-                            <p className="text-[11px] text-slate-500">
+                            <p className="text-[11px] text-text-secondary">
                               {c.email}
                             </p>
                           </div>
                           {c.phone && (
-                            <span className="text-[11px] text-slate-400 font-mono">
+                            <span className="text-[11px] text-text-tertiary font-mono">
                               {c.phone}
                             </span>
                           )}
@@ -521,97 +529,85 @@ export function ManualOrderForm() {
 
               {/* Customer Form Inputs */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                    Email Address *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="customer@example.com"
-                    className="w-full px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+234 801 234 5678"
-                    className="w-full px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                    First Name
-                  </label>
-                  <input
-                    type="text"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="Jane"
-                    className="w-full px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                    Last Name
-                  </label>
-                  <input
-                    type="text"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Doe"
-                    className="w-full px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
-                  />
-                </div>
+                <TextInput
+                  type="email"
+                  required
+                  label="Email Address *"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="customer@example.com"
+                  size="sm"
+                />
+                <TextInput
+                  type="tel"
+                  label="Phone Number"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+234 801 234 5678"
+                  size="sm"
+                />
+                <TextInput
+                  type="text"
+                  label="First Name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Jane"
+                  size="sm"
+                />
+                <TextInput
+                  type="text"
+                  label="Last Name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Doe"
+                  size="sm"
+                />
               </div>
             </div>
 
             {/* 2. Products Section (with Multi-Product Picker) */}
-            <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="p-6 rounded-3xl bg-bg-surface border border-border-default shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-border-default pb-3">
                 <div>
-                  <h3 className="text-base font-heading font-bold text-slate-900">
+                  <h3 className="text-base font-heading font-bold text-text-primary">
                     Order Items
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-text-secondary">
                     Select multiple products, custom items, or bundles.
                   </p>
                 </div>
-                <button
+                <Button
                   type="button"
                   onClick={() => setIsProductPickerOpen(true)}
-                  className="px-4 py-2 rounded-xl text-xs font-heading font-bold bg-neutral-charcoal hover:bg-neutral-charcoal/90 text-text-inverse transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  variant="primary"
+                  size="sm"
+                  className="rounded-xl font-heading font-bold shadow-xs"
                 >
                   + Add Products / Bundles
-                </button>
+                </Button>
               </div>
 
               {productError && (
-                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium">
-                  {productError}
-                </div>
+                <AlertBanner
+                  variant="warning"
+                  size="sm"
+                  description={productError}
+                />
               )}
 
               {items.length === 0 ? (
-                <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
-                  <p className="text-sm font-semibold text-slate-600">
+                <div className="p-8 text-center border-2 border-dashed border-border-default rounded-2xl bg-bg-subtle/50">
+                  <p className="text-sm font-semibold text-text-primary">
                     No products added yet
                   </p>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-text-secondary mt-0.5">
                     Click "+ Add Products / Bundles" above to choose items for this order.
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+                <div className="overflow-x-auto border border-border-default rounded-2xl">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider">
+                    <thead className="bg-bg-subtle border-b border-border-default text-text-secondary font-semibold uppercase tracking-wider">
                       <tr>
                         <th className="px-4 py-3">Product</th>
                         <th className="px-4 py-3">Unit Price</th>
@@ -620,50 +616,67 @@ export function ManualOrderForm() {
                         <th className="px-4 py-3 text-center">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 bg-white">
+                    <tbody className="divide-y divide-border-default bg-bg-surface">
                       {items.map((item) => {
-                        const maxStock = item.availableStock !== undefined ? item.availableStock : 9999;
+                        const maxStock =
+                          item.availableStock !== undefined
+                            ? item.availableStock
+                            : 9999;
+                        const isBundle = item.productType === "bundle";
+                        const isCustom = item.productType === "custom";
+
                         return (
-                          <tr key={item.productId} className="hover:bg-slate-50/50">
+                          <tr
+                            key={item.productId}
+                            className="hover:bg-bg-subtle/50"
+                          >
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+                                <div className="w-10 h-10 rounded-lg bg-bg-subtle border border-border-default overflow-hidden shrink-0 flex items-center justify-center">
                                   {item.primaryImage ? (
-                                    <img src={item.primaryImage} alt={item.name} className="w-full h-full object-cover" />
+                                    <img
+                                      src={item.primaryImage}
+                                      alt={item.name}
+                                      className="w-full h-full object-cover"
+                                    />
                                   ) : (
                                     <span>📦</span>
                                   )}
                                 </div>
                                 <div>
                                   <div className="flex items-center gap-2">
-                                    <span className="font-bold text-slate-800">{item.name}</span>
-                                    <span
-                                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                                        item.productType === "bundle"
-                                          ? "bg-purple-100 text-purple-700"
-                                          : item.productType === "custom"
-                                          ? "bg-amber-100 text-amber-700"
-                                          : "bg-slate-100 text-slate-600"
-                                      }`}
+                                    <span className="font-bold text-text-primary">
+                                      {item.name}
+                                    </span>
+                                    <Badge
+                                      variant={isBundle ? "bundle" : "status"}
+                                      statusType={isCustom ? "info" : "neutral"}
+                                      size="sm"
                                     >
                                       {item.productType}
-                                    </span>
+                                    </Badge>
                                   </div>
-                                  <span className="text-[11px] text-slate-400">
+                                  <span className="text-[11px] text-text-tertiary">
                                     SKU: {item.sku || "N/A"}
                                   </span>
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-3 font-semibold text-slate-700">
+                            <td className="px-4 py-3 font-semibold text-text-secondary">
                               {formatCurrency(item.sellingPrice)}
                             </td>
                             <td className="px-4 py-3">
-                              <div className="flex items-center justify-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-1 w-28 mx-auto">
+                              <div className="flex items-center justify-center gap-1 bg-bg-subtle border border-border-default rounded-lg p-1 w-28 mx-auto">
                                 <button
                                   type="button"
-                                  onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1)}
-                                  className="w-6 h-6 rounded bg-white hover:bg-slate-200 text-slate-700 font-bold flex items-center justify-center transition-colors cursor-pointer"
+                                  onClick={() =>
+                                    handleUpdateQuantity(
+                                      item.productId,
+                                      item.quantity - 1,
+                                    )
+                                  }
+                                  className="w-6 h-6 rounded bg-bg-surface hover:bg-bg-subtle/80 text-text-primary font-bold flex items-center justify-center transition-colors cursor-pointer"
+                                  aria-label="Decrease quantity"
                                 >
                                   −
                                 </button>
@@ -672,31 +685,50 @@ export function ManualOrderForm() {
                                   min="1"
                                   max={maxStock}
                                   value={item.quantity}
-                                  onChange={(e) => handleUpdateQuantity(item.productId, parseInt(e.target.value, 10) || 1)}
-                                  className="w-10 text-center text-xs font-bold text-slate-800 border-none focus:outline-hidden"
+                                  onChange={(e) =>
+                                    handleUpdateQuantity(
+                                      item.productId,
+                                      parseInt(e.target.value, 10) || 1,
+                                    )
+                                  }
+                                  aria-label={`Quantity for ${item.name}`}
+                                  className="w-10 text-center text-xs font-bold text-text-primary bg-transparent border-none focus:outline-hidden"
                                 />
                                 <button
                                   type="button"
-                                  onClick={() => handleUpdateQuantity(item.productId, item.quantity + 1)}
+                                  onClick={() =>
+                                    handleUpdateQuantity(
+                                      item.productId,
+                                      item.quantity + 1,
+                                    )
+                                  }
                                   disabled={item.quantity >= maxStock}
-                                  className="w-6 h-6 rounded bg-white hover:bg-slate-200 text-slate-700 font-bold flex items-center justify-center transition-colors cursor-pointer disabled:opacity-40"
+                                  className="w-6 h-6 rounded bg-bg-surface hover:bg-bg-subtle/80 text-text-primary font-bold flex items-center justify-center transition-colors cursor-pointer disabled:opacity-40"
+                                  aria-label="Increase quantity"
                                 >
                                   +
                                 </button>
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-right font-bold text-slate-900">
-                              {formatCurrency(item.sellingPrice * item.quantity)}
+                            <td className="px-4 py-3 text-right font-bold text-text-primary">
+                              {formatCurrency(
+                                item.sellingPrice * item.quantity,
+                              )}
                             </td>
                             <td className="px-4 py-3 text-center">
-                              <button
+                              <Button
                                 type="button"
-                                onClick={() => handleRemoveProduct(item.productId)}
-                                className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition-colors cursor-pointer"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  handleRemoveProduct(item.productId)
+                                }
+                                className="p-1.5 min-h-0 h-8 w-8 rounded-lg text-status-danger-accent hover:bg-status-danger-bg hover:text-status-danger-text transition-colors"
                                 title="Remove item"
+                                aria-label={`Remove ${item.name}`}
                               >
                                 🗑️
-                              </button>
+                              </Button>
                             </td>
                           </tr>
                         );
@@ -708,18 +740,18 @@ export function ManualOrderForm() {
             </div>
 
             {/* 3. Discount Configuration Section */}
-            <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-              <div className="border-b border-slate-100 pb-3">
-                <h3 className="text-base font-heading font-bold text-slate-900">
+            <div className="p-6 rounded-3xl bg-bg-surface border border-border-default shadow-xs space-y-4">
+              <div className="border-b border-border-default pb-3">
+                <h3 className="text-base font-heading font-bold text-text-primary">
                   Discount Options
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-text-secondary">
                   Apply a promo code or specify a manual percentage/fixed discount.
                 </p>
               </div>
 
               {/* Radio Group */}
-              <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-700">
+              <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-text-secondary">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
@@ -727,7 +759,7 @@ export function ManualOrderForm() {
                     value="none"
                     checked={discountType === "none"}
                     onChange={() => handleDiscountTypeChange("none")}
-                    className="text-rose-600 focus:ring-rose-500 cursor-pointer"
+                    className="text-action-primary focus:ring-action-primary cursor-pointer"
                   />
                   <span>No Discount</span>
                 </label>
@@ -739,7 +771,7 @@ export function ManualOrderForm() {
                     value="code"
                     checked={discountType === "code"}
                     onChange={() => handleDiscountTypeChange("code")}
-                    className="text-rose-600 focus:ring-rose-500 cursor-pointer"
+                    className="text-action-primary focus:ring-action-primary cursor-pointer"
                   />
                   <span>Discount Code</span>
                 </label>
@@ -751,7 +783,7 @@ export function ManualOrderForm() {
                     value="manual"
                     checked={discountType === "manual"}
                     onChange={() => handleDiscountTypeChange("manual")}
-                    className="text-rose-600 focus:ring-rose-500 cursor-pointer"
+                    className="text-action-primary focus:ring-action-primary cursor-pointer"
                   />
                   <span>Manual Discount</span>
                 </label>
@@ -760,167 +792,149 @@ export function ManualOrderForm() {
               {/* Discount Code Input */}
               {discountType === "code" && (
                 <div className="pt-2 animate-fadeIn">
-                  <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                    Promo / Coupon Code
-                  </label>
-                  <input
-                    type="text"
-                    value={discountCode}
-                    onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
-                    placeholder="e.g. WELCOME10"
-                    className="w-full sm:w-64 px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all uppercase"
-                  />
+                  <div className="w-full sm:w-64">
+                    <TextInput
+                      label="Promo / Coupon Code"
+                      value={discountCode}
+                      onChange={(e) =>
+                        setDiscountCode(e.target.value.toUpperCase())
+                      }
+                      placeholder="e.g. WELCOME10"
+                      size="sm"
+                      className="uppercase"
+                    />
+                  </div>
                 </div>
               )}
 
               {/* Manual Discount Configuration */}
               {discountType === "manual" && (
                 <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fadeIn">
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                      Manual Discount Type
-                    </label>
-                    <select
-                      value={manualDiscountType}
-                      onChange={(e) => setManualDiscountType(e.target.value as "percentage" | "fixed_amount")}
-                      className="w-full px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
-                    >
-                      <option value="percentage">Percentage (%)</option>
-                      <option value="fixed_amount">Fixed Amount (₦)</option>
-                    </select>
-                  </div>
+                  <Select
+                    label="Manual Discount Type"
+                    value={manualDiscountType}
+                    onChange={(e) =>
+                      setManualDiscountType(
+                        e.target.value as "percentage" | "fixed_amount",
+                      )
+                    }
+                    size="sm"
+                    options={[
+                      { value: "percentage", label: "Percentage (%)" },
+                      { value: "fixed_amount", label: "Fixed Amount (₦)" },
+                    ]}
+                  />
 
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                      {manualDiscountType === "percentage" ? "Percentage Value (%)" : "Fixed Amount (₦)"}
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max={manualDiscountType === "percentage" ? "100" : undefined}
-                      value={manualDiscountValue}
-                      onChange={(e) =>
-                        setManualDiscountValue(e.target.value === "" ? "" : parseFloat(e.target.value))
-                      }
-                      placeholder={manualDiscountType === "percentage" ? "15" : "2500"}
-                      className="w-full px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
-                    />
-                  </div>
+                  <TextInput
+                    label={
+                      manualDiscountType === "percentage"
+                        ? "Percentage Value (%)"
+                        : "Fixed Amount (₦)"
+                    }
+                    type="number"
+                    min={1}
+                    max={manualDiscountType === "percentage" ? 100 : undefined}
+                    value={manualDiscountValue}
+                    onChange={(e) =>
+                      setManualDiscountValue(
+                        e.target.value === "" ? "" : parseFloat(e.target.value),
+                      )
+                    }
+                    placeholder={
+                      manualDiscountType === "percentage" ? "15" : "2500"
+                    }
+                    size="sm"
+                  />
                 </div>
               )}
             </div>
 
             {/* 4. Shipping & Delivery Section */}
-            <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-              <div className="border-b border-slate-100 pb-3">
-                <h3 className="text-base font-heading font-bold text-slate-900">
+            <div className="p-6 rounded-3xl bg-bg-surface border border-border-default shadow-xs space-y-4">
+              <div className="border-b border-border-default pb-3">
+                <h3 className="text-base font-heading font-bold text-text-primary">
                   Delivery &amp; Fulfillment Location
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-text-secondary">
                   Select customer delivery location to auto-calculate delivery rate.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                    Delivery Location *
-                  </label>
-                  <select
+                  <Select
+                    label="Delivery Location *"
                     value={selectedLocationId}
                     onChange={(e) => setSelectedLocationId(e.target.value)}
-                    className="w-full px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
-                  >
-                    {locations.map((loc) => (
-                      <option key={loc.id} value={loc.id}>
-                        {loc.name} {loc.state ? `(${loc.state})` : ""}
-                      </option>
-                    ))}
-                  </select>
+                    size="sm"
+                    options={locations.map((loc) => ({
+                      value: loc.id,
+                      label: `${loc.name} ${loc.state ? `(${loc.state})` : ""}`,
+                    }))}
+                  />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                    Address Line 1
-                  </label>
-                  <input
-                    type="text"
+                  <TextInput
+                    label="Address Line 1"
                     value={addressLine1}
                     onChange={(e) => setAddressLine1(e.target.value)}
                     placeholder="123 Admiralty Way"
-                    className="w-full px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+                    size="sm"
                   />
                 </div>
 
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                    City
-                  </label>
-                  <input
-                    type="text"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    className="w-full px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
-                  />
-                </div>
+                <TextInput
+                  label="City"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  size="sm"
+                />
 
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                    State
-                  </label>
-                  <input
-                    type="text"
-                    value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    className="w-full px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
-                  />
-                </div>
+                <TextInput
+                  label="State"
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  size="sm"
+                />
 
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                    Channel / Source
-                  </label>
-                  <select
-                    value={manualOrderChannel}
-                    onChange={(e) => setManualOrderChannel(e.target.value)}
-                    className="w-full px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
-                  >
-                    <option value="instagram">Instagram</option>
-                    <option value="whatsapp">WhatsApp</option>
-                    <option value="phone">Phone</option>
-                    <option value="in_person">In Person</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
+                <Select
+                  label="Channel / Source"
+                  value={manualOrderChannel}
+                  onChange={(e) => setManualOrderChannel(e.target.value)}
+                  size="sm"
+                  options={[
+                    { value: "instagram", label: "Instagram" },
+                    { value: "whatsapp", label: "WhatsApp" },
+                    { value: "phone", label: "Phone" },
+                    { value: "in_person", label: "In Person" },
+                    { value: "other", label: "Other" },
+                  ]}
+                />
 
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                    Fulfillment Warehouse
-                  </label>
-                  <select
-                    value={selectedWarehouseId}
-                    onChange={(e) => setSelectedWarehouseId(e.target.value)}
-                    className="w-full px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
-                  >
-                    <option value="">Default Active Warehouse</option>
-                    {warehouses.map((wh) => (
-                      <option key={wh.id} value={wh.id}>
-                        {wh.name} {wh.is_active ? "(Active)" : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <Select
+                  label="Fulfillment Warehouse"
+                  value={selectedWarehouseId}
+                  onChange={(e) => setSelectedWarehouseId(e.target.value)}
+                  size="sm"
+                  options={[
+                    { value: "", label: "Default Active Warehouse" },
+                    ...warehouses.map((wh) => ({
+                      value: wh.id,
+                      label: `${wh.name} ${wh.is_active ? "(Active)" : ""}`,
+                    })),
+                  ]}
+                />
 
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-semibold text-slate-700 mb-1 block">
-                    Internal Notes (Optional)
-                  </label>
-                  <textarea
+                  <Textarea
+                    label="Internal Notes (Optional)"
                     rows={2}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Add internal notes for this order..."
-                    className="w-full px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+                    size="sm"
+                    resize="vertical"
                   />
                 </div>
               </div>
@@ -929,77 +943,94 @@ export function ManualOrderForm() {
 
           {/* Right Column (Sticky Order Summary Card - 1 col) */}
           <div className="space-y-6">
-            <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-md sticky top-6 space-y-6">
-              <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+            <div className="p-6 rounded-3xl bg-bg-surface border border-border-default shadow-card sticky top-6 space-y-6">
+              <div className="border-b border-border-default pb-3 flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-heading font-bold text-slate-900">
+                  <h3 className="text-base font-heading font-bold text-text-primary">
                     Order Summary
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-text-secondary">
                     Server-calculated breakdown
                   </p>
                 </div>
                 {previewLoading && (
-                  <div className="w-5 h-5 rounded-full border-2 border-rose-500 border-t-transparent animate-spin" />
+                  <Spinner size="sm" color="rose" />
                 )}
               </div>
 
               {previewError && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
-                  ⚠️ {previewError}
-                </div>
+                <AlertBanner
+                  variant="danger"
+                  size="sm"
+                  description={previewError}
+                />
               )}
 
               {/* Server-Calculated Price Breakdown */}
               <div className="space-y-3 text-sm">
-                <div className="flex items-center justify-between text-slate-600">
+                <div className="flex items-center justify-between text-text-secondary">
                   <span>
                     Subtotal ({items.reduce((s, i) => s + i.quantity, 0)} items)
                   </span>
-                  <span className="font-semibold text-slate-800">
-                    {formatCurrency(preview ? preview.subtotal : items.reduce((s, i) => s + i.sellingPrice * i.quantity, 0))}
+                  <span className="font-semibold text-text-primary">
+                    {formatCurrency(
+                      preview
+                        ? preview.subtotal
+                        : items.reduce(
+                            (s, i) => s + i.sellingPrice * i.quantity,
+                            0,
+                          ),
+                    )}
                   </span>
                 </div>
 
                 {(preview ? preview.discountTotal > 0 : false) && (
-                  <div className="flex items-center justify-between text-emerald-700 font-medium">
+                  <div className="flex items-center justify-between text-status-success-text font-medium">
                     <span>Discount Applied</span>
                     <span>−{formatCurrency(preview!.discountTotal)}</span>
                   </div>
                 )}
 
-                <div className="flex items-center justify-between text-slate-600">
+                <div className="flex items-center justify-between text-text-secondary">
                   <span>Delivery Fee</span>
-                  <span className="font-semibold text-slate-800">
+                  <span className="font-semibold text-text-primary">
                     {preview ? formatCurrency(preview.deliveryFee) : "₦0"}
                   </span>
                 </div>
 
-                <div className="border-t border-slate-200 pt-3 flex items-center justify-between text-slate-900">
+                <div className="border-t border-border-default pt-3 flex items-center justify-between text-text-primary">
                   <span className="text-base font-heading font-bold">Total</span>
-                  <span className="text-xl font-heading font-extrabold text-rose-600">
-                    {preview ? formatCurrency(preview.total) : formatCurrency(items.reduce((s, i) => s + i.sellingPrice * i.quantity, 0))}
+                  <span className="text-xl font-heading font-extrabold text-action-primary">
+                    {preview
+                      ? formatCurrency(preview.total)
+                      : formatCurrency(
+                          items.reduce(
+                            (s, i) => s + i.sellingPrice * i.quantity,
+                            0,
+                          ),
+                        )}
                   </span>
                 </div>
               </div>
 
               {/* Create Order Submit Button */}
-              <button
+              <Button
                 type="submit"
-                disabled={submitting || previewLoading || items.length === 0 || Boolean(previewError)}
-                className="w-full py-3.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 text-white font-heading font-bold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                disabled={
+                  submitting ||
+                  previewLoading ||
+                  items.length === 0 ||
+                  Boolean(previewError)
+                }
+                loading={submitting}
+                variant="primary"
+                size="lg"
+                className="w-full justify-center rounded-xl font-heading font-bold text-sm shadow-md hover:shadow-lg"
               >
-                {submitting ? (
-                  <>
-                    <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                    <span>Creating Order...</span>
-                  </>
-                ) : (
-                  <span>Create Manual Order &amp; Link</span>
-                )}
-              </button>
+                Create Manual Order &amp; Link
+              </Button>
 
-              <p className="text-[11px] text-slate-400 text-center">
+              <p className="text-[11px] text-text-tertiary text-center">
                 All prices and delivery fees are calculated server-authoritatively.
               </p>
             </div>

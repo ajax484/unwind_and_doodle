@@ -1,6 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import TextInput from '@/components/TextInput';
+import Button from '@/components/Button';
+import { Checkbox } from '@/components/Checkbox';
+import Badge from '@/components/Badge';
+import Spinner from '@/components/Spinner';
+import AlertBanner from '@/components/AlertBanner';
 
 export interface SelectableProduct {
   id: string;
@@ -117,56 +123,54 @@ export function MultiProductPickerModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
+      <div className="bg-bg-surface rounded-2xl shadow-2xl border border-border-default w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-6 py-4 border-b border-border-default flex items-center justify-between bg-bg-subtle/50">
           <div>
-            <h3 className="text-lg font-heading font-bold text-slate-800">Add Products &amp; Bundles</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <h3 className="text-lg font-heading font-bold text-text-primary">Add Products &amp; Bundles</h3>
+            <p className="text-xs text-text-secondary mt-0.5">
               Select multiple products or bundles to add to this manual order.
             </p>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
-            type="button"
+            aria-label="Close modal"
+            className="w-8 h-8 p-0 rounded-full text-text-secondary hover:text-text-primary min-h-0"
           >
             ✕
-          </button>
+          </Button>
         </div>
 
         {/* Search Bar */}
-        <div className="p-4 border-b border-slate-100 bg-white">
-          <div className="relative">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 pointer-events-none">
-              🔍
-            </span>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search catalog by name or SKU..."
-              className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
-            />
-          </div>
+        <div className="p-4 border-b border-border-default bg-bg-surface">
+          <TextInput
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search catalog by name or SKU..."
+            size="sm"
+            leadingIcon={<span className="text-text-tertiary select-none" aria-hidden="true">🔍</span>}
+            aria-label="Search catalog products"
+          />
         </div>
 
         {/* Products List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
           {loading ? (
             <div className="py-12 text-center">
-              <div className="w-8 h-8 rounded-full border-2 border-rose-500 border-t-transparent animate-spin mx-auto mb-2" />
-              <p className="text-xs text-slate-500 font-medium">Loading catalog products...</p>
+              <Spinner size="md" color="rose" className="mx-auto mb-2" />
+              <p className="text-xs text-text-secondary font-medium">Loading catalog products...</p>
             </div>
           ) : error ? (
-            <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs text-center">
-              {error}
+            <div className="p-4">
+              <AlertBanner variant="danger" size="sm" description={error} />
             </div>
           ) : products.length === 0 ? (
             <div className="py-12 text-center">
               <div className="text-3xl mb-2">📦</div>
-              <p className="text-sm font-semibold text-slate-700">No matching products found</p>
-              <p className="text-xs text-slate-400 mt-1">Try refining your search query.</p>
+              <p className="text-sm font-semibold text-text-primary">No matching products found</p>
+              <p className="text-xs text-text-secondary mt-1">Try refining your search query.</p>
             </div>
           ) : (
             products.map((p) => {
@@ -176,30 +180,30 @@ export function MultiProductPickerModal({
               const stock = p.availableStock !== undefined ? p.availableStock : 99;
               const isOutOfStock = stock <= 0;
               const isBundle = p.product_type === 'bundle';
+              const isCustom = p.product_type === 'custom';
 
               return (
                 <div
                   key={p.id}
                   className={`p-3.5 rounded-xl border flex items-center justify-between gap-4 transition-all ${
                     isOutOfStock
-                      ? 'bg-slate-50 border-slate-200 opacity-60'
+                      ? 'bg-bg-subtle/50 border-border-default opacity-60'
                       : isSelected
-                      ? 'bg-rose-50/60 border-rose-300 shadow-2xs'
+                      ? 'bg-action-primary/5 border-action-primary/40 shadow-xs'
                       : isAlreadyInOrder
-                      ? 'bg-amber-50/40 border-amber-200'
-                      : 'bg-white border-slate-200 hover:border-slate-300'
+                      ? 'bg-status-warning-bg/40 border-status-warning-accent/30'
+                      : 'bg-bg-surface border-border-default hover:border-border-brand/60'
                   }`}
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={isSelected}
                       disabled={isOutOfStock}
                       onChange={() => handleToggleProduct(p)}
-                      className="w-4 h-4 rounded-md text-rose-600 focus:ring-rose-500 border-slate-300 cursor-pointer disabled:cursor-not-allowed"
+                      aria-label={`Select ${p.name}`}
                     />
 
-                    <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-lg bg-bg-subtle border border-border-default overflow-hidden shrink-0 flex items-center justify-center">
                       {p.primaryImage ? (
                         <img src={p.primaryImage} alt={p.name} className="w-full h-full object-cover" />
                       ) : (
@@ -209,30 +213,24 @@ export function MultiProductPickerModal({
 
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <h4 className="font-heading font-semibold text-sm text-slate-800 truncate">{p.name}</h4>
-                        <span
-                          className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                            isBundle
-                              ? 'bg-purple-100 text-purple-700'
-                              : p.product_type === 'custom'
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-slate-100 text-slate-600'
-                          }`}
+                        <h4 className="font-heading font-semibold text-sm text-text-primary truncate">{p.name}</h4>
+                        <Badge
+                          variant={isBundle ? 'bundle' : 'status'}
+                          statusType={isCustom ? 'info' : 'neutral'}
+                          size="sm"
                         >
                           {p.product_type}
-                        </span>
+                        </Badge>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                      <div className="flex items-center gap-3 text-xs text-text-secondary mt-0.5">
                         {p.sku && <span>SKU: {p.sku}</span>}
-                        <span className="font-semibold text-slate-700">
+                        <span className="font-semibold text-text-primary">
                           ₦{Number(p.selling_price || 0).toLocaleString()}
                         </span>
-                        <span
-                          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                            isOutOfStock
-                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          }`}
+                        <Badge
+                          variant="status"
+                          statusType={isOutOfStock ? 'danger' : 'success'}
+                          size="sm"
                         >
                           {isBundle
                             ? isOutOfStock
@@ -241,18 +239,19 @@ export function MultiProductPickerModal({
                             : isOutOfStock
                             ? 'Out of stock'
                             : `${stock} available`}
-                        </span>
+                        </Badge>
                       </div>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3 shrink-0">
                     {isSelected ? (
-                      <div className="flex items-center gap-1.5 bg-white border border-rose-200 rounded-xl p-1 shadow-2xs">
+                      <div className="flex items-center gap-1.5 bg-bg-surface border border-border-default rounded-xl p-1 shadow-xs">
                         <button
                           type="button"
                           onClick={() => handleUpdateQuantity(p.id, (selection?.quantity || 1) - 1, stock)}
-                          className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold flex items-center justify-center transition-colors cursor-pointer"
+                          className="w-7 h-7 rounded-lg bg-bg-subtle hover:bg-bg-subtle/80 text-text-primary font-bold flex items-center justify-center transition-colors cursor-pointer"
+                          aria-label="Decrease quantity"
                         >
                           −
                         </button>
@@ -264,30 +263,30 @@ export function MultiProductPickerModal({
                           onChange={(e) =>
                             handleUpdateQuantity(p.id, parseInt(e.target.value, 10) || 1, stock)
                           }
-                          className="w-10 text-center text-xs font-bold text-slate-800 border-none focus:outline-hidden"
+                          aria-label="Quantity"
+                          className="w-10 text-center text-xs font-bold text-text-primary bg-transparent border-none focus:outline-hidden"
                         />
                         <button
                           type="button"
                           onClick={() => handleUpdateQuantity(p.id, (selection?.quantity || 1) + 1, stock)}
                           disabled={(selection?.quantity || 1) >= stock}
-                          className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+                          className="w-7 h-7 rounded-lg bg-bg-subtle hover:bg-bg-subtle/80 text-text-primary font-bold flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+                          aria-label="Increase quantity"
                         >
                           +
                         </button>
                       </div>
                     ) : (
-                      <button
+                      <Button
                         type="button"
                         disabled={isOutOfStock}
                         onClick={() => handleToggleProduct(p)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                          isOutOfStock
-                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                        }`}
+                        variant={isAlreadyInOrder ? 'secondary' : 'outline'}
+                        size="sm"
+                        className="rounded-lg text-xs font-bold"
                       >
                         {isAlreadyInOrder ? '+ Add More' : 'Select'}
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -297,29 +296,33 @@ export function MultiProductPickerModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-          <span className="text-xs text-slate-500 font-medium">
+        <div className="px-6 py-4 border-t border-border-default bg-bg-subtle flex items-center justify-between">
+          <span className="text-xs text-text-secondary font-medium">
             {selectedCount === 0
               ? 'Select products to add to order'
               : `${selectedCount} product${selectedCount > 1 ? 's' : ''} selected`}
           </span>
 
           <div className="flex items-center gap-2">
-            <button
+            <Button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 font-semibold text-xs transition-colors cursor-pointer"
+              variant="outline"
+              size="sm"
+              className="rounded-xl font-semibold text-xs"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               disabled={selectedCount === 0}
               onClick={handleAddAllSelected}
-              className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 text-white font-heading font-bold text-xs transition-colors shadow-xs cursor-pointer disabled:cursor-not-allowed"
+              variant="primary"
+              size="sm"
+              className="rounded-xl font-heading font-bold text-xs shadow-xs"
             >
               Add {selectedCount > 0 ? `${selectedCount} Selected` : ''}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

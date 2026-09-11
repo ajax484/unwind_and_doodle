@@ -29,6 +29,7 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-02 Commerce Analytics System — Change Documentation](./admin/2026-09-02-commerce-analytics-dashboard.md)
 - [2026-09-02 Manual Orders Enhancements (Backend Core Logic & APIs)](./admin/2026-09-02-manual-orders-enhancements.md)
 - [2026-09-04 Refactor Admin Layout to Server Component](./admin/2026-09-04-admin-layout-server-component.md)
+- [2026-09-11 Admin Manual Order Page Design System Migration](./admin/2026-09-11-admin-manual-order-design-system-migration.md)
 
 ---
 

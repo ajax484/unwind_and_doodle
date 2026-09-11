@@ -126,14 +126,9 @@ function ProductsListContent() {
     <div className="space-y-6">
       {/* 1. Header & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold font-heading text-slate-900 tracking-tight">
-            Product Catalog
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Manage coloring books, custom keepsakes, pricing, images, categories, and add-ons.
-          </p>
-        </div>
+        <h2 className="text-2xl font-bold font-heading text-slate-900 tracking-tight">
+          Product Catalog
+        </h2>
 
         <div className="flex items-center gap-3">
           <Link

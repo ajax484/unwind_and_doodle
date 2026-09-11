@@ -1,6 +1,10 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import Button from '@/components/Button';
+import { Tabs } from '@/components/Tabs';
+import AlertBanner from '@/components/AlertBanner';
+import Badge from '@/components/Badge';
 import AnalyticsDateRangeSelector from '@/components/admin/analytics/AnalyticsDateRangeSelector';
 import AnalyticsKpiCard from '@/components/admin/analytics/AnalyticsKpiCard';
 import {
@@ -109,10 +113,10 @@ export default function AdminAnalyticsPage() {
       {/* 1. Page Header with Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold font-heading text-slate-900 tracking-tight">
+          <h2 className="text-2xl font-bold font-heading text-text-primary tracking-tight">
             Store Analytics &amp; Intelligence
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+          <p className="text-xs sm:text-sm text-text-secondary mt-0.5">
             Authoritative, organization-scoped insights into collected revenue, customers, and operations.
           </p>
         </div>
@@ -126,51 +130,42 @@ export default function AdminAnalyticsPage() {
             disabled={loading}
           />
 
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             onClick={fetchTabAnalytics}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+            loading={loading}
+            leadingIcon="🔄"
           >
-            <span className={loading ? 'animate-spin' : ''}>🔄</span> Refresh
-          </button>
+            Refresh
+          </Button>
         </div>
       </div>
 
       {/* 2. Sub-Navigation Tabs */}
-      <div className="border-b border-slate-200 overflow-x-auto select-none">
-        <nav className="flex space-x-6 min-w-max">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`py-3 px-1 border-b-2 font-heading font-semibold text-xs transition-colors flex items-center gap-2 cursor-pointer ${
-                activeTab === tab.id
-                  ? 'border-rose-500 text-rose-600 font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
-              }`}
-            >
-              <span>{tab.icon}</span>
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </nav>
-      </div>
+      <Tabs
+        tabs={TABS.map((tab) => ({
+          id: tab.id,
+          label: tab.label,
+          icon: tab.icon,
+        }))}
+        activeTab={activeTab}
+        onChange={(id) => setActiveTab(id as ActiveTab)}
+        style="underline"
+        size="md"
+        aria-label="Analytics Sections"
+      />
 
       {/* 3. Error Banner */}
       {error && (
-        <div className="p-4 bg-red-50 text-red-700 text-xs rounded-2xl border border-red-200 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span>⚠️</span> {error}
-          </div>
-          <button
-            type="button"
-            onClick={fetchTabAnalytics}
-            className="underline font-bold hover:text-red-900 cursor-pointer"
-          >
-            Retry
-          </button>
-        </div>
+        <AlertBanner
+          variant="danger"
+          size="sm"
+          description={error}
+          actionLabel="Retry"
+          onAction={fetchTabAnalytics}
+        />
       )}
 
       {/* TAB 1: OVERVIEW */}
@@ -302,13 +297,13 @@ export default function AdminAnalyticsPage() {
       {activeTab === 'products' && (
         <div className="space-y-8 animate-in fade-in duration-200">
           {/* Top Selling Products Table */}
-          <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
+          <div className="p-6 rounded-3xl bg-bg-surface border border-border-default shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold font-heading text-slate-900">
+                <h3 className="text-sm font-bold font-heading text-text-primary">
                   Top Selling Products (Historical Snapshots)
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-text-tertiary mt-0.5">
                   Calculated from immutable order snapshots for valid paid orders
                 </p>
               </div>
@@ -317,7 +312,7 @@ export default function AdminAnalyticsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
+                  <tr className="border-b border-border-default text-text-tertiary font-semibold uppercase tracking-wider text-[10px]">
                     <th className="pb-3 pl-2">Product Name</th>
                     <th className="pb-3">SKU</th>
                     <th className="pb-3 text-right">Units Sold</th>
@@ -325,22 +320,22 @@ export default function AdminAnalyticsPage() {
                     <th className="pb-3 text-right pr-2">Distinct Orders</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                <tbody className="divide-y divide-border-default font-medium text-text-secondary">
                   {productData?.topProducts && productData.topProducts.length > 0 ? (
                     productData.topProducts.map((p, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3.5 pl-2 font-bold text-slate-900">{p.productName}</td>
-                        <td className="py-3.5 text-slate-500 font-mono">{p.sku || '—'}</td>
-                        <td className="py-3.5 text-right font-semibold">{p.quantitySold}</td>
-                        <td className="py-3.5 text-right font-bold text-rose-600">
+                      <tr key={idx} className="hover:bg-bg-subtle/80 transition-colors">
+                        <td className="py-3.5 pl-2 font-bold text-text-primary">{p.productName}</td>
+                        <td className="py-3.5 text-text-secondary font-mono">{p.sku || '—'}</td>
+                        <td className="py-3.5 text-right font-semibold text-text-primary">{p.quantitySold}</td>
+                        <td className="py-3.5 text-right font-bold text-action-primary">
                           {formatCurrency(p.revenue)}
                         </td>
-                        <td className="py-3.5 text-right pr-2 text-slate-500">{p.ordersCount}</td>
+                        <td className="py-3.5 text-right pr-2 text-text-secondary">{p.ordersCount}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-slate-400">
+                      <td colSpan={5} className="py-8 text-center text-text-tertiary">
                         No product sales recorded in this period
                       </td>
                     </tr>
@@ -352,11 +347,11 @@ export default function AdminAnalyticsPage() {
 
           {/* Bundle Sales & Component Demand */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-              <h3 className="text-sm font-bold font-heading text-slate-900">
+            <div className="p-6 rounded-3xl bg-bg-surface border border-border-default shadow-xs space-y-4">
+              <h3 className="text-sm font-bold font-heading text-text-primary">
                 Product Bundles Sold
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-text-tertiary">
                 Bundles treated as sold parent products (not double-counted)
               </p>
               <div className="space-y-3">
@@ -364,31 +359,31 @@ export default function AdminAnalyticsPage() {
                   productData.bundleSales.map((b, idx) => (
                     <div
                       key={idx}
-                      className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs"
+                      className="p-3 rounded-2xl bg-bg-subtle border border-border-default flex items-center justify-between text-xs"
                     >
                       <div>
-                        <div className="font-bold text-slate-900">{b.productName}</div>
-                        <span className="text-[10px] text-slate-400 font-mono">{b.sku}</span>
+                        <div className="font-bold text-text-primary">{b.productName}</div>
+                        <span className="text-[10px] text-text-tertiary font-mono">{b.sku}</span>
                       </div>
                       <div className="text-right">
-                        <div className="font-bold text-rose-600">{formatCurrency(b.revenue)}</div>
-                        <span className="text-[10px] text-slate-500">{b.quantitySold} bundles sold</span>
+                        <div className="font-bold text-action-primary">{formatCurrency(b.revenue)}</div>
+                        <span className="text-[10px] text-text-secondary">{b.quantitySold} bundles sold</span>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="py-6 text-center text-xs text-slate-400">
+                  <div className="py-6 text-center text-xs text-text-tertiary">
                     No bundle sales in this period
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-              <h3 className="text-sm font-bold font-heading text-slate-900">
+            <div className="p-6 rounded-3xl bg-bg-surface border border-border-default shadow-xs space-y-4">
+              <h3 className="text-sm font-bold font-heading text-text-primary">
                 Bundle Component Demand
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-text-tertiary">
                 Physical inventory demand for fulfillment planning
               </p>
               <div className="space-y-3">
@@ -396,19 +391,19 @@ export default function AdminAnalyticsPage() {
                   productData.componentDemand.map((c, idx) => (
                     <div
                       key={idx}
-                      className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs"
+                      className="p-3 rounded-2xl bg-bg-subtle border border-border-default flex items-center justify-between text-xs"
                     >
                       <div>
-                        <div className="font-bold text-slate-900">{c.productName}</div>
-                        <span className="text-[10px] text-slate-400 font-mono">{c.sku}</span>
+                        <div className="font-bold text-text-primary">{c.productName}</div>
+                        <span className="text-[10px] text-text-tertiary font-mono">{c.sku}</span>
                       </div>
-                      <div className="font-bold text-slate-800">
+                      <div className="font-bold text-text-primary">
                         {c.totalQuantityDemanded} units demanded
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="py-6 text-center text-xs text-slate-400">
+                  <div className="py-6 text-center text-xs text-text-tertiary">
                     No bundle component demand in this period
                   </div>
                 )}
@@ -427,37 +422,37 @@ export default function AdminAnalyticsPage() {
               emptyMessage="No theme customizations recorded in this period"
             />
 
-            <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-              <h3 className="text-sm font-bold font-heading text-slate-900">
+            <div className="p-6 rounded-3xl bg-bg-surface border border-border-default shadow-xs space-y-4">
+              <h3 className="text-sm font-bold font-heading text-text-primary">
                 Add-on Performance &amp; Attach Rate
               </h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="border-b border-slate-100 text-slate-400 uppercase text-[10px]">
+                    <tr className="border-b border-border-default text-text-tertiary uppercase text-[10px]">
                       <th className="pb-2">Add-on Product</th>
                       <th className="pb-2 text-right">Units</th>
                       <th className="pb-2 text-right">Revenue</th>
                       <th className="pb-2 text-right">Attach Rate</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-border-default">
                     {productData?.addonPerformance && productData.addonPerformance.length > 0 ? (
                       productData.addonPerformance.map((a, idx) => (
                         <tr key={idx}>
-                          <td className="py-2.5 font-semibold text-slate-800">{a.productName}</td>
-                          <td className="py-2.5 text-right font-medium">{a.quantitySold}</td>
-                          <td className="py-2.5 text-right font-bold text-rose-600">
+                          <td className="py-2.5 font-semibold text-text-primary">{a.productName}</td>
+                          <td className="py-2.5 text-right font-medium text-text-secondary">{a.quantitySold}</td>
+                          <td className="py-2.5 text-right font-bold text-action-primary">
                             {formatCurrency(a.revenue)}
                           </td>
-                          <td className="py-2.5 text-right text-slate-500">
+                          <td className="py-2.5 text-right text-text-secondary">
                             {a.attachRate !== null ? `${a.attachRate}%` : '—'}
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={4} className="py-6 text-center text-slate-400">
+                        <td colSpan={4} className="py-6 text-center text-text-tertiary">
                           No add-ons purchased in this period
                         </td>
                       </tr>
@@ -541,14 +536,14 @@ export default function AdminAnalyticsPage() {
           </div>
 
           {/* Top Customers Table */}
-          <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold font-heading text-slate-900">
+          <div className="p-6 rounded-3xl bg-bg-surface border border-border-default shadow-xs space-y-4">
+            <h3 className="text-sm font-bold font-heading text-text-primary">
               Top Customers by Spending (Selected Period)
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 font-semibold uppercase text-[10px]">
+                  <tr className="border-b border-border-default text-text-tertiary font-semibold uppercase text-[10px]">
                     <th className="pb-3 pl-2">Customer</th>
                     <th className="pb-3">Email</th>
                     <th className="pb-3">Phone</th>
@@ -557,27 +552,27 @@ export default function AdminAnalyticsPage() {
                     <th className="pb-3 text-right pr-2">Last Order</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                <tbody className="divide-y divide-border-default font-medium text-text-secondary">
                   {customerData?.topCustomers && customerData.topCustomers.length > 0 ? (
                     customerData.topCustomers.map((c, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3.5 pl-2 font-bold text-slate-900">
+                      <tr key={idx} className="hover:bg-bg-subtle/80 transition-colors">
+                        <td className="py-3.5 pl-2 font-bold text-text-primary">
                           {c.name || 'Anonymous Customer'}
                         </td>
-                        <td className="py-3.5 text-slate-500">{c.email}</td>
-                        <td className="py-3.5 text-slate-500">{c.phone || '—'}</td>
-                        <td className="py-3.5 text-right font-semibold">{c.totalOrders}</td>
-                        <td className="py-3.5 text-right font-bold text-rose-600">
+                        <td className="py-3.5 text-text-secondary">{c.email}</td>
+                        <td className="py-3.5 text-text-secondary">{c.phone || '—'}</td>
+                        <td className="py-3.5 text-right font-semibold text-text-primary">{c.totalOrders}</td>
+                        <td className="py-3.5 text-right font-bold text-action-primary">
                           {formatCurrency(c.totalSpent)}
                         </td>
-                        <td className="py-3.5 text-right pr-2 text-slate-400">
+                        <td className="py-3.5 text-right pr-2 text-text-tertiary">
                           {formatDate(c.lastOrderAt)}
                         </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400">
+                      <td colSpan={6} className="py-8 text-center text-text-tertiary">
                         No customer purchase history in this period
                       </td>
                     </tr>
@@ -637,8 +632,8 @@ export default function AdminAnalyticsPage() {
 
           {/* Low Stock & Out of Stock Product Tables */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-              <h3 className="text-sm font-bold font-heading text-slate-900 flex items-center gap-2">
+            <div className="p-6 rounded-3xl bg-bg-surface border border-border-default shadow-xs space-y-4">
+              <h3 className="text-sm font-bold font-heading text-text-primary flex items-center gap-2">
                 <span>⚠️</span> Low Stock Products
               </h3>
               <div className="space-y-2.5">
@@ -646,32 +641,32 @@ export default function AdminAnalyticsPage() {
                   inventoryData.lowStockProducts.map((p, idx) => (
                     <div
                       key={idx}
-                      className="p-3 rounded-2xl bg-amber-50/50 border border-amber-200/80 flex items-center justify-between text-xs"
+                      className="p-3 rounded-2xl bg-status-warning-bg/50 border border-status-warning-accent/30 flex items-center justify-between text-xs"
                     >
                       <div>
-                        <div className="font-bold text-slate-900">{p.productName}</div>
-                        <span className="text-[10px] text-slate-500 font-mono">{p.sku}</span>
+                        <div className="font-bold text-text-primary">{p.productName}</div>
+                        <span className="text-[10px] text-text-secondary font-mono">{p.sku}</span>
                       </div>
                       <div className="text-right">
-                        <span className="font-bold text-amber-700">
+                        <span className="font-bold text-status-warning-text">
                           {p.availableQuantity} available
                         </span>
-                        <div className="text-[10px] text-slate-400">
+                        <div className="text-[10px] text-text-tertiary">
                           {p.reservedQuantity} reserved
                         </div>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="py-6 text-center text-xs text-slate-400">
+                  <div className="py-6 text-center text-xs text-text-tertiary">
                     No products currently at low stock
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-              <h3 className="text-sm font-bold font-heading text-slate-900 flex items-center gap-2">
+            <div className="p-6 rounded-3xl bg-bg-surface border border-border-default shadow-xs space-y-4">
+              <h3 className="text-sm font-bold font-heading text-text-primary flex items-center gap-2">
                 <span>❌</span> Out of Stock Products
               </h3>
               <div className="space-y-2.5">
@@ -679,19 +674,19 @@ export default function AdminAnalyticsPage() {
                   inventoryData.outOfStockProducts.map((p, idx) => (
                     <div
                       key={idx}
-                      className="p-3 rounded-2xl bg-rose-50/50 border border-rose-200/80 flex items-center justify-between text-xs"
+                      className="p-3 rounded-2xl bg-status-danger-bg/50 border border-status-danger-accent/30 flex items-center justify-between text-xs"
                     >
                       <div>
-                        <div className="font-bold text-slate-900">{p.productName}</div>
-                        <span className="text-[10px] text-slate-500 font-mono">{p.sku}</span>
+                        <div className="font-bold text-text-primary">{p.productName}</div>
+                        <span className="text-[10px] text-text-secondary font-mono">{p.sku}</span>
                       </div>
-                      <span className="font-bold text-rose-600 px-2 py-0.5 rounded-full bg-rose-100">
+                      <Badge variant="status" statusType="danger" size="sm">
                         Out of Stock
-                      </span>
+                      </Badge>
                     </div>
                   ))
                 ) : (
-                  <div className="py-6 text-center text-xs text-slate-400">
+                  <div className="py-6 text-center text-xs text-text-tertiary">
                     No products out of stock
                   </div>
                 )}
@@ -711,8 +706,8 @@ export default function AdminAnalyticsPage() {
               emptyMessage="No stock movements recorded in this period"
             />
 
-            <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-              <h3 className="text-sm font-bold font-heading text-slate-900">
+            <div className="p-6 rounded-3xl bg-bg-surface border border-border-default shadow-xs space-y-4">
+              <h3 className="text-sm font-bold font-heading text-text-primary">
                 Stock by Warehouse
               </h3>
               <div className="space-y-3">
@@ -720,26 +715,26 @@ export default function AdminAnalyticsPage() {
                   inventoryData.warehouseBreakdown.map((w, idx) => (
                     <div
                       key={idx}
-                      className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs"
+                      className="p-4 rounded-2xl bg-bg-subtle border border-border-default flex items-center justify-between text-xs"
                     >
                       <div>
-                        <div className="font-bold text-slate-900">{w.warehouseName}</div>
-                        <span className="text-[10px] text-slate-400 uppercase font-mono">
+                        <div className="font-bold text-text-primary">{w.warehouseName}</div>
+                        <span className="text-[10px] text-text-tertiary uppercase font-mono">
                           {w.warehouseCode} • {w.productCount} SKUs
                         </span>
                       </div>
                       <div className="text-right">
-                        <div className="font-bold text-slate-900">
+                        <div className="font-bold text-text-primary">
                           {w.availableStock} / {w.totalStock} units
                         </div>
-                        <span className="text-[10px] text-slate-500">
+                        <span className="text-[10px] text-text-secondary">
                           {w.reservedStock} reserved
                         </span>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="py-6 text-center text-xs text-slate-400">
+                  <div className="py-6 text-center text-xs text-text-tertiary">
                     No warehouses configured
                   </div>
                 )}
@@ -791,36 +786,36 @@ export default function AdminAnalyticsPage() {
           </div>
 
           {/* Payment Gateways Breakdown */}
-          <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold font-heading text-slate-900">
+          <div className="p-6 rounded-3xl bg-bg-surface border border-border-default shadow-xs space-y-4">
+            <h3 className="text-sm font-bold font-heading text-text-primary">
               Payment Gateway Performance
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 uppercase text-[10px]">
+                  <tr className="border-b border-border-default text-text-tertiary uppercase text-[10px]">
                     <th className="pb-3 pl-2">Provider</th>
                     <th className="pb-3 text-right">Transactions</th>
                     <th className="pb-3 text-right pr-2">Collected Revenue</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                <tbody className="divide-y divide-border-default font-medium text-text-secondary">
                   {checkoutData?.payments.providerBreakdown &&
                   checkoutData.payments.providerBreakdown.length > 0 ? (
                     checkoutData.payments.providerBreakdown.map((p, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3.5 pl-2 font-bold text-slate-900 uppercase">
+                      <tr key={idx} className="hover:bg-bg-subtle/80 transition-colors">
+                        <td className="py-3.5 pl-2 font-bold text-text-primary uppercase">
                           {p.provider}
                         </td>
-                        <td className="py-3.5 text-right font-semibold">{p.paymentsCount}</td>
-                        <td className="py-3.5 text-right pr-2 font-bold text-rose-600">
+                        <td className="py-3.5 text-right font-semibold text-text-primary">{p.paymentsCount}</td>
+                        <td className="py-3.5 text-right pr-2 font-bold text-action-primary">
                           {formatCurrency(p.revenue)}
                         </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={3} className="py-8 text-center text-slate-400">
+                      <td colSpan={3} className="py-8 text-center text-text-tertiary">
                         No payment provider data recorded in this period
                       </td>
                     </tr>

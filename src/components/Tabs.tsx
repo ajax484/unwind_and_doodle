@@ -8,7 +8,7 @@ export const tabsContainerVariants = cva('w-full', {
   variants: {
     style: {
       underline:
-        'flex items-center gap-4 sm:gap-6 border-b border-border-default overflow-x-auto no-scrollbar',
+        'flex items-center gap-4 sm:gap-6 border-b border-border-default',
       segmented:
         'inline-flex items-center p-1 bg-bg-subtle rounded-full border border-border-default',
     },
