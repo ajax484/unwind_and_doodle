@@ -12,10 +12,15 @@ import {
   PATCH as updateSegmentHandler,
   DELETE as deleteSegmentHandler,
 } from '@/app/api/admin/marketing/segments/[id]/route';
+import { POST as seedSegmentsHandler } from '@/app/api/admin/marketing/segments/seed/route';
 import {
   validateSegmentRules,
   previewSegmentRules,
 } from '@/services/marketing-segmentation.service';
+import {
+  getSeedSegmentDefinitions,
+  seedDefaultSegments,
+} from '@/services/marketing-segment.service';
 import { SegmentRuleValidationError } from '@/types/marketing';
 
 describe('Marketing Customer Segment Creation & Management', () => {
@@ -419,4 +424,85 @@ describe('Marketing Customer Segment Creation & Management', () => {
       expect(getRes.status).toBe(404);
     });
   });
+
+  // ==========================================================================
+  // 6. SEED STARTER SEGMENTS
+  // ==========================================================================
+  describe('Seed Marketing Segments', () => {
+    it('validates that all 6 canonical seed segment rules pass validateSegmentRules without error', () => {
+      const definitions = getSeedSegmentDefinitions();
+      expect(definitions).toHaveLength(6);
+
+      const expectedNames = [
+        'All Email Subscribers',
+        'New Customers',
+        'Never Purchased',
+        'Repeat Customers',
+        'High-Value Customers',
+        "Customers Who Haven't Purchased Recently",
+      ];
+      expect(definitions.map((d) => d.name)).toEqual(expectedNames);
+
+      for (const def of definitions) {
+        expect(() => validateSegmentRules(def.rules)).not.toThrow();
+        const validated = validateSegmentRules(def.rules);
+        expect(validated.conditions.length).toBeGreaterThanOrEqual(1);
+        expect(['all', 'any']).toContain(validated.match);
+      }
+    });
+
+    it('seeds default segments idempotently using seedDefaultSegments', async () => {
+      // Initially, orgAlpha has 1 existing segment ('Existing Alpha Segment')
+      const seeded = await seedDefaultSegments(mockSupabase as any, orgAlpha);
+      expect(seeded).toHaveLength(6);
+
+      // Verify each created segment is assigned to orgAlpha
+      for (const seg of seeded) {
+        expect(seg.organization_id).toBe(orgAlpha);
+        expect(seg.active).toBe(true);
+      }
+
+      // Second run should be idempotent: nothing to insert
+      const secondRun = await seedDefaultSegments(mockSupabase as any, orgAlpha);
+      expect(secondRun).toHaveLength(0);
+    });
+
+    it('seeds starter segments via POST /api/admin/marketing/segments/seed', async () => {
+      const req = createAdminRequest('http://localhost:3000/api/admin/marketing/segments/seed', {
+        method: 'POST',
+      });
+
+      const res = await seedSegmentsHandler(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.count).toBe(6);
+      expect(json.data).toHaveLength(6);
+      expect(json.message).toContain('6 starter segment(s)');
+
+      // Calling again should return count 0
+      const req2 = createAdminRequest('http://localhost:3000/api/admin/marketing/segments/seed', {
+        method: 'POST',
+      });
+      const res2 = await seedSegmentsHandler(req2);
+      const json2 = await res2.json();
+
+      expect(res2.status).toBe(200);
+      expect(json2.success).toBe(true);
+      expect(json2.count).toBe(0);
+      expect(json2.message).toContain('All starter segments already exist');
+    });
+
+    it('blocks unauthorized access to POST /api/admin/marketing/segments/seed', async () => {
+      const unauthReq = new NextRequest(
+        'http://localhost:3000/api/admin/marketing/segments/seed',
+        { method: 'POST' }
+      );
+
+      const res = await seedSegmentsHandler(unauthReq);
+      expect(res.status).toBe(403);
+    });
+  });
 });
+

@@ -39,22 +39,55 @@ export default function AdminLayoutClient({
   const isOwner = role === "owner";
   const isAdmin = role === "admin" || isOwner;
 
-  const navCommerce = [
-    { label: "Dashboard", href: "/admin", icon: "📊", exact: true },
-    { label: "Analytics", href: "/admin/analytics", icon: "📈" },
-    { label: "Orders", href: "/admin/orders", icon: "📦" },
-    { label: "Products", href: "/admin/products", icon: "🎨", exact: true },
-    { label: "Bundles", href: "/admin/products/bundles", icon: "🎁" },
-    { label: "Inventory", href: "/admin/inventory", icon: "📋" },
-    { label: "Customers", href: "/admin/customers", icon: "👥" },
-    { label: "Reviews", href: "/admin/reviews", icon: "⭐" },
-    { label: "Customizations", href: "/admin/customizations", icon: "✂️" },
-    { label: "Discounts", href: "/admin/discounts", icon: "🏷️" },
-    { label: "Campaigns", href: "/admin/marketing/campaigns", icon: "✉️" },
-    { label: "Segments", href: "/admin/marketing/segments", icon: "🎯" },
+  interface NavItem {
+    label: string;
+    href: string;
+    icon: string;
+    exact?: boolean;
+    permission?: string;
+  }
+
+  interface NavSection {
+    title: string;
+    items: NavItem[];
+  }
+
+  const navSections: NavSection[] = [
+    {
+      title: "Overview",
+      items: [
+        { label: "Dashboard", href: "/admin", icon: "📊", exact: true },
+        { label: "Analytics", href: "/admin/analytics", icon: "📈" },
+      ],
+    },
+    {
+      title: "Orders & Customers",
+      items: [
+        { label: "Orders", href: "/admin/orders", icon: "📦" },
+        { label: "Customers", href: "/admin/customers", icon: "👥" },
+        { label: "Reviews", href: "/admin/reviews", icon: "⭐" },
+      ],
+    },
+    {
+      title: "Catalog & Stock",
+      items: [
+        { label: "Products", href: "/admin/products", icon: "🎨", exact: true },
+        { label: "Bundles", href: "/admin/products/bundles", icon: "🎁" },
+        { label: "Inventory", href: "/admin/inventory", icon: "📋" },
+        { label: "Customizations", href: "/admin/customizations", icon: "✂️" },
+      ],
+    },
+    {
+      title: "Marketing & Growth",
+      items: [
+        { label: "Campaigns", href: "/admin/marketing/campaigns", icon: "✉️" },
+        { label: "Segments", href: "/admin/marketing/segments", icon: "🎯" },
+        { label: "Discounts", href: "/admin/discounts", icon: "🏷️" },
+      ],
+    },
   ];
 
-  const allNavSettings = [
+  const allNavSettings: NavItem[] = [
     {
       label: "Store Settings",
       href: "/admin/settings",
@@ -113,6 +146,8 @@ export default function AdminLayoutClient({
       return "Discounts & Promotions";
     if (pathname.startsWith("/admin/marketing/campaigns"))
       return "Marketing Campaigns";
+    if (pathname.startsWith("/admin/marketing/segments"))
+      return "Customer Segments";
     if (pathname.startsWith("/admin/settings")) return "Store Settings";
     return "Admin Console";
   };
@@ -140,6 +175,7 @@ export default function AdminLayoutClient({
       discounts: "Discounts",
       marketing: "Marketing",
       campaigns: "Campaigns",
+      segments: "Segments",
       settings: "Store Settings",
       locations: "Locations",
       warehouses: "Warehouses",
@@ -200,31 +236,32 @@ export default function AdminLayoutClient({
 
         {/* Nav Links */}
         <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
-          {/* Commerce Section */}
-          <div>
-            <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-              Commerce
+          {navSections.map((section) => (
+            <div key={section.title}>
+              <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                {section.title}
+              </div>
+              <nav className="space-y-1">
+                {section.items.map((item) => {
+                  const active = isLinkActive(item.href, item.exact);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
+                        active
+                          ? "bg-rose-500 text-white font-semibold shadow-xs"
+                          : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
+                      }`}
+                    >
+                      <span className="text-sm">{item.icon}</span>
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
             </div>
-            <nav className="space-y-1">
-              {navCommerce.map((item) => {
-                const active = isLinkActive(item.href, item.exact);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
-                      active
-                        ? "bg-rose-500 text-white font-semibold shadow-xs"
-                        : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
-                    }`}
-                  >
-                    <span className="text-sm">{item.icon}</span>
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
+          ))}
 
           {/* Settings Section */}
           <div>
@@ -291,27 +328,34 @@ export default function AdminLayoutClient({
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 space-y-4">
-              <nav className="space-y-1">
-                {navCommerce.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileSidebarOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium ${
-                      isLinkActive(item.href, item.exact)
-                        ? "bg-rose-500 text-white font-bold"
-                        : "text-slate-300 hover:bg-slate-800"
-                    }`}
-                  >
-                    <span>{item.icon}</span>
-                    <span>{item.label}</span>
-                  </Link>
-                ))}
-              </nav>
+              {navSections.map((section) => (
+                <div key={section.title}>
+                  <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                    {section.title}
+                  </div>
+                  <nav className="space-y-1">
+                    {section.items.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMobileSidebarOpen(false)}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium ${
+                          isLinkActive(item.href, item.exact)
+                            ? "bg-rose-500 text-white font-bold"
+                            : "text-slate-300 hover:bg-slate-800"
+                        }`}
+                      >
+                        <span>{item.icon}</span>
+                        <span>{item.label}</span>
+                      </Link>
+                    ))}
+                  </nav>
+                </div>
+              ))}
 
               <div className="pt-2 border-t border-slate-800">
-                <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-                  Settings
+                <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Settings &amp; Config
                 </div>
                 <nav className="space-y-1">
                   {navSettings.map((item) => (

@@ -14,6 +14,7 @@ export default function MarketingSegmentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState(false);
 
   const fetchSegments = async () => {
     try {
@@ -63,6 +64,27 @@ export default function MarketingSegmentsPage() {
     }
   };
 
+  const handleSeedSegments = async () => {
+    try {
+      setSeeding(true);
+      const res = await fetch('/api/admin/marketing/segments/seed', {
+        method: 'POST',
+      });
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to load starter segments');
+      }
+
+      toast.success(json.message || 'Starter segments loaded successfully');
+      await fetchSegments();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load starter segments');
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   const filteredSegments = segments.filter((s) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
@@ -92,7 +114,17 @@ export default function MarketingSegmentsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {segments.length < 6 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSeedSegments}
+              disabled={seeding}
+            >
+              {seeding ? <Spinner size="sm" /> : '🌱 Load Starter Segments'}
+            </Button>
+          )}
           <Link href="/admin/marketing/campaigns">
             <Button variant="outline" size="sm">
               ✉️ Campaigns
@@ -146,12 +178,20 @@ export default function MarketingSegmentsPage() {
               Segments help you group customers based on order history, consent, and profile data to send relevant campaigns.
             </p>
           </div>
-          <div>
+          <div className="flex flex-wrap items-center justify-center gap-3">
             <Link href="/admin/marketing/segments/new">
               <Button variant="primary" size="sm">
                 + Create Your First Segment
               </Button>
             </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSeedSegments}
+              disabled={seeding}
+            >
+              {seeding ? <Spinner size="sm" /> : '🌱 Load Starter Segments'}
+            </Button>
           </div>
         </div>
       ) : (
@@ -191,7 +231,7 @@ export default function MarketingSegmentsPage() {
                       <td className="py-3.5 px-4">
                         <Badge
                           variant="status"
-                          statusType={rules?.match === 'any' ? 'warning' : 'blue'}
+                          statusType={rules?.match === 'any' ? 'warning' : 'neutral'}
                           size="sm"
                         >
                           {match}

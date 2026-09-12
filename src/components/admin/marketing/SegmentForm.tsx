@@ -12,6 +12,7 @@ import {
   SegmentCondition,
   SegmentCustomer,
 } from '@/types/marketing';
+import { getSeedSegmentDefinitions } from '@/services/marketing-segment.service';
 import Button from '@/components/Button';
 import TextInput from '@/components/TextInput';
 import Select, { SelectOption } from '@/components/Select';
@@ -302,6 +303,20 @@ export function SegmentForm({ initialSegment }: SegmentFormProps) {
     setConditions((prev) => prev.filter((c) => c.id !== id));
   };
 
+  const handleApplyTemplate = (templateName: string) => {
+    const templates = getSeedSegmentDefinitions();
+    const found = templates.find((t) => t.name === templateName);
+    if (!found) return;
+
+    setName(found.name);
+    setDescription(found.description);
+    setNameError(null);
+    const parsedTpl = parseInitialConditions(found.rules);
+    setMatchMode(parsedTpl.match);
+    setConditions(parsedTpl.conditions);
+    toast.info(`Applied template "${found.name}"`);
+  };
+
   // 2. Validate Conditions into clean SegmentRules
   const buildValidatedRules = useCallback((): { rules: SegmentRules | null; errors: string[] } => {
     const errors: string[] = [];
@@ -581,6 +596,39 @@ export function SegmentForm({ initialSegment }: SegmentFormProps) {
       </div>
 
       <form onSubmit={handleSaveSegment} className="space-y-8">
+        {/* Optional Starter Templates (When creating new segment) */}
+        {!isEditing && (
+          <div className="bg-bg-surface p-6 rounded-2xl border border-border-default shadow-xs space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div>
+                <h3 className="text-sm font-bold font-heading text-text-primary flex items-center gap-2">
+                  <span>🌱</span>
+                  <span>Start from a Recommended Template</span>
+                </h3>
+                <p className="text-xs text-text-secondary mt-0.5">
+                  Pick a standard audience segment preset below to autofill rules, or build your custom conditions from scratch.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {getSeedSegmentDefinitions().map((tmpl) => (
+                <button
+                  key={tmpl.name}
+                  type="button"
+                  onClick={() => handleApplyTemplate(tmpl.name)}
+                  className={`px-3 py-2 text-xs rounded-xl font-medium border transition-all ${
+                    name === tmpl.name
+                      ? 'bg-status-blue-bg border-status-blue-accent text-status-blue-text font-semibold shadow-xs'
+                      : 'bg-bg-subtle border-border-input text-text-secondary hover:text-text-primary hover:border-border-brand hover:bg-bg-surface'
+                  }`}
+                >
+                  {tmpl.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Section 1: Basic Information */}
         <div className="bg-bg-surface p-6 rounded-2xl border border-border-default shadow-xs space-y-4">
           <h2 className="text-base font-bold font-heading text-text-primary">
