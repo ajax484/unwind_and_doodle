@@ -264,6 +264,15 @@ export async function dispatchCampaign(
           senderEmail: campaign.sender_email || 'no-reply@unwindanddoodle.com',
           html: personalizedHtml,
           text: personalizedText,
+          headers: {
+            'X-Campaign-Id': campaignId,
+            'X-Campaign-Recipient-Id': recipient.id,
+            'X-Customer-Id': recipient.customer_id || '',
+          },
+          tags: {
+            campaign_id: campaignId,
+            recipient_id: recipient.id,
+          },
         });
 
         if (sendResult.success) {

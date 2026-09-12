@@ -795,6 +795,16 @@ export function createMockSupabaseClient(initialData?: {
           );
           return queryBuilder;
         },
+        contains: (col: string, val: any) => {
+          filteredData = filteredData.filter((r) => {
+            const field = r[col];
+            if (typeof field === 'object' && field !== null && typeof val === 'object' && val !== null) {
+              return Object.entries(val).every(([k, v]) => field[k] === v);
+            }
+            return false;
+          });
+          return queryBuilder;
+        },
         insert: (records: any | any[]) => {
           const toInsert = Array.isArray(records) ? records : [records];
           const inserted = toInsert.map((rec) => {

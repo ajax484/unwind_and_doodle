@@ -43,6 +43,7 @@ export class NodemailerMarketingEmailProvider implements MarketingEmailProvider 
         subject: input.subject.trim(),
         html: input.html,
         text: input.text || undefined,
+        headers: input.headers || undefined,
       });
 
       const messageId =

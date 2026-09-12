@@ -13,6 +13,8 @@ export interface SendMarketingEmailInput {
   senderEmail: string;
   html: string;
   text?: string;
+  headers?: Record<string, string>;
+  tags?: Record<string, string>;
 }
 
 export interface SendMarketingEmailResult {

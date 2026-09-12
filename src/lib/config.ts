@@ -6,6 +6,7 @@ export interface AppConfig {
   paystackPublicKey: string;
   flutterwaveSecretKey?: string;
   flutterwaveSecretHash?: string;
+  marketingWebhookSecret?: string;
   appUrl: string;
   smtp: {
     host: string;
@@ -50,6 +51,8 @@ export function getConfig(): AppConfig {
     paystackPublicKey,
     flutterwaveSecretKey: process.env.FLUTTERWAVE_SECRET_KEY || '',
     flutterwaveSecretHash: process.env.FLUTTERWAVE_SECRET_HASH || '',
+    marketingWebhookSecret:
+      process.env.MARKETING_WEBHOOK_SECRET || process.env.EMAIL_WEBHOOK_SECRET || '',
     appUrl,
     smtp: {
       host: smtpHost,

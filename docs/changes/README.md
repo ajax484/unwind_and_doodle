@@ -34,6 +34,7 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-12 2026-09-12 Admin Manual Order Creation Without Customer Email & Payment Link Email Update](./admin/2026-09-12-admin-manual-order-without-email.md)
 - [2026-09-12 Marketing Step 1F — Campaign Composer](./admin/2026-09-12-marketing-campaign-composer.md)
 - [2026-09-12 Marketing Step 1G — Email Provider Integration](./admin/2026-09-12-marketing-email-provider-integration.md)
+- [2026-09-12 Marketing Step 1H — Email Tracking, Webhooks, and Campaign Analytics](./admin/2026-09-12-marketing-email-tracking-analytics.md)
 - [2026-09-12 Marketing Step 1D: Segmentation Engine](./admin/2026-09-12-marketing-segmentation-engine.md)
 - [2026-09-12 Marketing Step 1C: Server-Side Typed Data Access Layer](./admin/2026-09-12-marketing-typed-data-access-layer.md)
 
@@ -210,6 +211,6 @@ This directory maintains categorized, per-feature change records following the r
 ---
 
 ## 📊 Summary
-- **Total Changelogs**: 151 across 8 domain modules
+- **Total Changelogs**: 152 across 8 domain modules
 - **Template Scaffold**: [`docs/changes/_template.md`](./_template.md)
-- **Status**: 100% indexed (151 of 151 files registered)
+- **Status**: 100% indexed (152 of 152 files registered)
