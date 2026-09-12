@@ -826,20 +826,69 @@ export function createMockSupabaseClient(initialData?: {
             then: (resolve: Function) => resolve({ data: inserted, error: null }),
           };
         },
+        upsert: (records: any | any[], options?: any) => {
+          const toUpsert = Array.isArray(records) ? records : [records];
+          const tableData = (store as any)[table] || ((store as any)[table] = []);
+          const onConflictCols = options?.onConflict
+            ? options.onConflict.split(',').map((c: string) => c.trim())
+            : ['id'];
+
+          const upserted = toUpsert.map((rec) => {
+            const existing = tableData.find((row: any) =>
+              onConflictCols.every((col: string) => row[col] === rec[col])
+            );
+
+            if (existing) {
+              if (!options?.ignoreDuplicates) {
+                Object.assign(existing, { ...rec, updated_at: new Date().toISOString() });
+              }
+              return existing;
+            } else {
+              const row = {
+                id: rec.id || `${table.substring(0, 3)}-${Math.random().toString(36).substring(2, 9)}`,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                ...rec,
+              };
+              tableData.push(row);
+              return row;
+            }
+          });
+
+          return {
+            select: () => ({
+              single: async () => ({ data: upserted[0] || null, error: null }),
+              maybeSingle: async () => ({ data: upserted[0] || null, error: null }),
+              data: upserted,
+              error: null,
+              then: (resolve: Function) => resolve({ data: upserted, error: null }),
+            }),
+            single: async () => ({ data: upserted[0] || null, error: null }),
+            maybeSingle: async () => ({ data: upserted[0] || null, error: null }),
+            data: upserted,
+            error: null,
+            then: (resolve: Function) => resolve({ data: upserted, error: null }),
+          };
+        },
         update: (updates: any) => {
           const conditions: Array<[string, any]> = [];
           const inConditions: Array<[string, any[]]> = [];
           const isConditions: Array<[string, any]> = [];
           const executeUpdate = () => {
             const tableData = (store as any)[table] || [];
+            const affected: any[] = [];
             for (const row of tableData) {
               const matchEq = conditions.every(([c, v]) => row[c] === v);
               const matchIn = inConditions.every(([c, vals]) => vals.includes(row[c]));
               const matchIs = isConditions.every(([c, val]) => row[c] === val || (val === null && (row[c] === null || row[c] === undefined)));
               if (matchEq && matchIn && matchIs) {
-                Object.assign(row, updates);
+                affected.push(row);
               }
             }
+            for (const row of affected) {
+              Object.assign(row, updates);
+            }
+            return affected;
           };
           const builder: any = {
             eq: (col: string, val: any) => {
@@ -856,31 +905,16 @@ export function createMockSupabaseClient(initialData?: {
             },
             select: () => ({
               single: async () => {
-                executeUpdate();
-                const tableData = (store as any)[table] || [];
-                const matched = tableData.find((row: any) =>
-                  conditions.every(([c, v]) => row[c] === v) &&
-                  inConditions.every(([c, vals]) => vals.includes(row[c]))
-                );
-                return { data: matched || null, error: null };
+                const affected = executeUpdate();
+                return { data: affected[0] || null, error: null };
               },
               maybeSingle: async () => {
-                executeUpdate();
-                const tableData = (store as any)[table] || [];
-                const matched = tableData.find((row: any) =>
-                  conditions.every(([c, v]) => row[c] === v) &&
-                  inConditions.every(([c, vals]) => vals.includes(row[c]))
-                );
-                return { data: matched || null, error: null };
+                const affected = executeUpdate();
+                return { data: affected[0] || null, error: null };
               },
               then: (resolve: any) => {
-                executeUpdate();
-                const tableData = (store as any)[table] || [];
-                const matched = tableData.filter((row: any) =>
-                  conditions.every(([c, v]) => row[c] === v) &&
-                  inConditions.every(([c, vals]) => vals.includes(row[c]))
-                );
-                resolve({ data: matched, error: null });
+                const affected = executeUpdate();
+                resolve({ data: affected, error: null });
               },
             }),
             then: (resolve: any) => {

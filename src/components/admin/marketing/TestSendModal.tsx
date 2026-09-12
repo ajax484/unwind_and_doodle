@@ -65,27 +65,17 @@ export function TestSendModal({
 
       const json = await res.json();
 
-      if (res.status === 501 || json.configured === false) {
-        // Expected controlled response: Provider is not yet configured in Step 1F
-        setResultMessage({
-          type: 'info',
-          title: 'Test Email Service Boundary Verified',
-          description:
-            json.error ||
-            'Email delivery provider is not yet configured in Step 1F. Campaign validation passed successfully; delivery will be enabled in Step 1G.',
-        });
-      } else if (!res.ok || !json.success) {
+      if (!res.ok || !json.success) {
         setResultMessage({
           type: 'error',
-          title: 'Validation Failed',
-          description: json.error || 'Failed to trigger test email verification.',
+          title: 'Send Failed',
+          description: json.error || 'Failed to dispatch test email.',
         });
       } else {
-        // In case a real provider is configured in future Step 1G
         setResultMessage({
           type: 'info',
-          title: 'Test Email Sent',
-          description: `Test email dispatched to ${recipientEmail}.`,
+          title: 'Test Email Dispatched 🎉',
+          description: json.message || `Test email dispatched to ${recipientEmail} via provider.`,
         });
       }
     } catch (err: unknown) {

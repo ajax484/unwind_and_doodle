@@ -228,15 +228,27 @@ export function CampaignComposer({ initialCampaign }: CampaignComposerProps) {
   const handleConfirmSchedule = async (timing: 'now' | 'later', scheduleTimestamp?: string) => {
     if (!campaignId) return;
 
-    const newStatus = timing === 'later' ? 'scheduled' : 'draft';
-    const newScheduledAt = timing === 'later' ? scheduleTimestamp : null;
+    if (timing === 'now') {
+      const sendRes = await fetch(`/api/admin/marketing/campaigns/${campaignId}/send`, {
+        method: 'POST',
+      });
+      const sendJson = await sendRes.json();
+      if (!sendRes.ok || !sendJson.success) {
+        throw new Error(sendJson.error || 'Failed to dispatch campaign');
+      }
+      setStatus('sent');
+      toast.success(
+        `Campaign dispatched! ${sendJson.data?.sent || 0} emails sent successfully.`
+      );
+      return;
+    }
 
     const res = await fetch(`/api/admin/marketing/campaigns/${campaignId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        status: newStatus,
-        scheduled_at: newScheduledAt,
+        status: 'scheduled',
+        scheduled_at: scheduleTimestamp,
       }),
     });
 
@@ -245,12 +257,10 @@ export function CampaignComposer({ initialCampaign }: CampaignComposerProps) {
       throw new Error(json.error || 'Failed to schedule campaign.');
     }
 
-    setStatus(newStatus);
-    setScheduledAt(newScheduledAt || null);
+    setStatus('scheduled');
+    setScheduledAt(scheduleTimestamp || null);
     toast.success(
-      timing === 'later'
-        ? `Campaign scheduled for ${new Date(scheduleTimestamp!).toLocaleString()}`
-        : 'Campaign marked as ready. (Provider delivery enabled in Step 1G)'
+      `Campaign scheduled for ${new Date(scheduleTimestamp!).toLocaleString()}`
     );
   };
 

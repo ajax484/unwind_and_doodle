@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedAdmin } from '@/lib/auth-helpers';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
-import {
-  getCampaignById,
-  validateCampaignForDelivery,
-  sendCampaignTestEmailPlaceholder,
-} from '@/services/marketing-campaign.service';
+import { sendTestEmail } from '@/services/marketing-dispatcher.service';
 
 export async function POST(
   req: NextRequest,
@@ -27,38 +23,27 @@ export async function POST(
       );
     }
 
-    const campaign = await getCampaignById(supabase, adminContext.organization.id, id);
-    if (!campaign) {
-      return NextResponse.json(
-        { success: false, error: 'Campaign not found for this organization.' },
-        { status: 404 }
-      );
-    }
+    const result = await sendTestEmail(
+      supabase,
+      adminContext.organization.id,
+      id,
+      recipientEmail
+    );
 
-    // Server-side validation of campaign completeness
-    const validation = validateCampaignForDelivery(campaign);
-    if (!validation.valid) {
+    if (!result.success) {
       return NextResponse.json(
-        {
-          success: false,
-          error: `Campaign validation failed: ${validation.errors.join(', ')}`,
-          validationErrors: validation.errors,
-        },
+        { success: false, error: result.error || 'Failed to dispatch test email.' },
         { status: 400 }
       );
     }
 
-    // Call placeholder boundary
-    const result = await sendCampaignTestEmailPlaceholder(recipientEmail, campaign);
-
-    // Controlled response indicating email provider is not yet configured (Step 1F requirement)
     return NextResponse.json(
       {
-        success: false,
-        configured: false,
-        error: result.message,
+        success: true,
+        message: `Test email successfully dispatched to ${recipientEmail}`,
+        messageId: result.messageId,
       },
-      { status: 501 }
+      { status: 200 }
     );
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Error sending test email';
