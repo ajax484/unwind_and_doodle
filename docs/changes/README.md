@@ -32,6 +32,7 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-11 Admin Manual Order Page Design System Migration](./admin/2026-09-11-admin-manual-order-design-system-migration.md)
 - [2026-09-12 2026-09-12 Admin Manual Order Theme & Cover Customization](./admin/2026-09-12-admin-manual-order-customization.md)
 - [2026-09-12 2026-09-12 Admin Manual Order Creation Without Customer Email & Payment Link Email Update](./admin/2026-09-12-admin-manual-order-without-email.md)
+- [2026-09-12 Marketing Step 1F — Campaign Composer](./admin/2026-09-12-marketing-campaign-composer.md)
 - [2026-09-12 Marketing Step 1D: Segmentation Engine](./admin/2026-09-12-marketing-segmentation-engine.md)
 - [2026-09-12 Marketing Step 1C: Server-Side Typed Data Access Layer](./admin/2026-09-12-marketing-typed-data-access-layer.md)
 
@@ -208,6 +209,6 @@ This directory maintains categorized, per-feature change records following the r
 ---
 
 ## 📊 Summary
-- **Total Changelogs**: 149 across 8 domain modules
+- **Total Changelogs**: 150 across 8 domain modules
 - **Template Scaffold**: [`docs/changes/_template.md`](./_template.md)
-- **Status**: 100% indexed (149 of 149 files registered)
+- **Status**: 100% indexed (150 of 150 files registered)

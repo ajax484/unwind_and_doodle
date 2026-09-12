@@ -297,3 +297,70 @@ export async function deleteCampaign(
     throw new Error(`Failed to delete marketing campaign: ${error.message}`);
   }
 }
+
+export interface CampaignValidationResult {
+  valid: boolean;
+  errors: string[];
+}
+
+/**
+ * Validates whether a campaign has all required fields for scheduling or test delivery.
+ */
+export function validateCampaignForDelivery(campaign: Partial<MarketingCampaign>): CampaignValidationResult {
+  const errors: string[] = [];
+
+  if (!campaign.name?.trim()) {
+    errors.push('Campaign name is required');
+  }
+  if (!campaign.subject?.trim()) {
+    errors.push('Subject is required');
+  }
+  if (!campaign.sender_name?.trim()) {
+    errors.push('Sender name is required');
+  }
+  if (!campaign.sender_email?.trim()) {
+    errors.push('Sender email is required');
+  } else {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(campaign.sender_email.trim())) {
+      errors.push('Sender email is invalid');
+    }
+  }
+  if (!campaign.segment_id) {
+    errors.push('An audience segment must be selected');
+  }
+
+  // Check content
+  const content = campaign.content as { html?: string; text?: string } | undefined;
+  if (!content || !content.html || !content.html.trim()) {
+    errors.push('Email content cannot be empty');
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
+export interface TestEmailResult {
+  success: false;
+  configured: false;
+  message: string;
+}
+
+/**
+ * Placeholder service boundary for sending test campaign emails.
+ * Step 1G will attach actual provider delivery.
+ * In Step 1F, this strictly returns a controlled not-configured response.
+ */
+export async function sendCampaignTestEmailPlaceholder(
+  _recipientEmail: string,
+  _campaign: MarketingCampaign
+): Promise<TestEmailResult> {
+  return {
+    success: false,
+    configured: false,
+    message: 'Test email service not configured. Provider integration will be added in Step 1G.',
+  };
+}
+

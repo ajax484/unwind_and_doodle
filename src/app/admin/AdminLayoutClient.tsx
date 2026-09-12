@@ -50,6 +50,7 @@ export default function AdminLayoutClient({
     { label: "Reviews", href: "/admin/reviews", icon: "⭐" },
     { label: "Customizations", href: "/admin/customizations", icon: "✂️" },
     { label: "Discounts", href: "/admin/discounts", icon: "🏷️" },
+    { label: "Campaigns", href: "/admin/marketing/campaigns", icon: "✉️" },
   ];
 
   const allNavSettings = [
@@ -109,6 +110,8 @@ export default function AdminLayoutClient({
     if (pathname.startsWith("/admin/customizations")) return "Customizations";
     if (pathname.startsWith("/admin/discounts"))
       return "Discounts & Promotions";
+    if (pathname.startsWith("/admin/marketing/campaigns"))
+      return "Marketing Campaigns";
     if (pathname.startsWith("/admin/settings")) return "Store Settings";
     return "Admin Console";
   };
@@ -134,6 +137,8 @@ export default function AdminLayoutClient({
       reviews: "Reviews",
       customizations: "Customizations",
       discounts: "Discounts",
+      marketing: "Marketing",
+      campaigns: "Campaigns",
       settings: "Store Settings",
       locations: "Locations",
       warehouses: "Warehouses",
