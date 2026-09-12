@@ -303,31 +303,19 @@ function evaluateCondition(customer: CustomerCohortData, condition: SegmentCondi
 }
 
 /**
- * Loads organization customers and aggregates purchase history, then filters by rules.
- * Strictly enforces email_marketing_consent = true and organization isolation.
+ * Resolves customers directly from a validated SegmentRules definition,
+ * strictly enforcing email_marketing_consent = true and organization isolation.
  */
-async function resolveCohort(
+export async function resolveCohortRules(
   supabase: SupabaseClient<Database>,
   organizationId: string,
-  segmentId: string
+  rules: SegmentRules
 ): Promise<SegmentCustomer[]> {
   if (!organizationId?.trim()) {
     throw new Error('Organization ID is required');
   }
-  if (!segmentId?.trim()) {
-    throw new Error('Segment ID is required');
-  }
 
-  // 1. Fetch and verify segment ownership
-  const segment = await getSegmentById(supabase, organizationId, segmentId);
-  if (!segment) {
-    throw new Error(`Marketing segment ${segmentId} not found for this organization`);
-  }
-
-  // 2. Validate rules
-  const rules = validateSegmentRules(segment.rules);
-
-  // 3. Query organization customers strictly enforcing email_marketing_consent = true
+  // 1. Query organization customers strictly enforcing email_marketing_consent = true
   const { data: rawCustomers, error: custErr } = await supabase
     .from('customers')
     .select('id, email, first_name, last_name, email_marketing_consent, whatsapp_marketing_consent, created_at')
@@ -343,7 +331,7 @@ async function resolveCohort(
     return [];
   }
 
-  // 4. Fetch valid orders for the organization (excluding cancelled and refunded)
+  // 2. Fetch valid orders for the organization (excluding cancelled and refunded)
   const { data: rawOrders, error: orderErr } = await supabase
     .from('orders')
     .select('id, customer_id, total, status, created_at')
@@ -382,7 +370,7 @@ async function resolveCohort(
     customerOrderMap.set(custId, cur);
   }
 
-  // 5. Evaluate conditions against each customer
+  // 3. Evaluate conditions against each customer
   const matchedCustomers: SegmentCustomer[] = [];
 
   for (const c of customers) {
@@ -424,6 +412,29 @@ async function resolveCohort(
   }
 
   return matchedCustomers;
+}
+
+async function resolveCohort(
+  supabase: SupabaseClient<Database>,
+  organizationId: string,
+  segmentId: string
+): Promise<SegmentCustomer[]> {
+  if (!organizationId?.trim()) {
+    throw new Error('Organization ID is required');
+  }
+  if (!segmentId?.trim()) {
+    throw new Error('Segment ID is required');
+  }
+
+  // 1. Fetch and verify segment ownership
+  const segment = await getSegmentById(supabase, organizationId, segmentId);
+  if (!segment) {
+    throw new Error(`Marketing segment ${segmentId} not found for this organization`);
+  }
+
+  // 2. Validate rules
+  const rules = validateSegmentRules(segment.rules);
+  return resolveCohortRules(supabase, organizationId, rules);
 }
 
 // ============================================================================
@@ -475,6 +486,24 @@ export async function previewSegment(
   options?: { limit?: number }
 ): Promise<SegmentCustomerPreviewResult> {
   const cohort = await resolveCohort(supabase, organizationId, segmentId);
+  const limit = Math.max(1, options?.limit || 20);
+
+  return {
+    customers: cohort.slice(0, limit),
+    total: cohort.length,
+  };
+}
+
+/**
+ * Previews matching customers from in-flight/unsaved segment rules directly.
+ */
+export async function previewSegmentRules(
+  supabase: SupabaseClient<Database>,
+  organizationId: string,
+  rules: SegmentRules,
+  options?: { limit?: number }
+): Promise<SegmentCustomerPreviewResult> {
+  const cohort = await resolveCohortRules(supabase, organizationId, rules);
   const limit = Math.max(1, options?.limit || 20);
 
   return {

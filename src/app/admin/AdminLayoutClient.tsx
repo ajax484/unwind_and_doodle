@@ -51,6 +51,7 @@ export default function AdminLayoutClient({
     { label: "Customizations", href: "/admin/customizations", icon: "✂️" },
     { label: "Discounts", href: "/admin/discounts", icon: "🏷️" },
     { label: "Campaigns", href: "/admin/marketing/campaigns", icon: "✉️" },
+    { label: "Segments", href: "/admin/marketing/segments", icon: "🎯" },
   ];
 
   const allNavSettings = [
