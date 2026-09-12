@@ -73,38 +73,33 @@ export async function resolveRequiredPhysicalItems(
     }
   }
 
-  const result: RequiredProductItem[] = [];
+  const aggregatedMap = new Map<string, number>();
 
   for (const item of items) {
     const components = bundleComponentsMap.get(item.productId);
     if (components && components.length > 0) {
       // Expand bundle into physical component requirements
       for (const comp of components) {
-        result.push({
-          productId: comp.componentProductId,
-          quantity: item.quantity * comp.quantity,
-        });
+        const qty = item.quantity * comp.quantity;
+        aggregatedMap.set(comp.componentProductId, (aggregatedMap.get(comp.componentProductId) || 0) + qty);
       }
     } else {
       // Standard physical / custom item
-      result.push({
-        productId: item.productId,
-        quantity: item.quantity,
-      });
+      aggregatedMap.set(item.productId, (aggregatedMap.get(item.productId) || 0) + item.quantity);
     }
 
     // Process add-ons
     for (const addon of item.addons || []) {
       if (addon.quantity > 0) {
-        result.push({
-          productId: addon.addonProductId,
-          quantity: addon.quantity,
-        });
+        aggregatedMap.set(addon.addonProductId, (aggregatedMap.get(addon.addonProductId) || 0) + addon.quantity);
       }
     }
   }
 
-  return result;
+  return Array.from(aggregatedMap.entries()).map(([productId, quantity]) => ({
+    productId,
+    quantity,
+  }));
 }
 
 /**

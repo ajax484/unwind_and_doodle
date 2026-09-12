@@ -46,6 +46,11 @@ export function createMockSupabaseClient(initialData?: {
   order_item_theme_customizations?: any[];
   order_item_theme_snapshots?: any[];
   notifications?: any[];
+  marketing_segments?: any[];
+  marketing_campaigns?: any[];
+  marketing_campaign_recipients?: any[];
+  marketing_email_events?: any[];
+  marketing_automations?: any[];
   [key: string]: any[] | undefined;
 }) {
   const store = {
@@ -94,6 +99,11 @@ export function createMockSupabaseClient(initialData?: {
     order_item_theme_customizations: [...(initialData?.order_item_theme_customizations || [])],
     order_item_theme_snapshots: [...(initialData?.order_item_theme_snapshots || [])],
     notifications: [...(initialData?.notifications || [])],
+    marketing_segments: [...(initialData?.marketing_segments || [])],
+    marketing_campaigns: [...(initialData?.marketing_campaigns || [])],
+    marketing_campaign_recipients: [...(initialData?.marketing_campaign_recipients || [])],
+    marketing_email_events: [...(initialData?.marketing_email_events || [])],
+    marketing_automations: [...(initialData?.marketing_automations || [])],
   };
 
   const rpcHandlers: Record<string, Function> = {

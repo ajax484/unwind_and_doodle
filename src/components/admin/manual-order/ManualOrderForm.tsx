@@ -10,6 +10,10 @@ import {
   ManualOrderSuccessModal,
   ManualOrderSuccessData,
 } from "./ManualOrderSuccessModal";
+import {
+  OrderItemCustomizationModal,
+  ItemCustomizationData,
+} from "./OrderItemCustomizationModal";
 import TextInput from "@/components/TextInput";
 import Select from "@/components/Select";
 import Textarea from "@/components/Textarea";
@@ -49,6 +53,11 @@ export interface SelectedOrderProduct {
   quantity: number;
   availableStock?: number;
   primaryImage: string | null;
+  supportsThemeCustomization?: boolean;
+  customization?: {
+    themeIds?: string[];
+    coverName?: string;
+  };
 }
 
 export interface ServerPreviewBreakdown {
@@ -91,6 +100,7 @@ export function ManualOrderForm() {
   const [items, setItems] = useState<SelectedOrderProduct[]>([]);
   const [isProductPickerOpen, setIsProductPickerOpen] = useState(false);
   const [productError, setProductError] = useState<string | null>(null);
+  const [customizingProduct, setCustomizingProduct] = useState<SelectedOrderProduct | null>(null);
 
   // Shipping & Warehouse State
   const [addressLine1, setAddressLine1] = useState("");
@@ -244,11 +254,34 @@ export function ManualOrderForm() {
             quantity: Math.min(maxStock, sel.quantity),
             availableStock: sel.product.availableStock,
             primaryImage: sel.product.primaryImage,
+            supportsThemeCustomization: Boolean(sel.product.supports_theme_customization),
           });
         }
       }
       return updated;
     });
+  };
+
+  const handleSaveItemCustomization = (
+    productId: string,
+    customization: ItemCustomizationData | undefined
+  ) => {
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.productId === productId) {
+          return {
+            ...item,
+            customization: customization
+              ? {
+                  themeIds: customization.themeIds,
+                  coverName: customization.coverName,
+                }
+              : undefined,
+          };
+        }
+        return item;
+      })
+    );
   };
 
   const handleUpdateQuantity = (productId: string, qty: number) => {
@@ -335,8 +368,8 @@ export function ManualOrderForm() {
     e.preventDefault();
     setFormError(null);
 
-    if (!email.trim()) {
-      setFormError("Customer email is required.");
+    if (!email.trim() && !phone.trim()) {
+      setFormError("Please provide either a customer email or a phone number.");
       return;
     }
 
@@ -355,7 +388,7 @@ export function ManualOrderForm() {
 
       const payload: Record<string, unknown> = {
         customer: {
-          email: email.trim(),
+          email: email.trim() || undefined,
           firstName: firstName.trim() || undefined,
           lastName: lastName.trim() || undefined,
           phone: phone.trim() || undefined,
@@ -371,6 +404,13 @@ export function ManualOrderForm() {
         items: items.map((i) => ({
           productId: i.productId,
           quantity: i.quantity,
+          customization:
+            i.customization && (i.customization.themeIds?.length || i.customization.coverName)
+              ? {
+                  themeIds: i.customization.themeIds,
+                  coverName: i.customization.coverName,
+                }
+              : undefined,
         })),
         warehouseId: selectedWarehouseId || undefined,
         locationId: selectedLocationId || undefined,
@@ -420,6 +460,7 @@ export function ManualOrderForm() {
     setPhone("");
     setSelectedCustomerId(null);
     setItems([]);
+    setCustomizingProduct(null);
     setDiscountType("none");
     setDiscountCode("");
     setManualDiscountValue("");
@@ -439,6 +480,20 @@ export function ManualOrderForm() {
           isOpen={true}
           onClose={handleResetForm}
           data={successData}
+        />
+      )}
+
+      {customizingProduct && (
+        <OrderItemCustomizationModal
+          isOpen={true}
+          onClose={() => setCustomizingProduct(null)}
+          productId={customizingProduct.productId}
+          productName={customizingProduct.name}
+          initialCustomization={customizingProduct.customization}
+          onSave={(customization) => {
+            handleSaveItemCustomization(customizingProduct.productId, customization);
+            setCustomizingProduct(null);
+          }}
         />
       )}
 
@@ -529,15 +584,19 @@ export function ManualOrderForm() {
 
               {/* Customer Form Inputs */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <TextInput
-                  type="email"
-                  required
-                  label="Email Address *"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="customer@example.com"
-                  size="sm"
-                />
+                <div className="space-y-1">
+                  <TextInput
+                    type="email"
+                    label="Email Address"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="customer@example.com (optional)"
+                    size="sm"
+                  />
+                  <p className="text-[11px] text-text-tertiary">
+                    Optional if phone is provided. An internal alias is used for payment links.
+                  </p>
+                </div>
                 <TextInput
                   type="tel"
                   label="Phone Number"
@@ -659,6 +718,39 @@ export function ManualOrderForm() {
                                   <span className="text-[11px] text-text-tertiary">
                                     SKU: {item.sku || "N/A"}
                                   </span>
+                                  {item.supportsThemeCustomization && (
+                                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                      {item.customization?.coverName || (item.customization?.themeIds && item.customization.themeIds.length > 0) ? (
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                          {item.customization.coverName && (
+                                            <span className="inline-flex items-center text-[10px] bg-action-primary/10 text-action-primary px-2 py-0.5 rounded-md font-medium">
+                                              Cover: &ldquo;{item.customization.coverName}&rdquo;
+                                            </span>
+                                          )}
+                                          {item.customization.themeIds && item.customization.themeIds.length > 0 && (
+                                            <span className="inline-flex items-center text-[10px] bg-bg-subtle border border-border-default text-text-secondary px-2 py-0.5 rounded-md font-medium">
+                                              🎨 {item.customization.themeIds.length} {item.customization.themeIds.length === 1 ? 'theme' : 'themes'}
+                                            </span>
+                                          )}
+                                          <button
+                                            type="button"
+                                            onClick={() => setCustomizingProduct(item)}
+                                            className="text-[11px] text-action-primary hover:underline font-semibold cursor-pointer ml-1"
+                                          >
+                                            Edit
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => setCustomizingProduct(item)}
+                                          className="inline-flex items-center gap-1 text-[11px] text-action-primary bg-action-primary/5 hover:bg-action-primary/10 border border-action-primary/20 px-2 py-1 rounded-lg font-semibold transition-colors cursor-pointer"
+                                        >
+                                          <span>🎨</span> Configure Themes & Cover
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </td>

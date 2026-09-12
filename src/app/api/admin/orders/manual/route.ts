@@ -15,7 +15,8 @@ export async function POST(req: NextRequest) {
       body,
       adminContext.user.id,
       adminContext.organization.id,
-      req.nextUrl.origin
+      req.nextUrl.origin,
+      adminContext.user.email
     );
 
     return NextResponse.json({ success: true, data: result }, { status: 201 });

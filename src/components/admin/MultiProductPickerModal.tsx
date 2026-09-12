@@ -18,6 +18,8 @@ export interface SelectableProduct {
   availableStock?: number;
   primaryImage: string | null;
   status: string;
+  supports_theme_customization?: boolean;
+  requires_customization?: boolean;
 }
 
 export interface MultiProductSelection {
@@ -221,6 +223,11 @@ export function MultiProductPickerModal({
                         >
                           {p.product_type}
                         </Badge>
+                        {p.supports_theme_customization && (
+                          <Badge variant="status" statusType="info" size="sm">
+                            Customizable Themes
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-text-secondary mt-0.5">
                         {p.sku && <span>SKU: {p.sku}</span>}

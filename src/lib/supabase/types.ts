@@ -929,6 +929,292 @@ export type Database = {
           },
         ];
       };
+      marketing_automations: {
+        Row: {
+          config: Json;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          name: string;
+          organization_id: string;
+          status: Database["public"]["Enums"]["marketing_automation_status"];
+          type: Database["public"]["Enums"]["marketing_automation_type"];
+          updated_at: string;
+        };
+        Insert: {
+          config?: Json;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          name: string;
+          organization_id: string;
+          status?: Database["public"]["Enums"]["marketing_automation_status"];
+          type: Database["public"]["Enums"]["marketing_automation_type"];
+          updated_at?: string;
+        };
+        Update: {
+          config?: Json;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          name?: string;
+          organization_id?: string;
+          status?: Database["public"]["Enums"]["marketing_automation_status"];
+          type?: Database["public"]["Enums"]["marketing_automation_type"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "marketing_automations_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "marketing_automations_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      marketing_campaign_recipients: {
+        Row: {
+          campaign_id: string;
+          clicked_at: string | null;
+          created_at: string;
+          customer_id: string | null;
+          delivered_at: string | null;
+          email: string;
+          error: string | null;
+          id: string;
+          opened_at: string | null;
+          sent_at: string | null;
+          status: Database["public"]["Enums"]["marketing_recipient_status"];
+          unsubscribed_at: string | null;
+        };
+        Insert: {
+          campaign_id: string;
+          clicked_at?: string | null;
+          created_at?: string;
+          customer_id?: string | null;
+          delivered_at?: string | null;
+          email: string;
+          error?: string | null;
+          id?: string;
+          opened_at?: string | null;
+          sent_at?: string | null;
+          status?: Database["public"]["Enums"]["marketing_recipient_status"];
+          unsubscribed_at?: string | null;
+        };
+        Update: {
+          campaign_id?: string;
+          clicked_at?: string | null;
+          created_at?: string;
+          customer_id?: string | null;
+          delivered_at?: string | null;
+          email?: string;
+          error?: string | null;
+          id?: string;
+          opened_at?: string | null;
+          sent_at?: string | null;
+          status?: Database["public"]["Enums"]["marketing_recipient_status"];
+          unsubscribed_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "marketing_campaign_recipients_campaign_id_fkey";
+            columns: ["campaign_id"];
+            isOneToOne: false;
+            referencedRelation: "marketing_campaigns";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "marketing_campaign_recipients_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      marketing_campaigns: {
+        Row: {
+          completed_at: string | null;
+          content: Json;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          name: string;
+          organization_id: string;
+          preview_text: string | null;
+          scheduled_at: string | null;
+          segment_id: string | null;
+          sender_email: string | null;
+          sender_name: string | null;
+          started_at: string | null;
+          status: Database["public"]["Enums"]["marketing_campaign_status"];
+          subject: string | null;
+          type: Database["public"]["Enums"]["marketing_campaign_type"];
+          updated_at: string;
+        };
+        Insert: {
+          completed_at?: string | null;
+          content?: Json;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          name: string;
+          organization_id: string;
+          preview_text?: string | null;
+          scheduled_at?: string | null;
+          segment_id?: string | null;
+          sender_email?: string | null;
+          sender_name?: string | null;
+          started_at?: string | null;
+          status?: Database["public"]["Enums"]["marketing_campaign_status"];
+          subject?: string | null;
+          type?: Database["public"]["Enums"]["marketing_campaign_type"];
+          updated_at?: string;
+        };
+        Update: {
+          completed_at?: string | null;
+          content?: Json;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          name?: string;
+          organization_id?: string;
+          preview_text?: string | null;
+          scheduled_at?: string | null;
+          segment_id?: string | null;
+          sender_email?: string | null;
+          sender_name?: string | null;
+          started_at?: string | null;
+          status?: Database["public"]["Enums"]["marketing_campaign_status"];
+          subject?: string | null;
+          type?: Database["public"]["Enums"]["marketing_campaign_type"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "marketing_campaigns_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "marketing_campaigns_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "marketing_campaigns_segment_id_fkey";
+            columns: ["segment_id"];
+            isOneToOne: false;
+            referencedRelation: "marketing_segments";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      marketing_email_events: {
+        Row: {
+          campaign_id: string;
+          campaign_recipient_id: string;
+          customer_id: string | null;
+          event_type: Database["public"]["Enums"]["marketing_email_event_type"];
+          id: string;
+          metadata: Json;
+          occurred_at: string;
+        };
+        Insert: {
+          campaign_id: string;
+          campaign_recipient_id: string;
+          customer_id?: string | null;
+          event_type: Database["public"]["Enums"]["marketing_email_event_type"];
+          id?: string;
+          metadata?: Json;
+          occurred_at?: string;
+        };
+        Update: {
+          campaign_id?: string;
+          campaign_recipient_id?: string;
+          customer_id?: string | null;
+          event_type?: Database["public"]["Enums"]["marketing_email_event_type"];
+          id?: string;
+          metadata?: Json;
+          occurred_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "marketing_email_events_campaign_id_fkey";
+            columns: ["campaign_id"];
+            isOneToOne: false;
+            referencedRelation: "marketing_campaigns";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "marketing_email_events_campaign_recipient_id_fkey";
+            columns: ["campaign_recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "marketing_campaign_recipients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "marketing_email_events_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      marketing_segments: {
+        Row: {
+          active: boolean;
+          created_at: string;
+          description: string | null;
+          id: string;
+          name: string;
+          organization_id: string;
+          rules: Json;
+          updated_at: string;
+        };
+        Insert: {
+          active?: boolean;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          name: string;
+          organization_id: string;
+          rules?: Json;
+          updated_at?: string;
+        };
+        Update: {
+          active?: boolean;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          name?: string;
+          organization_id?: string;
+          rules?: Json;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "marketing_segments_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       order_item_addons: {
         Row: {
           addon_product_id: string;
@@ -2353,6 +2639,38 @@ export type Database = {
         | "committed"
         | "released"
         | "expired";
+      marketing_automation_status: "draft" | "active" | "paused";
+      marketing_automation_type:
+        | "welcome"
+        | "abandoned_checkout"
+        | "post_purchase"
+        | "win_back";
+      marketing_campaign_status:
+        | "draft"
+        | "scheduled"
+        | "sending"
+        | "sent"
+        | "cancelled"
+        | "failed";
+      marketing_campaign_type: "email";
+      marketing_email_event_type:
+        | "sent"
+        | "delivered"
+        | "opened"
+        | "clicked"
+        | "bounced"
+        | "failed"
+        | "unsubscribed";
+      marketing_recipient_status:
+        | "pending"
+        | "sending"
+        | "sent"
+        | "delivered"
+        | "opened"
+        | "clicked"
+        | "bounced"
+        | "failed"
+        | "unsubscribed";
       order_status:
         | "created"
         | "pending"
@@ -2533,6 +2851,42 @@ export const Constants = {
       product_type: ["physical", "custom", "bundle"],
       review_status: ["pending", "approved", "rejected"],
       stock_notification_channel: ["email", "whatsapp"],
+      marketing_automation_status: ["draft", "active", "paused"],
+      marketing_automation_type: [
+        "welcome",
+        "abandoned_checkout",
+        "post_purchase",
+        "win_back",
+      ],
+      marketing_campaign_status: [
+        "draft",
+        "scheduled",
+        "sending",
+        "sent",
+        "cancelled",
+        "failed",
+      ],
+      marketing_campaign_type: ["email"],
+      marketing_email_event_type: [
+        "sent",
+        "delivered",
+        "opened",
+        "clicked",
+        "bounced",
+        "failed",
+        "unsubscribed",
+      ],
+      marketing_recipient_status: [
+        "pending",
+        "sending",
+        "sent",
+        "delivered",
+        "opened",
+        "clicked",
+        "bounced",
+        "failed",
+        "unsubscribed",
+      ],
     },
   },
 } as const;
@@ -2545,3 +2899,9 @@ export type ProductStatus = Database['public']['Enums']['product_status'];
 export type ProductType = Database['public']['Enums']['product_type'];
 export type CustomizationStatus = Database['public']['Enums']['customization_status'];
 export type AuditAction = Database['public']['Enums']['audit_action'];
+export type MarketingCampaignType = Database['public']['Enums']['marketing_campaign_type'];
+export type MarketingCampaignStatus = Database['public']['Enums']['marketing_campaign_status'];
+export type MarketingRecipientStatus = Database['public']['Enums']['marketing_recipient_status'];
+export type MarketingAutomationType = Database['public']['Enums']['marketing_automation_type'];
+export type MarketingAutomationStatus = Database['public']['Enums']['marketing_automation_status'];
+export type MarketingEmailEventType = Database['public']['Enums']['marketing_email_event_type'];

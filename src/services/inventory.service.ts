@@ -151,14 +151,22 @@ export async function reserveOrderInventory(
   const expiresAt = new Date(Date.now() + RESERVATION_EXPIRY_MINUTES * 60 * 1000).toISOString();
   const createdReservations: InventoryReservationResult[] = [];
 
-  try {
-    for (const item of params.items) {
-      if (item.quantity <= 0) continue;
+  // Aggregate items defensively by productId to ensure unique reservation records per product
+  const aggregatedItemsMap = new Map<string, number>();
+  for (const item of params.items) {
+    if (item.quantity <= 0) continue;
+    aggregatedItemsMap.set(
+      item.productId,
+      (aggregatedItemsMap.get(item.productId) || 0) + item.quantity
+    );
+  }
 
+  try {
+    for (const [productId, quantity] of aggregatedItemsMap.entries()) {
       const reservation = await reserveSingleInventory(supabase, {
         warehouseId: params.warehouseId,
-        productId: item.productId,
-        quantity: item.quantity,
+        productId,
+        quantity,
         referenceType: 'order',
         referenceId: params.orderId,
         expiresAt,

@@ -252,6 +252,7 @@ export async function listAdminProducts(
       cost_price: p.cost_price || 0,
       status: p.status,
       requires_customization: p.requires_customization || false,
+      supports_theme_customization: Boolean((p as Record<string, unknown>).supports_theme_customization),
       primaryImage: primaryImageMap.get(p.id) || null,
       categories: categoriesByProduct.get(p.id) || [],
       totalStock: stock.onHand,

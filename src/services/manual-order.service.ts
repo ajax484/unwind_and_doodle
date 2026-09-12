@@ -19,6 +19,30 @@ import { ORDER_STATUS, PAYMENT_STATUS, DOMAIN_EVENT_TYPES, CURRENCY } from '../l
 import { PaymentProvider } from './payment/provider.interface';
 
 /**
+ * Resolves a manual order customer email.
+ * If customer email is omitted, generates a deterministic sub-addressed alias
+ * on the admin's email or the default store address using the customer's phone or unique id.
+ */
+export function resolveManualOrderCustomerEmail(
+  customerEmail?: string | null,
+  customerPhone?: string | null,
+  adminEmail?: string | null
+): string {
+  if (customerEmail && customerEmail.trim()) {
+    return customerEmail.trim().toLowerCase();
+  }
+  const base = (adminEmail && adminEmail.includes('@'))
+    ? adminEmail.trim().toLowerCase()
+    : (process.env.ADMIN_ORDERS_EMAIL || 'orders@unwindanddoodle.com');
+  const [user, domain] = base.split('@');
+  const cleanPhone = (customerPhone || '').replace(/\D/g, '');
+  const tag = cleanPhone.length >= 6
+    ? cleanPhone
+    : `ord_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
+  return `${user}+${tag}@${domain}`;
+}
+
+/**
  * Creates an admin manual order atomically, reserves inventory, and generates a payment link token.
  */
 export async function createAdminManualOrder(
@@ -26,16 +50,23 @@ export async function createAdminManualOrder(
   input: CreateManualOrderInput,
   userId: string,
   organizationId: string,
-  baseUrl?: string
+  baseUrl?: string,
+  adminEmail?: string
 ): Promise<PaymentLinkResponse> {
   // 1. Validate schema
   const validated = CreateManualOrderSchema.parse(input);
+
+  const resolvedEmail = resolveManualOrderCustomerEmail(
+    validated.customer.email,
+    validated.customer.phone || validated.customer.whatsappNumber,
+    adminEmail
+  );
 
   // 2. Resolve or create customer
   const { customerId } = await resolveOrCreateCustomer(
     supabase,
     {
-      email: validated.customer.email,
+      email: resolvedEmail,
       firstName: validated.customer.firstName || 'Customer',
       lastName: validated.customer.lastName || '',
       phone: validated.customer.phone || undefined,
@@ -95,7 +126,7 @@ export async function createAdminManualOrder(
   const { data: rpcResult, error: rpcErr } = await supabase.rpc('create_admin_manual_order' as unknown as keyof Database['public']['Functions'], {
     p_org_id: organizationId,
     p_customer: {
-      email: validated.customer.email,
+      email: resolvedEmail,
       first_name: validated.customer.firstName || '',
       last_name: validated.customer.lastName || '',
       phone: validated.customer.phone || '',
@@ -202,7 +233,7 @@ export async function createAdminManualOrder(
         order_number: result.order_number,
         order_source: 'manual',
         channel: validated.manualOrderChannel,
-        customer_email: validated.customer.email,
+        customer_email: resolvedEmail,
         total: totalAmount,
       },
     } as unknown as Database['public']['Tables']['audit_logs']['Insert']);
@@ -215,7 +246,7 @@ export async function createAdminManualOrder(
         orderId,
         orderNumber: result.order_number,
         customerId,
-        customerEmail: validated.customer.email,
+        customerEmail: resolvedEmail,
         orderSource: 'manual',
         totalAmount,
         currency: CURRENCY.NGN,
@@ -656,6 +687,9 @@ export async function updateCustomerOrderDetails(
   if (validated.firstName !== undefined) orderUpdates.first_name = validated.firstName;
   if (validated.lastName !== undefined) orderUpdates.last_name = validated.lastName;
   if (validated.phone !== undefined) orderUpdates.phone = validated.phone;
+  if (validated.email && validated.email.trim()) {
+    orderUpdates.email = validated.email.trim().toLowerCase();
+  }
 
   // 4. Update order atomically
   const { error: updateErr } = await supabase
@@ -675,6 +709,9 @@ export async function updateCustomerOrderDetails(
     if (validated.firstName !== undefined) custUpdates.first_name = validated.firstName;
     if (validated.lastName !== undefined) custUpdates.last_name = validated.lastName;
     if (validated.phone !== undefined) custUpdates.phone = validated.phone;
+    if (validated.email && validated.email.trim()) {
+      custUpdates.email = validated.email.trim().toLowerCase();
+    }
 
     await supabase.from('customers').update(custUpdates).eq('id', order.customer_id);
   }

@@ -80,6 +80,7 @@ export interface AdminProductListItem {
   cost_price: number;
   status: ProductStatus;
   requires_customization: boolean;
+  supports_theme_customization?: boolean;
   primaryImage: string | null;
   categories: AdminProductCategoryItem[];
   totalStock: number;

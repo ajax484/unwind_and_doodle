@@ -14,13 +14,26 @@ export const ManualOrderItemSchema = z.object({
   customization: ManualOrderCustomizationSchema.optional(),
 });
 
-export const ManualOrderCustomerSchema = z.object({
-  email: z.string().email({ message: 'Valid customer email is required' }),
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-  phone: z.string().optional(),
-  whatsappNumber: z.string().optional(),
-});
+export const ManualOrderCustomerSchema = z
+  .object({
+    email: z.string().email({ message: 'Valid customer email is required' }).optional().or(z.literal('')),
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    phone: z.string().optional(),
+    whatsappNumber: z.string().optional(),
+  })
+  .refine(
+    (data) =>
+      Boolean(
+        (data.email && data.email.trim() !== '') ||
+        (data.phone && data.phone.trim() !== '') ||
+        (data.whatsappNumber && data.whatsappNumber.trim() !== '')
+      ),
+    {
+      message: 'Either customer email or phone number is required',
+      path: ['email'],
+    }
+  );
 
 export const ManualOrderShippingAddressSchema = z.object({
   addressLine1: z.string().min(1, { message: 'Address line 1 is required' }),
@@ -61,6 +74,7 @@ export const CreateManualOrderSchema = z
 
 export const UpdateCustomerOrderSchema = z.object({
   token: z.string().min(1, { message: 'Payment token is required' }),
+  email: z.string().email({ message: 'Valid customer email is required' }).optional().or(z.literal('')),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   phone: z.string().optional(),

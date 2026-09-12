@@ -323,5 +323,93 @@ describe('Pricing & Checkout Flow Business Rules', () => {
       expect(bundleComps.find((bc) => bc.component_product_id === bookId)?.total_quantity).toBe(2);
       expect(bundleComps.find((bc) => bc.component_product_id === pencilId)?.total_quantity).toBe(2);
     });
+
+    it('executes checkout when cart contains both a bundle and an individual component product from that bundle', async () => {
+      const bundleId = 'prod-bundle-02';
+      mockSupabase._store.products.push({
+        id: bundleId,
+        name: 'Starter Kit Bundle',
+        price: 5000,
+        product_type: 'bundle',
+        is_active: true,
+      });
+      mockSupabase._store.bundle_items.push(
+        { id: 'bi-3', bundle_product_id: bundleId, component_product_id: bookId, quantity: 1 },
+        { id: 'bi-4', bundle_product_id: bundleId, component_product_id: pencilId, quantity: 1 }
+      );
+
+      // Cart contains: 1x Bundle (1 book, 1 pencil) + 2x standalone Book
+      const mixedCheckoutReq: CheckoutRequest = {
+        locationId,
+        customer: {
+          email: 'mixeduser@example.com',
+          firstName: 'Mixed',
+          lastName: 'Buyer',
+          marketingConsent: false,
+        },
+        shippingAddress: {
+          streetAddress: '12 Broad Street',
+          city: 'Lagos',
+          state: 'Lagos',
+        },
+        items: [
+          {
+            productId: bundleId,
+            quantity: 1,
+            addons: [],
+          },
+          {
+            productId: bookId,
+            quantity: 2,
+            addons: [],
+          },
+        ],
+      };
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: true,
+          message: 'Authorization URL created',
+          data: {
+            authorization_url: 'https://checkout.paystack.com/auth_mixed_123',
+            access_code: 'acc_mixed_123',
+            reference: 'UAD_MIXED_123',
+          },
+        }),
+      });
+
+      const provider = new PaystackPaymentProvider({
+        secretKey: 'sk_test_paystack_mock',
+        fetchFn: mockFetch as any,
+      });
+
+      const result = await processCheckout({
+        supabase: mockSupabase,
+        request: mixedCheckoutReq,
+        paymentProvider: provider,
+      });
+
+      expect(result.orderId).toBeDefined();
+      expect(result.warehouseId).toBe(warehouseId);
+      expect(result.authorizationUrl).toBe('https://checkout.paystack.com/auth_mixed_123');
+
+      // Verify that inventory reservations are aggregated:
+      // Book: 1 from bundle + 2 standalone = 3 total
+      // Pencil: 1 from bundle = 1 total
+      const reservations = mockSupabase._store.inventory_reservations.filter(
+        (r) => r.reference_id === result.orderId
+      );
+      expect(reservations.length).toBe(2);
+      expect(reservations.map((r) => r.product_id).sort()).toEqual([bookId, pencilId].sort());
+      expect(reservations.find((r) => r.product_id === bookId)?.quantity).toBe(3);
+      expect(reservations.find((r) => r.product_id === pencilId)?.quantity).toBe(1);
+
+      // Verify order items table has both line items
+      const orderItems = mockSupabase._store.order_items.filter((oi) => oi.order_id === result.orderId);
+      expect(orderItems.length).toBe(2);
+      expect(orderItems.find((oi) => oi.product_id === bundleId)?.quantity).toBe(1);
+      expect(orderItems.find((oi) => oi.product_id === bookId)?.quantity).toBe(2);
+    });
   });
 });

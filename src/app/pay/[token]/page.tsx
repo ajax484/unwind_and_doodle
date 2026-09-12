@@ -26,6 +26,7 @@ export default function CustomerPaymentPage({
   const [error, setError] = useState<string | null>(null);
 
   // Editable Customer Form State
+  const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
@@ -58,6 +59,7 @@ export default function CustomerPaymentPage({
       setDetail(detailData);
 
       // Pre-fill editable fields
+      setEmail(detailData.customer.email || '');
       setFirstName(detailData.customer.firstName || '');
       setLastName(detailData.customer.lastName || '');
       setPhone(detailData.customer.phone || '');
@@ -104,6 +106,7 @@ export default function CustomerPaymentPage({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          email: email.trim() || undefined,
           firstName: firstName.trim() || undefined,
           lastName: lastName.trim() || undefined,
           phone: phone.trim() || undefined,
@@ -119,6 +122,9 @@ export default function CustomerPaymentPage({
 
       const updatedDetail: PaymentRequestDetail = json.data;
       setDetail(updatedDetail);
+      if (updatedDetail.customer?.email) {
+        setEmail(updatedDetail.customer.email);
+      }
       setSaveSuccessMsg('Information updated successfully');
 
       // Check if delivery fee changed
@@ -320,7 +326,6 @@ export default function CustomerPaymentPage({
                 <h3 className="text-xs font-bold uppercase tracking-wider text-rose-400">Your Information</h3>
                 <p className="text-[11px] text-slate-400">Edit contact details &amp; delivery location</p>
               </div>
-              <span className="text-[11px] text-slate-500">{detail.customer.email}</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -356,6 +361,25 @@ export default function CustomerPaymentPage({
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+234 801 234 5678"
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-hidden focus:border-rose-500 disabled:opacity-50 transition-all"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] text-slate-400 font-medium block">Email Address (for receipt)</label>
+                  {email.includes('+') && (
+                    <span className="text-[10px] text-amber-400/90 font-mono">
+                      Placeholder alias — update with your personal email
+                    </span>
+                  )}
+                </div>
+                <input
+                  type="email"
+                  disabled={!isPending}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your.email@example.com"
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-hidden focus:border-rose-500 disabled:opacity-50 transition-all"
                 />
               </div>

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createMockSupabaseClient } from '@tests/mocks/supabase.mock';
-import { previewManualOrderPricing } from '@/services/manual-order.service';
+import { previewManualOrderPricing, createAdminManualOrder, getPaymentRequestByToken } from '@/services/manual-order.service';
+import { listAdminProducts } from '@/services/admin-product.service';
 
 describe('Prompt 2: Admin UI Implementation & Real-Time Preview API', () => {
   const orgId = '88c7af2e-afd4-4504-a43f-b14cc45d6263';
@@ -10,6 +11,8 @@ describe('Prompt 2: Admin UI Implementation & Real-Time Preview API', () => {
 
   const physicalProdId = '44444444-4444-4444-8444-444444444444';
   const bundleProdId = '55555555-5555-4555-8555-555555555555';
+  const themeId1 = 'a1111111-1111-4111-8111-111111111111';
+  const themeId2 = 'a2222222-2222-4222-8222-222222222222';
 
   let mockSupabase: ReturnType<typeof createMockSupabaseClient>;
 
@@ -18,6 +21,9 @@ describe('Prompt 2: Admin UI Implementation & Real-Time Preview API', () => {
 
     mockSupabase = createMockSupabaseClient({
       organizations: [{ id: orgId, name: 'Unwind & Doodle', slug: 'unwind-and-doodle' }],
+      organization_members: [
+        { id: 'mem-1', organization_id: orgId, user_id: 'admin-usr-1', role: 'admin' },
+      ],
       locations: [
         { id: locationId, organization_id: orgId, name: 'Lagos Island', state: 'Lagos' },
         { id: locationId2, organization_id: orgId, name: 'Abuja Central', state: 'FCT' },
@@ -40,6 +46,7 @@ describe('Prompt 2: Admin UI Implementation & Real-Time Preview API', () => {
           product_type: 'physical',
           status: 'published',
           selling_price: 5000,
+          supports_theme_customization: true,
         },
         {
           id: bundleProdId,
@@ -64,6 +71,14 @@ describe('Prompt 2: Admin UI Implementation & Real-Time Preview API', () => {
           value: 10,
           active: true,
         },
+      ],
+      themes: [
+        { id: themeId1, organization_id: orgId, name: 'Space Adventures', is_active: true, sort_order: 1 },
+        { id: themeId2, organization_id: orgId, name: 'Jungle Safari', is_active: true, sort_order: 2 },
+      ],
+      product_themes: [
+        { product_id: physicalProdId, theme_id: themeId1 },
+        { product_id: physicalProdId, theme_id: themeId2 },
       ],
     });
   });
@@ -137,5 +152,62 @@ describe('Prompt 2: Admin UI Implementation & Real-Time Preview API', () => {
         organizationId: orgId,
       })
     ).rejects.toThrow(/cannot be used together/i);
+  });
+
+  it('5. listAdminProducts returns supports_theme_customization flag for products', async () => {
+    const res = await listAdminProducts(mockSupabase, {
+      organizationId: orgId,
+    });
+
+    const book = res.products.find((p) => p.id === physicalProdId);
+    expect(book).toBeDefined();
+    expect(book?.supports_theme_customization).toBe(true);
+
+    const bundle = res.products.find((p) => p.id === bundleProdId);
+    expect(bundle).toBeDefined();
+    expect(bundle?.supports_theme_customization).toBe(false);
+  });
+
+  it('6. createAdminManualOrder creates manual order with theme customization and returns in payment link details', async () => {
+    const orderRes = await createAdminManualOrder(
+      mockSupabase,
+      {
+        customer: {
+          firstName: 'Amara',
+          lastName: 'Okonkwo',
+          phone: '+2348012345678',
+        },
+        shippingAddress: {
+          addressLine1: '12 Victoria Island',
+          city: 'Lagos',
+          state: 'Lagos',
+        },
+        items: [
+          {
+            productId: physicalProdId,
+            quantity: 2,
+            customization: {
+              themeIds: [themeId1, themeId2],
+              coverName: "Amara's Book",
+            },
+          },
+        ],
+        warehouseId,
+        locationId,
+      },
+      'admin-usr-1',
+      orgId
+    );
+
+    expect(orderRes.orderId).toBeDefined();
+    expect(orderRes.token).toBeDefined();
+
+    const paymentDetail = await getPaymentRequestByToken(mockSupabase, orderRes.token);
+    expect(paymentDetail.items).toHaveLength(1);
+    const item = paymentDetail.items[0];
+    expect(item.themeCustomization).toBeDefined();
+    expect(item.themeCustomization?.coverName).toBe("Amara's Book");
+    expect(item.themeCustomization?.themes).toHaveLength(2);
+    expect(item.themeCustomization?.themes.map((t) => t.themeName)).toEqual(['Space Adventures', 'Jungle Safari']);
   });
 });

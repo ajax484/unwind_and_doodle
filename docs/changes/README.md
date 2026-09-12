@@ -30,6 +30,9 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-02 Manual Orders Enhancements (Backend Core Logic & APIs)](./admin/2026-09-02-manual-orders-enhancements.md)
 - [2026-09-04 Refactor Admin Layout to Server Component](./admin/2026-09-04-admin-layout-server-component.md)
 - [2026-09-11 Admin Manual Order Page Design System Migration](./admin/2026-09-11-admin-manual-order-design-system-migration.md)
+- [2026-09-12 2026-09-12 Admin Manual Order Theme & Cover Customization](./admin/2026-09-12-admin-manual-order-customization.md)
+- [2026-09-12 2026-09-12 Admin Manual Order Creation Without Customer Email & Payment Link Email Update](./admin/2026-09-12-admin-manual-order-without-email.md)
+- [2026-09-12 Marketing Step 1C: Server-Side Typed Data Access Layer](./admin/2026-09-12-marketing-typed-data-access-layer.md)
 
 ---
 
@@ -199,11 +202,11 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-07 Step 4F: ThemeSelectorCard Molecule Component Reconciliation](./design-system/2026-09-07-theme-selector-card-component-reconciliation.md)
 - [2026-09-07 Step 5E: Toast Component Molecule Reconciliation](./design-system/2026-09-07-toast-component-reconciliation.md)
 - [2026-09-08 Step 8B: Design System Post-Audit Cleanups & Token Consolidation](./design-system/2026-09-08-design-system-post-audit-cleanup.md)
-- [2026-09-09 Phase 8B: Responsive & Breakpoint Foundation](./design-system/2026-09-09-phase-8b-responsive-breakpoint-foundation.md)
+- [2026-09-09 Phase 8B - Responsive and Breakpoint Foundation](./design-system/2026-09-09-phase-8b-responsive-breakpoint-foundation.md)
 
 ---
 
 ## 📊 Summary
-- **Total Changelogs**: 144 across 8 domain modules
+- **Total Changelogs**: 148 across 8 domain modules
 - **Template Scaffold**: [`docs/changes/_template.md`](./_template.md)
-- **Status**: 100% indexed (144 of 144 files registered)
+- **Status**: 100% indexed (148 of 148 files registered)

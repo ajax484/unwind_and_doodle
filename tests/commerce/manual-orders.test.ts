@@ -1013,6 +1013,75 @@ describe('Phase 6I: Manual Orders & Customer Payment Links Workflow', () => {
       expect(preview.deliveryFee).toBe(1500);
       expect(preview.total).toBe(10500);
     });
+
+    it('26. Allows admin to create manual order without customer email using phone number', async () => {
+      const created = await createAdminManualOrder(
+        mockSupabase,
+        {
+          customer: {
+            firstName: 'NoEmail',
+            lastName: 'Customer',
+            phone: '+234 809 123 4567',
+          },
+          shippingAddress: { addressLine1: 'Victoria Island', city: 'Lagos', state: 'Lagos' },
+          items: [{ productId: physicalProdId, quantity: 1 }],
+          warehouseId,
+        },
+        adminUserId,
+        orgId,
+        'http://localhost:3000',
+        'sales@unwindanddoodle.com'
+      );
+
+      expect(created).toBeDefined();
+      expect(created.token).toBeDefined();
+
+      const { data: order } = await mockSupabase.from('orders').select('*').eq('id', created.orderId).single();
+      expect(order).toBeDefined();
+      expect(order!.email).toBe('sales+2348091234567@unwindanddoodle.com');
+      expect(order!.phone).toBe('+234 809 123 4567');
+
+      // Verify customer record in database also received the sub-addressed email
+      const { data: customer } = await mockSupabase.from('customers').select('*').eq('id', order!.customer_id).single();
+      expect(customer).toBeDefined();
+      expect(customer!.email).toBe('sales+2348091234567@unwindanddoodle.com');
+    });
+
+    it('27. Customer can update their email via the payment link page, syncing order and customer record', async () => {
+      const created = await createAdminManualOrder(
+        mockSupabase,
+        {
+          customer: {
+            firstName: 'Offline',
+            lastName: 'Shopper',
+            phone: '08022223333',
+          },
+          shippingAddress: { addressLine1: 'Lekki Phase 1', city: 'Lagos', state: 'Lagos' },
+          items: [{ productId: physicalProdId, quantity: 1 }],
+          warehouseId,
+        },
+        adminUserId,
+        orgId,
+        'http://localhost:3000',
+        'admin@unwindanddoodle.com'
+      );
+
+      // Customer accesses payment link and provides their real email
+      const updated = await updateCustomerOrderDetails(mockSupabase, {
+        token: created.token,
+        email: 'real.customer@gmail.com',
+      });
+
+      expect(updated.customer.email).toBe('real.customer@gmail.com');
+
+      // Verify orders table
+      const { data: order } = await mockSupabase.from('orders').select('*').eq('id', created.orderId).single();
+      expect(order!.email).toBe('real.customer@gmail.com');
+
+      // Verify customers table
+      const { data: customer } = await mockSupabase.from('customers').select('*').eq('id', order!.customer_id).single();
+      expect(customer!.email).toBe('real.customer@gmail.com');
+    });
   });
 });
 
