@@ -203,3 +203,73 @@ export interface MarketingAutomationFilter {
   status?: MarketingAutomationStatus;
   type?: MarketingAutomationType;
 }
+
+// ============================================================================
+// 7. MARKETING SEGMENTATION ENGINE
+// ============================================================================
+
+export type CustomerSegmentField =
+  | 'email'
+  | 'first_name'
+  | 'last_name'
+  | 'email_marketing_consent'
+  | 'whatsapp_marketing_consent'
+  | 'created_at';
+
+export type PurchaseSegmentField =
+  | 'last_order_at'
+  | 'order_count'
+  | 'total_spent';
+
+export type SegmentField = CustomerSegmentField | PurchaseSegmentField;
+
+export type SegmentOperator =
+  | 'equals'
+  | 'not_equals'
+  | 'contains'
+  | 'starts_with'
+  | 'ends_with'
+  | 'before'
+  | 'after'
+  | 'between'
+  | 'greater_than'
+  | 'less_than'
+  | 'greater_than_or_equal'
+  | 'less_than_or_equal'
+  | 'is_null'
+  | 'is_not_null';
+
+export interface SegmentCondition {
+  field: SegmentField;
+  operator: SegmentOperator;
+  value?: unknown;
+}
+
+export interface SegmentRules {
+  match: 'all' | 'any';
+  conditions: SegmentCondition[];
+}
+
+export interface SegmentCustomer {
+  id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+}
+
+export interface SegmentCustomerOptions {
+  limit?: number;
+  offset?: number;
+}
+
+export interface SegmentCustomerPreviewResult {
+  customers: SegmentCustomer[];
+  total: number;
+}
+
+export class SegmentRuleValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SegmentRuleValidationError';
+  }
+}
