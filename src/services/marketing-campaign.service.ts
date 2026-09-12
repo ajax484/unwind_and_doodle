@@ -303,11 +303,19 @@ export interface CampaignValidationResult {
   errors: string[];
 }
 
+export interface CampaignValidationOptions {
+  requireSegment?: boolean;
+}
+
 /**
  * Validates whether a campaign has all required fields for scheduling or test delivery.
  */
-export function validateCampaignForDelivery(campaign: Partial<MarketingCampaign>): CampaignValidationResult {
+export function validateCampaignForDelivery(
+  campaign: Partial<MarketingCampaign>,
+  options?: CampaignValidationOptions
+): CampaignValidationResult {
   const errors: string[] = [];
+  const requireSegment = options?.requireSegment ?? true;
 
   if (!campaign.name?.trim()) {
     errors.push('Campaign name is required');
@@ -326,7 +334,7 @@ export function validateCampaignForDelivery(campaign: Partial<MarketingCampaign>
       errors.push('Sender email is invalid');
     }
   }
-  if (!campaign.segment_id) {
+  if (requireSegment && !campaign.segment_id) {
     errors.push('An audience segment must be selected');
   }
 

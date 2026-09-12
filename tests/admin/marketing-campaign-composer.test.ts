@@ -180,6 +180,20 @@ describe('Step 1F — Marketing Campaign Composer', () => {
       });
       expect(valid.valid).toBe(true);
       expect(valid.errors).toHaveLength(0);
+
+      // Valid for test send without segment_id
+      const validTestSend = validateCampaignForDelivery(
+        {
+          name: 'Test Send Campaign',
+          subject: 'Valid Subject',
+          sender_name: 'Unwind & Doodle',
+          sender_email: 'hello@unwindanddoodle.com',
+          content: { html: '<p>Draft preview</p>' },
+        },
+        { requireSegment: false }
+      );
+      expect(validTestSend.valid).toBe(true);
+      expect(validTestSend.errors).toHaveLength(0);
     });
   });
 

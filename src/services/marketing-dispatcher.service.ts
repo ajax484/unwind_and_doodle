@@ -43,7 +43,8 @@ export async function sendTestEmail(
     return { success: false, error: 'Campaign not found for this organization.' };
   }
 
-  const validation = validateCampaignForDelivery(campaign);
+  // Validate campaign fields without requiring audience segment for single test sends
+  const validation = validateCampaignForDelivery(campaign, { requireSegment: false });
   if (!validation.valid) {
     return {
       success: false,

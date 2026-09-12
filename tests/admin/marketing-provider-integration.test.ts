@@ -245,6 +245,27 @@ describe('Step 1G — Marketing Email Provider Integration', () => {
       expect(result.error).toContain('Campaign validation failed');
       expect(mockProvider.sentEmails).toHaveLength(0);
     });
+
+    it('succeeds delivering test email even if no audience segment is selected yet', async () => {
+      const draftWithoutSegment = await createCampaign(mockSupabase, orgAlpha, {
+        name: 'Draft Without Segment',
+        subject: 'Previewing Draft Email',
+        sender_name: 'Unwind & Doodle',
+        sender_email: 'hello@unwindanddoodle.com',
+        segment_id: undefined, // No segment selected yet
+        content: { html: '<p>Testing draft content!</p>' },
+      });
+
+      const result = await sendTestEmail(
+        mockSupabase,
+        orgAlpha,
+        draftWithoutSegment.id,
+        'designer@company.com'
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockProvider.sentEmails.some((e) => e.to === 'designer@company.com')).toBe(true);
+    });
   });
 
   // ==========================================================================
