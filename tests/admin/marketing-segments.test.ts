@@ -21,7 +21,7 @@ import {
   getSeedSegmentDefinitions,
   seedDefaultSegments,
 } from '@/services/marketing-segment.service';
-import { SegmentRuleValidationError } from '@/types/marketing';
+import { SegmentRuleValidationError, SegmentRules } from '@/types/marketing';
 
 describe('Marketing Customer Segment Creation & Management', () => {
   let mockSupabase: ReturnType<typeof createMockSupabaseClient>;
@@ -31,7 +31,7 @@ describe('Marketing Customer Segment Creation & Management', () => {
   const adminAlphaId = 'user-admin-alpha';
 
   beforeEach(() => {
-    process.env.NODE_ENV = 'test';
+    (process.env as Record<string, string | undefined>).NODE_ENV = 'test';
     mockSupabase = createMockSupabaseClient({
       organizations: [
         { id: orgAlpha, name: 'Alpha Org', slug: 'alpha' },
@@ -187,8 +187,8 @@ describe('Marketing Customer Segment Creation & Management', () => {
     });
 
     it('enforces mandatory email marketing consent in in-flight preview', async () => {
-      const broadRules = {
-        match: 'any' as const,
+      const broadRules: SegmentRules = {
+        match: 'any',
         conditions: [
           { field: 'email', operator: 'contains', value: 'example.com' },
         ],

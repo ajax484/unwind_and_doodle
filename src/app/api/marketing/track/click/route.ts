@@ -3,6 +3,7 @@ import { getServiceSupabaseClient } from '@/lib/supabase/client';
 import { verifyMarketingTrackingToken } from '@/lib/marketing-token';
 import { canTransitionRecipientStatus } from '@/services/marketing-provider/webhook-normalizer';
 import { getConfig } from '@/lib/config';
+import { MarketingCampaignRecipientUpdate } from '@/types/marketing';
 
 /**
  * Validates that a target URL is safe for redirection (prevents open redirects and javascript: injection).
@@ -81,7 +82,7 @@ export async function GET(req: NextRequest) {
 
     if (recipient) {
       const now = new Date().toISOString();
-      const updates: Record<string, unknown> = {};
+      const updates: MarketingCampaignRecipientUpdate = {};
 
       if (!recipient.clicked_at) {
         updates.clicked_at = now;

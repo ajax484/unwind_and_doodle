@@ -22,7 +22,7 @@ describe('Native 1x1 Open Pixel & Click Redirect Tracking', () => {
   const customerId = 'cust-77777777-7777-7777-7777-777777777777';
 
   beforeEach(() => {
-    process.env.NODE_ENV = 'test';
+    (process.env as Record<string, string | undefined>).NODE_ENV = 'test';
     process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
 
     mockSupabase = createMockSupabaseClient({

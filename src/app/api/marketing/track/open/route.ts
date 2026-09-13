@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
 import { verifyMarketingTrackingToken } from '@/lib/marketing-token';
 import { canTransitionRecipientStatus } from '@/services/marketing-provider/webhook-normalizer';
+import { MarketingCampaignRecipientUpdate } from '@/types/marketing';
 
 // 43-byte valid transparent 1x1 GIF binary
 const TRANSPARENT_1X1_GIF = Buffer.from(
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
 
     if (recipient) {
       const now = new Date().toISOString();
-      const updates: Record<string, unknown> = {};
+      const updates: MarketingCampaignRecipientUpdate = {};
 
       if (!recipient.opened_at) {
         updates.opened_at = now;

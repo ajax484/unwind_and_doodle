@@ -110,7 +110,7 @@ export async function createSegment(
     organization_id: organizationId,
     name: input.name.trim(),
     description: input.description?.trim() || null,
-    rules: input.rules ?? {},
+    rules: (input.rules ?? {}) as unknown as Database['public']['Tables']['marketing_segments']['Insert']['rules'],
     active: input.active ?? true,
   };
 
@@ -160,7 +160,7 @@ export async function updateSegment(
     updates.description = input.description ? input.description.trim() : null;
   }
   if (input.rules !== undefined) {
-    updates.rules = input.rules;
+    updates.rules = input.rules as unknown as Database['public']['Tables']['marketing_segments']['Update']['rules'];
   }
   if (input.active !== undefined) {
     updates.active = input.active;

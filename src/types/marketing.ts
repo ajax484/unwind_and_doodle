@@ -36,14 +36,14 @@ export type MarketingSegmentUpdate = Database['public']['Tables']['marketing_seg
 export interface CreateMarketingSegmentInput {
   name: string;
   description?: string | null;
-  rules?: Json;
+  rules?: SegmentRules | Json;
   active?: boolean;
 }
 
 export interface UpdateMarketingSegmentInput {
   name?: string;
   description?: string | null;
-  rules?: Json;
+  rules?: SegmentRules | Json;
   active?: boolean;
 }
 

@@ -1042,7 +1042,7 @@ describe('Phase 6I: Manual Orders & Customer Payment Links Workflow', () => {
       expect(order!.phone).toBe('+234 809 123 4567');
 
       // Verify customer record in database also received the sub-addressed email
-      const { data: customer } = await mockSupabase.from('customers').select('*').eq('id', order!.customer_id).single();
+      const { data: customer } = await mockSupabase.from('customers').select('*').eq('id', order!.customer_id!).single();
       expect(customer).toBeDefined();
       expect(customer!.email).toBe('sales+2348091234567@unwindanddoodle.com');
     });
@@ -1079,9 +1079,8 @@ describe('Phase 6I: Manual Orders & Customer Payment Links Workflow', () => {
       expect(order!.email).toBe('real.customer@gmail.com');
 
       // Verify customers table
-      const { data: customer } = await mockSupabase.from('customers').select('*').eq('id', order!.customer_id).single();
+      const { data: customer } = await mockSupabase.from('customers').select('*').eq('id', order!.customer_id!).single();
       expect(customer!.email).toBe('real.customer@gmail.com');
     });
   });
 });
-
