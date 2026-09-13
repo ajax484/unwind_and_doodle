@@ -45,7 +45,7 @@ export default function RootLayout({
       <body className={`${fredoka.variable} ${plusJakartaSans.variable} antialiased min-h-screen flex flex-col bg-bg-default text-text-primary`}>
         <CartProvider>
           <Navbar />
-          <main className="flex-grow">{children}</main>
+          <main className="grow">{children}</main>
           <Footer />
           <CartDrawer />
           <Toaster

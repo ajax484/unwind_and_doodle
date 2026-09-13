@@ -48,7 +48,7 @@
   --color-status-purple-base: #7E22CE;
 
   /* Semantic - Background */
-  --color-bg-default: var(--color-neutral-cream);
+  --color-bg-default: var(--color-neutral-white);
   --color-bg-surface: var(--color-neutral-white);
   --color-bg-subtle: var(--color-brand-blue-subtle);
   --color-bg-brand: var(--color-brand-blue-light);
