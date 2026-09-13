@@ -184,6 +184,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           rel={rel}
           className={baseClasses}
           role="button"
+          {...(rest as any)}
         >
           {content}
         </Link>

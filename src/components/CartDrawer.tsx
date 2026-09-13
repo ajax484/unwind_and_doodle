@@ -99,6 +99,13 @@ export default function CartDrawer({
     };
   }, [isOpen]);
 
+  // Auto-close drawer on route change
+  useEffect(() => {
+    if (isOpen) {
+      closeDrawer();
+    }
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (pathname?.startsWith('/admin') || !isOpen) return null;
 
   const items = cart?.items || [];
@@ -326,7 +333,7 @@ export default function CartDrawer({
                     className="w-full"
                     data-testid="cart-drawer-checkout-button"
                   >
-                    Checkout →
+                    Proceed to Summary →
                   </Button>
                 )}
 

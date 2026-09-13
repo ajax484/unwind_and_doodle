@@ -71,9 +71,6 @@ export default function CustomerPaymentPage({
         const locJson = await locRes.json();
         if (locJson.success && Array.isArray(locJson.data)) {
           setLocations(locJson.data);
-          if (!detailData.customer.locationId && locJson.data.length > 0) {
-            setSelectedLocationId(locJson.data[0].id);
-          }
         }
       }
     } catch (err: unknown) {
@@ -89,19 +86,42 @@ export default function CustomerPaymentPage({
     }
   }, [token]);
 
-  // Handle Save Changes
-  const handleSaveChanges = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Check if form has unsaved modifications
+  const hasUnsavedChanges = () => {
+    if (!detail) return false;
+    const curEmail = email.trim().toLowerCase();
+    const origEmail = (detail.customer.email || '').trim().toLowerCase();
+    const curFirstName = firstName.trim();
+    const origFirstName = (detail.customer.firstName || '').trim();
+    const curLastName = lastName.trim();
+    const origLastName = (detail.customer.lastName || '').trim();
+    const curPhone = phone.trim();
+    const origPhone = (detail.customer.phone || '').trim();
+    const curLocationId = selectedLocationId || '';
+    const origLocationId = detail.customer.locationId || '';
+
+    return (
+      curEmail !== origEmail ||
+      curFirstName !== origFirstName ||
+      curLastName !== origLastName ||
+      curPhone !== origPhone ||
+      curLocationId !== origLocationId
+    );
+  };
+
+  // Core execution to save customer changes
+  const executeSaveChanges = async (): Promise<PaymentRequestDetail> => {
+    if (!detail) {
+      throw new Error('Payment details not available');
+    }
+
+    const previousFee = detail.pricing.shippingFee;
+    setSaving(true);
     setSaveErrorMsg(null);
     setSaveSuccessMsg(null);
     setFeeChangeNotice(null);
 
-    if (!detail) return;
-
-    const previousFee = detail.pricing.shippingFee;
-
     try {
-      setSaving(true);
       const res = await fetch(`/api/pay/${token}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -134,12 +154,24 @@ export default function CustomerPaymentPage({
           `Delivery fee updated: ${formatCurrency(previousFee)} → ${formatCurrency(newFee)}`
         );
       }
+
+      return updatedDetail;
     } catch (err: unknown) {
-      setSaveErrorMsg(
-        err instanceof Error ? err.message : 'An error occurred while saving your details.'
-      );
+      const msg = err instanceof Error ? err.message : 'An error occurred while saving your details.';
+      setSaveErrorMsg(msg);
+      throw err;
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Handle Save Changes (manual form submission)
+  const handleSaveChanges = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await executeSaveChanges();
+    } catch {
+      // Error message is set within executeSaveChanges
     }
   };
 
@@ -147,6 +179,20 @@ export default function CustomerPaymentPage({
   const handlePayNow = async () => {
     try {
       setPayLoading(true);
+      setSaveErrorMsg(null);
+
+      // If customer updated info without clicking "Save changes", auto-save first
+      if (hasUnsavedChanges()) {
+        try {
+          await executeSaveChanges();
+        } catch (saveErr: unknown) {
+          const msg = saveErr instanceof Error ? saveErr.message : 'Failed to save updated information.';
+          toast.error(msg);
+          setPayLoading(false);
+          return;
+        }
+      }
+
       const res = await fetch(`/api/pay/${token}/initialize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -416,7 +462,7 @@ export default function CustomerPaymentPage({
               <div className="pt-2 flex justify-end">
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || payLoading}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold text-xs rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {saving ? (
@@ -523,19 +569,19 @@ export default function CustomerPaymentPage({
             <button
               type="button"
               onClick={handlePayNow}
-              disabled={!isPending || payLoading}
+              disabled={!isPending || payLoading || saving}
               className={`w-full py-4 rounded-2xl text-sm font-heading font-extrabold transition-all flex items-center justify-center gap-2 shadow-xl ${
                 !isPending
                   ? 'bg-slate-800 text-slate-500 cursor-not-allowed shadow-none border border-slate-700/50'
-                  : payLoading
+                  : payLoading || saving
                   ? 'bg-rose-700 text-white cursor-wait opacity-80'
                   : 'bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white active:scale-[0.99] cursor-pointer'
               }`}
             >
-              {payLoading ? (
+              {payLoading || saving ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Connecting to Paystack...</span>
+                  <span>{saving ? 'Saving changes...' : 'Connecting to Paystack...'}</span>
                 </>
               ) : isPaid ? (
                 <span>✓ Payment Completed</span>
