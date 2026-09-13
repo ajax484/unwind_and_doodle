@@ -31,6 +31,10 @@ export default function CustomerPaymentPage({
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [selectedLocationId, setSelectedLocationId] = useState('');
+  const [addressLine1, setAddressLine1] = useState('');
+  const [addressLine2, setAddressLine2] = useState('');
+  const [city, setCity] = useState('Lagos');
+  const [state, setState] = useState('Lagos');
 
   // Update & Action States
   const [saving, setSaving] = useState(false);
@@ -67,6 +71,17 @@ export default function CustomerPaymentPage({
         setSelectedLocationId(detailData.customer.locationId);
       }
 
+      const rawAddr = (detailData.customer.shippingAddress as Record<string, unknown>) || {};
+      const rawStreet = String(rawAddr.address_line1 || rawAddr.addressLine1 || '');
+      const isPlaceholder =
+        rawStreet.toLowerCase().includes('to be provided') ||
+        rawStreet.toLowerCase().includes('pending customer') ||
+        rawStreet.toLowerCase().includes('address on file');
+      setAddressLine1(isPlaceholder ? '' : rawStreet);
+      setAddressLine2(String(rawAddr.address_line2 || rawAddr.addressLine2 || ''));
+      setCity(String(rawAddr.city || 'Lagos'));
+      setState(String(rawAddr.state || 'Lagos'));
+
       if (locRes.ok) {
         const locJson = await locRes.json();
         if (locJson.success && Array.isArray(locJson.data)) {
@@ -97,15 +112,23 @@ export default function CustomerPaymentPage({
     const origLastName = (detail.customer.lastName || '').trim();
     const curPhone = phone.trim();
     const origPhone = (detail.customer.phone || '').trim();
-    const curLocationId = selectedLocationId || '';
-    const origLocationId = detail.customer.locationId || '';
+    const rawAddr = (detail.customer.shippingAddress as Record<string, unknown>) || {};
+    const origStreet = String(rawAddr.address_line1 || rawAddr.addressLine1 || '');
+    const isPlaceholder =
+      origStreet.toLowerCase().includes('to be provided') ||
+      origStreet.toLowerCase().includes('pending customer') ||
+      origStreet.toLowerCase().includes('address on file');
+    const origCleanStreet = isPlaceholder ? '' : origStreet;
+    const origLine2 = String(rawAddr.address_line2 || rawAddr.addressLine2 || '');
 
     return (
       curEmail !== origEmail ||
       curFirstName !== origFirstName ||
       curLastName !== origLastName ||
       curPhone !== origPhone ||
-      curLocationId !== origLocationId
+      curLocationId !== origLocationId ||
+      addressLine1.trim() !== origCleanStreet.trim() ||
+      addressLine2.trim() !== origLine2.trim()
     );
   };
 
@@ -131,6 +154,13 @@ export default function CustomerPaymentPage({
           lastName: lastName.trim() || undefined,
           phone: phone.trim() || undefined,
           locationId: selectedLocationId || undefined,
+          shippingAddress: {
+            addressLine1: addressLine1.trim() || undefined,
+            addressLine2: addressLine2.trim() || undefined,
+            city: city.trim() || 'Lagos',
+            state: state.trim() || 'Lagos',
+            country: 'Nigeria',
+          },
         }),
       });
 
@@ -180,6 +210,19 @@ export default function CustomerPaymentPage({
     try {
       setPayLoading(true);
       setSaveErrorMsg(null);
+
+      // Ensure compulsory fields are provided before payment
+      if (!selectedLocationId) {
+        toast.error('Please select your delivery location before proceeding to payment.');
+        setPayLoading(false);
+        return;
+      }
+
+      if (!addressLine1.trim()) {
+        toast.error('Please enter your street address before proceeding to payment.');
+        setPayLoading(false);
+        return;
+      }
 
       // If customer updated info without clicking "Save changes", auto-save first
       if (hasUnsavedChanges()) {
@@ -431,7 +474,9 @@ export default function CustomerPaymentPage({
               </div>
 
               <div className="sm:col-span-2">
-                <label className="text-[11px] text-slate-400 font-medium mb-1 block">Delivery Location</label>
+                <label className="text-[11px] text-slate-400 font-medium mb-1 block">
+                  Delivery Location <span className="text-rose-400">*</span>
+                </label>
                 <select
                   disabled={!isPending}
                   value={selectedLocationId}
@@ -451,10 +496,32 @@ export default function CustomerPaymentPage({
               </div>
 
               <div className="sm:col-span-2">
-                <span className="text-[11px] text-slate-400 block">Shipping Address Line</span>
-                <span className="font-medium text-slate-300 text-[11px] leading-snug block">
-                  {formatAddress(detail.customer.shippingAddress)}
-                </span>
+                <label className="text-[11px] text-slate-400 font-medium mb-1 block">
+                  Street Address <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  disabled={!isPending}
+                  value={addressLine1}
+                  onChange={(e) => setAddressLine1(e.target.value)}
+                  placeholder="e.g. 12 Admiralty Way, Lekki Phase 1"
+                  required
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-hidden focus:border-rose-500 disabled:opacity-50 transition-all"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="text-[11px] text-slate-400 font-medium mb-1 block">
+                  Apartment, Suite, Unit (Optional)
+                </label>
+                <input
+                  type="text"
+                  disabled={!isPending}
+                  value={addressLine2}
+                  onChange={(e) => setAddressLine2(e.target.value)}
+                  placeholder="e.g. Flat 4B"
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-hidden focus:border-rose-500 disabled:opacity-50 transition-all"
+                />
               </div>
             </div>
 

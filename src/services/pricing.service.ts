@@ -13,8 +13,8 @@ export interface DeliveryFeeResult {
 
 export interface CalculatePricingParams {
   supabase: SupabaseClient<Database>;
-  warehouseId: string;
-  locationId: string;
+  warehouseId?: string;
+  locationId?: string;
   items: CheckoutItem[];
   discountCode?: string;
   manualDiscount?: {
@@ -200,9 +200,12 @@ export async function calculateOrderPricing(
     });
   }
 
-  // 4. Calculate delivery fee using canonical resolver
-  const deliveryRes = await resolveDeliveryFee(supabase, locationId, warehouseId);
-  const deliveryFee = deliveryRes.deliveryFee;
+  // 4. Calculate delivery fee using canonical resolver if locationId provided
+  let deliveryFee = 0;
+  if (locationId) {
+    const deliveryRes = await resolveDeliveryFee(supabase, locationId, warehouseId);
+    deliveryFee = deliveryRes.deliveryFee;
+  }
 
   // 5. Calculate discount
   let discountTotal = 0;

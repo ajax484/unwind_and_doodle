@@ -15,6 +15,7 @@ import AlertBanner from "@/components/AlertBanner";
 import EmptyState from "@/components/EmptyState";
 import Skeleton from "@/components/Skeleton";
 import OrderStatusBadge from "@/components/OrderStatusBadge";
+import Badge from "@/components/Badge";
 import { Pagination } from "@/components/Pagination";
 
 function OrdersListContent() {
@@ -337,8 +338,15 @@ function OrdersListContent() {
                         </Link>
                       </td>
                       <td className="py-3.5 px-4">
-                        <div className="font-semibold text-text-primary">
-                          {order.customer.name}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-semibold text-text-primary">
+                            {order.customer.name}
+                          </span>
+                          {order.isAddressPending && (
+                            <Badge variant="status" statusType="warning" size="sm">
+                              Address Pending
+                            </Badge>
+                          )}
                         </div>
                         <div className="text-[11px] text-text-tertiary truncate max-w-[180px]">
                           {order.customer.email}
@@ -398,12 +406,17 @@ function OrdersListContent() {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <OrderStatusBadge status={order.status} />
                     <OrderStatusBadge
                       status={order.paymentStatus}
                       type="payment"
                     />
+                    {order.isAddressPending && (
+                      <Badge variant="status" statusType="warning" size="sm">
+                        Address Pending
+                      </Badge>
+                    )}
                   </div>
 
                   <div className="text-xs text-text-secondary flex justify-between items-center">

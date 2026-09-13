@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createMockSupabaseClient } from '@tests/mocks/supabase.mock';
-import { updateCustomerOrderDetails, getPaymentRequestByToken } from '@/services/manual-order.service';
+import { updateCustomerOrderDetails, getPaymentRequestByToken, initializePaymentRequestTransaction } from '@/services/manual-order.service';
 
 describe('Prompt 3: Customer Payment Page & Secure Edit Flow', () => {
   const orgId = '88c7af2e-afd4-4504-a43f-b14cc45d6263';
@@ -147,5 +147,71 @@ describe('Prompt 3: Customer Payment Page & Secure Edit Flow', () => {
     // Total must still be calculated strictly server-side (10000 subtotal + 1500 shipping)
     expect(result.pricing.total).toBe(11500);
     expect(result.pricing.subtotal).toBe(10000);
+  });
+
+  it('6. Customer updates street address and shipping address successfully', async () => {
+    const updated = await updateCustomerOrderDetails(mockSupabase, {
+      token: validToken,
+      shippingAddress: {
+        addressLine1: '45 Marina Street',
+        addressLine2: 'Suite 2A',
+        city: 'Lagos Island',
+        state: 'Lagos',
+      },
+    });
+
+    const addr = updated.customer.shippingAddress as Record<string, unknown>;
+    expect(addr.address_line1).toBe('45 Marina Street');
+    expect(addr.address_line2).toBe('Suite 2A');
+  });
+
+  it('7. Rejects payment initialization if address or location is pending', async () => {
+    // Set order shipping_address to placeholder and location_id to null
+    await mockSupabase.from('orders').update({
+      shipping_address: { address_line1: 'To be provided by customer' },
+      location_id: null,
+    } as any).eq('id', orderId);
+
+    await expect(
+      initializePaymentRequestTransaction(mockSupabase, validToken)
+    ).rejects.toThrow(/Please provide your delivery location and street address/i);
+  });
+
+  it('8. Allows payment initialization once customer completes address and location', async () => {
+    // First set order with pending address
+    await mockSupabase.from('orders').update({
+      shipping_address: { address_line1: 'To be provided by customer' },
+      location_id: null,
+    } as any).eq('id', orderId);
+
+    // Customer fills address and selects location
+    await updateCustomerOrderDetails(mockSupabase, {
+      token: validToken,
+      locationId: locationId1,
+      shippingAddress: {
+        addressLine1: '12 Admiralty Way',
+        city: 'Lekki',
+        state: 'Lagos',
+      },
+    });
+
+    const mockProvider = {
+      initializeTransaction: vi.fn().mockResolvedValue({
+        authorizationUrl: 'https://checkout.paystack.com/auth_test_123',
+        accessCode: 'access_123',
+        reference: 'ref_123',
+      }),
+      verifyTransaction: vi.fn(),
+      generateReference: () => 'ref_123',
+    };
+
+    const res = await initializePaymentRequestTransaction(
+      mockSupabase,
+      validToken,
+      undefined,
+      mockProvider as any
+    );
+
+    expect(res.authorizationUrl).toBe('https://checkout.paystack.com/auth_test_123');
   });
 });

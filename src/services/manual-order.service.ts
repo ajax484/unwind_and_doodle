@@ -73,10 +73,10 @@ export async function createAdminManualOrder(
       marketingConsent: false,
     },
     {
-      streetAddress: validated.shippingAddress.addressLine1 || validated.shippingAddress.addressLine2 || 'Address on file',
-      city: validated.shippingAddress.city,
-      state: validated.shippingAddress.state,
-      postalCode: validated.shippingAddress.postalCode || undefined,
+      streetAddress: validated.shippingAddress?.addressLine1 || validated.shippingAddress?.addressLine2 || 'To be provided by customer',
+      city: validated.shippingAddress?.city || 'Lagos',
+      state: validated.shippingAddress?.state || 'Lagos',
+      postalCode: validated.shippingAddress?.postalCode || undefined,
     },
     validated.locationId || ''
   );
@@ -86,14 +86,53 @@ export async function createAdminManualOrder(
   const requiredItems = await resolveRequiredPhysicalItems(supabase, validated.items);
 
   if (!warehouseId) {
-    if (!validated.locationId) {
-      throw new Error('Either warehouseId or locationId must be provided.');
+    if (validated.locationId) {
+      const whResult = await findCapableWarehouse(supabase, validated.locationId, requiredItems);
+      if (!whResult.capable || !whResult.warehouseId) {
+        throw new Error(whResult.error || 'Insufficient inventory across available warehouses.');
+      }
+      warehouseId = whResult.warehouseId;
+    } else {
+      // If locationId is omitted by admin, find any active warehouse with sufficient stock
+      const { data: activeWarehouses, error: whErr } = await supabase
+        .from('warehouses')
+        .select('*')
+        .eq('is_active', true);
+
+      if (whErr || !activeWarehouses || activeWarehouses.length === 0) {
+        throw new Error('No active warehouses available.');
+      }
+
+      if (requiredItems.length > 0) {
+        const whIds = activeWarehouses.map((w) => w.id);
+        const productIds = requiredItems.map((r) => r.productId);
+
+        const { data: invRecords } = await supabase
+          .from('inventory')
+          .select('warehouse_id, product_id, quantity, reserved_quantity')
+          .in('warehouse_id', whIds)
+          .in('product_id', productIds);
+
+        for (const wh of activeWarehouses) {
+          const whInv = (invRecords || []).filter((r) => r.warehouse_id === wh.id);
+          const hasAll = requiredItems.every((req) => {
+            const inv = whInv.find((r) => r.product_id === req.productId);
+            const available = inv
+              ? Math.max(0, Number(inv.quantity || 0) - Number(inv.reserved_quantity || 0))
+              : 0;
+            return available >= req.quantity;
+          });
+          if (hasAll) {
+            warehouseId = wh.id;
+            break;
+          }
+        }
+      }
+
+      if (!warehouseId) {
+        warehouseId = activeWarehouses[0].id;
+      }
     }
-    const whResult = await findCapableWarehouse(supabase, validated.locationId, requiredItems);
-    if (!whResult.capable || !whResult.warehouseId) {
-      throw new Error(whResult.error || 'Insufficient inventory across available warehouses.');
-    }
-    warehouseId = whResult.warehouseId;
   }
 
   // Pre-validate theme customizations if present
@@ -133,12 +172,12 @@ export async function createAdminManualOrder(
       whatsapp_number: validated.customer.whatsappNumber || '',
     },
     p_shipping_address: {
-      address_line1: validated.shippingAddress.addressLine1,
-      address_line2: validated.shippingAddress.addressLine2 || '',
-      city: validated.shippingAddress.city,
-      state: validated.shippingAddress.state,
-      postal_code: validated.shippingAddress.postalCode || '',
-      country: validated.shippingAddress.country || 'Nigeria',
+      address_line1: validated.shippingAddress?.addressLine1 || 'To be provided by customer',
+      address_line2: validated.shippingAddress?.addressLine2 || '',
+      city: validated.shippingAddress?.city || 'Lagos',
+      state: validated.shippingAddress?.state || 'Lagos',
+      postal_code: validated.shippingAddress?.postalCode || '',
+      country: validated.shippingAddress?.country || 'Nigeria',
     },
     p_items: validated.items.map((i) => ({
       product_id: i.productId,
@@ -455,6 +494,19 @@ export async function initializePaymentRequestTransaction(
     throw new Error('This payment link has been cancelled.');
   }
 
+  // Enforce that customer has provided delivery location and street address before payment
+  const addr = (detail.customer?.shippingAddress as Record<string, unknown>) || {};
+  const street = String(addr.address_line1 || addr.addressLine1 || '').trim();
+  const isPendingStreet =
+    !street ||
+    street.toLowerCase().includes('to be provided') ||
+    street.toLowerCase().includes('pending customer') ||
+    street.toLowerCase().includes('address on file');
+
+  if (isPendingStreet) {
+    throw new Error('Please provide your delivery location and street address before proceeding to payment.');
+  }
+
   // Fetch or create payment record
   const { data: existingPayment } = await supabase
     .from('payments')
@@ -566,7 +618,7 @@ export async function previewManualOrderPricing(
   supabase: SupabaseClient<Database>,
   input: {
     items: Array<{ productId: string; quantity: number }>;
-    locationId: string;
+    locationId?: string;
     warehouseId?: string;
     discountCode?: string;
     manualDiscount?: { type: 'percentage' | 'fixed_amount' | 'fixed'; value: number };
@@ -580,13 +632,12 @@ export async function previewManualOrderPricing(
   }));
 
   let warehouseId = input.warehouseId;
-  if (!warehouseId) {
+  if (!warehouseId && input.locationId) {
     const requiredItems = await resolveRequiredPhysicalItems(supabase, checkoutItems);
     const whResult = await findCapableWarehouse(supabase, input.locationId, requiredItems);
-    if (!whResult.capable || !whResult.warehouseId) {
-      throw new Error(whResult.error || 'No warehouse available for location');
+    if (whResult.capable && whResult.warehouseId) {
+      warehouseId = whResult.warehouseId;
     }
-    warehouseId = whResult.warehouseId;
   }
 
   return calculateOrderPricing({
@@ -663,12 +714,12 @@ export async function updateCustomerOrderDetails(
   if (validated.shippingAddress) {
     newShippingAddress = {
       ...newShippingAddress,
-      address_line1: validated.shippingAddress.addressLine1,
-      address_line2: validated.shippingAddress.addressLine2 || '',
-      city: validated.shippingAddress.city,
-      state: validated.shippingAddress.state,
-      postal_code: validated.shippingAddress.postalCode || '',
-      country: validated.shippingAddress.country || 'Nigeria',
+      ...(validated.shippingAddress.addressLine1 !== undefined ? { address_line1: validated.shippingAddress.addressLine1 } : {}),
+      ...(validated.shippingAddress.addressLine2 !== undefined ? { address_line2: validated.shippingAddress.addressLine2 } : {}),
+      ...(validated.shippingAddress.city !== undefined ? { city: validated.shippingAddress.city } : {}),
+      ...(validated.shippingAddress.state !== undefined ? { state: validated.shippingAddress.state } : {}),
+      ...(validated.shippingAddress.postalCode !== undefined ? { postal_code: validated.shippingAddress.postalCode } : {}),
+      ...(validated.shippingAddress.country !== undefined ? { country: validated.shippingAddress.country } : {}),
     };
   }
 

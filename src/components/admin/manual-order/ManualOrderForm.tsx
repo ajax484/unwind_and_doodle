@@ -948,30 +948,33 @@ export function ManualOrderForm() {
                   Delivery &amp; Fulfillment Location
                 </h3>
                 <p className="text-xs text-text-secondary">
-                  Select customer delivery location to auto-calculate delivery rate.
+                  Select customer delivery location to auto-calculate delivery rate, or leave blank to let customer select during payment checkout.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
                   <Select
-                    label="Delivery Location *"
+                    label="Delivery Location (Optional for Admin)"
                     value={selectedLocationId}
                     onChange={(e) => setSelectedLocationId(e.target.value)}
                     size="sm"
-                    options={locations.map((loc) => ({
-                      value: loc.id,
-                      label: `${loc.name} ${loc.state ? `(${loc.state})` : ""}`,
-                    }))}
+                    options={[
+                      { value: "", label: "Leave blank — Customer selects during checkout" },
+                      ...locations.map((loc) => ({
+                        value: loc.id,
+                        label: `${loc.name} ${loc.state ? `(${loc.state})` : ""}`,
+                      })),
+                    ]}
                   />
                 </div>
 
                 <div className="sm:col-span-2">
                   <TextInput
-                    label="Address Line 1"
+                    label="Address Line 1 (Optional for Admin)"
                     value={addressLine1}
                     onChange={(e) => setAddressLine1(e.target.value)}
-                    placeholder="123 Admiralty Way"
+                    placeholder="Leave blank if customer will provide during checkout"
                     size="sm"
                   />
                 </div>

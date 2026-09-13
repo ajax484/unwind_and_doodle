@@ -76,6 +76,7 @@ export interface AdminOrderListItem {
   paymentProvider: string | null;
   createdAt: string;
   updatedAt: string;
+  isAddressPending?: boolean;
 }
 
 export interface AdminOrderListResponse {

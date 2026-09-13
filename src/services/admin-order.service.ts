@@ -211,6 +211,15 @@ export async function listAdminOrders(
         ? `${cust.first_name || ''} ${cust.last_name || ''}`.trim()
         : 'Guest';
 
+    const addr = (o.shipping_address as Record<string, unknown>) || {};
+    const street = String(addr.address_line1 || addr.addressLine1 || '').trim();
+    const isAddressPending =
+      !street ||
+      street.toLowerCase().includes('to be provided') ||
+      street.toLowerCase().includes('pending customer') ||
+      street.toLowerCase().includes('address on file') ||
+      !o.location_id;
+
     return {
       id: o.id,
       orderNumber: o.order_number,
@@ -238,6 +247,7 @@ export async function listAdminOrders(
       paymentProvider: pay?.provider || null,
       createdAt: o.created_at,
       updatedAt: o.updated_at,
+      isAddressPending,
     };
   });
 

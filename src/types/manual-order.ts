@@ -36,11 +36,20 @@ export const ManualOrderCustomerSchema = z
   );
 
 export const ManualOrderShippingAddressSchema = z.object({
-  addressLine1: z.string().min(1, { message: 'Address line 1 is required' }),
-  addressLine2: z.string().optional(),
+  addressLine1: z.string().optional().or(z.literal('')),
+  addressLine2: z.string().optional().or(z.literal('')),
+  city: z.string().optional().or(z.literal('')),
+  state: z.string().optional().or(z.literal('')),
+  postalCode: z.string().optional().or(z.literal('')),
+  country: z.string().default('Nigeria'),
+});
+
+export const CustomerShippingAddressSchema = z.object({
+  addressLine1: z.string().min(1, { message: 'Street address is required' }),
+  addressLine2: z.string().optional().or(z.literal('')),
   city: z.string().min(1, { message: 'City is required' }),
   state: z.string().min(1, { message: 'State is required' }),
-  postalCode: z.string().optional(),
+  postalCode: z.string().optional().or(z.literal('')),
   country: z.string().default('Nigeria'),
 });
 
@@ -52,14 +61,14 @@ export const ManualDiscountSchema = z.object({
 export const CreateManualOrderSchema = z
   .object({
     customer: ManualOrderCustomerSchema,
-    shippingAddress: ManualOrderShippingAddressSchema,
+    shippingAddress: ManualOrderShippingAddressSchema.optional().default({}),
     items: z.array(ManualOrderItemSchema).min(1, { message: 'At least one product item is required' }),
     manualOrderChannel: z.enum(['instagram', 'whatsapp', 'phone', 'in_person', 'other']).default('instagram'),
     discountCode: z.string().optional(),
     manualDiscount: ManualDiscountSchema.optional(),
     shippingFee: z.number().min(0).default(0),
-    locationId: z.string().uuid().optional(),
-    warehouseId: z.string().uuid().optional(),
+    locationId: z.string().uuid().optional().or(z.literal('')),
+    warehouseId: z.string().uuid().optional().or(z.literal('')),
     notes: z.string().optional(),
   })
   .refine(
@@ -78,8 +87,8 @@ export const UpdateCustomerOrderSchema = z.object({
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   phone: z.string().optional(),
-  locationId: z.string().uuid({ message: 'Invalid location ID' }).optional(),
-  shippingAddress: ManualOrderShippingAddressSchema.optional(),
+  locationId: z.string().uuid({ message: 'Invalid location ID' }).optional().or(z.literal('')),
+  shippingAddress: CustomerShippingAddressSchema.partial().optional(),
 });
 
 export type ManualDiscountInput = z.input<typeof ManualDiscountSchema>;
