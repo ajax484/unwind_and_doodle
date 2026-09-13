@@ -578,6 +578,32 @@ export async function adjustInventoryStock(
     },
   });
 
+  // 8. Emit low stock alert if available stock falls to or below threshold
+  if (availableToSell <= 5) {
+    const isOutOfStock = availableToSell === 0;
+    const [{ data: prod }, { data: wh }] = await Promise.all([
+      supabase.from('products').select('name, sku').eq('id', product_id).maybeSingle(),
+      supabase.from('warehouses').select('name').eq('id', warehouse_id).maybeSingle(),
+    ]);
+
+    await publishDomainEvent(supabase, {
+      eventType: 'inventory.low_stock',
+      aggregateType: 'inventory',
+      aggregateId: `${warehouse_id}:${product_id}`,
+      payload: {
+        productId: product_id,
+        productName: prod?.name || 'Product',
+        sku: prod?.sku || null,
+        warehouseId: warehouse_id,
+        warehouseName: wh?.name || 'Warehouse',
+        availableQuantity: availableToSell,
+        threshold: 5,
+        isOutOfStock,
+        organizationId,
+      },
+    });
+  }
+
   return {
     success: true,
     newQuantity,

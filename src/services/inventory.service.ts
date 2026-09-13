@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../lib/supabase/types';
 import { RESERVATION_EXPIRY_MINUTES } from '../lib/constants';
+import { publishDomainEvent } from './events.service';
 
 export interface ReservationItem {
   productId: string;
@@ -194,6 +195,62 @@ export async function reserveOrderInventory(
 }
 
 /**
+ * Checks current inventory level against threshold (default 5) and emits domain event if low/out of stock.
+ */
+export async function checkAndEmitLowStockAlert(
+  supabase: SupabaseClient<Database>,
+  params: {
+    productId: string;
+    warehouseId: string;
+    threshold?: number;
+  }
+): Promise<boolean> {
+  const threshold = params.threshold ?? 5;
+
+  const { data: inv } = await supabase
+    .from('inventory')
+    .select('id, quantity, reserved_quantity, warehouse_id, product_id')
+    .eq('warehouse_id', params.warehouseId)
+    .eq('product_id', params.productId)
+    .maybeSingle();
+
+  if (!inv) return false;
+
+  const available = Math.max(0, (inv.quantity || 0) - (inv.reserved_quantity || 0));
+
+  if (available <= threshold) {
+    const isOutOfStock = available === 0;
+
+    // Fetch product and warehouse details for rich alert payload
+    const [{ data: prod }, { data: wh }] = await Promise.all([
+      supabase.from('products').select('name, sku, organization_id').eq('id', params.productId).maybeSingle(),
+      supabase.from('warehouses').select('name').eq('id', params.warehouseId).maybeSingle(),
+    ]);
+
+    await publishDomainEvent(supabase, {
+      eventType: 'inventory.low_stock',
+      aggregateType: 'inventory',
+      aggregateId: `${params.warehouseId}:${params.productId}`,
+      payload: {
+        productId: params.productId,
+        productName: prod?.name || 'Product',
+        sku: prod?.sku || null,
+        warehouseId: params.warehouseId,
+        warehouseName: wh?.name || 'Warehouse',
+        availableQuantity: available,
+        threshold,
+        isOutOfStock,
+        organizationId: prod?.organization_id,
+      },
+    });
+
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Commits a specific reservation using PostgreSQL `commit_inventory_reservation` RPC or table fallback.
  * Atomically decreases `quantity` and `reserved_quantity`, updates status to 'committed',
  * and logs an inventory movement.
@@ -208,6 +265,30 @@ export async function commitReservation(
 
   if (!rpcError) {
     console.info(`[reservation.finalized] reservation_id=${reservationId}`);
+    try {
+      const { data: res } = await supabase
+        .from('inventory_reservations')
+        .select('inventory_id')
+        .eq('id', reservationId)
+        .maybeSingle();
+
+      if (res?.inventory_id) {
+        const { data: inv } = await supabase
+          .from('inventory')
+          .select('product_id, warehouse_id')
+          .eq('id', res.inventory_id)
+          .maybeSingle();
+
+        if (inv) {
+          await checkAndEmitLowStockAlert(supabase, {
+            productId: inv.product_id,
+            warehouseId: inv.warehouse_id,
+          });
+        }
+      }
+    } catch (checkErr) {
+      console.warn('[inventory.low_stock_check_failed]', checkErr);
+    }
     return Boolean(rpcData ?? true);
   }
 
@@ -257,6 +338,15 @@ export async function commitReservation(
         reference_id: res.order_id,
         note: 'Committed order reservation',
       } as Database['public']['Tables']['inventory_movements']['Insert']);
+
+      try {
+        await checkAndEmitLowStockAlert(supabase, {
+          productId: inv.product_id,
+          warehouseId: inv.warehouse_id,
+        });
+      } catch (checkErr) {
+        console.warn('[inventory.low_stock_check_failed]', checkErr);
+      }
     }
 
     console.info(`[reservation.finalized] reservation_id=${reservationId}`);

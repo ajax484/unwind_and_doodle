@@ -18,6 +18,7 @@ export interface AppConfig {
     from: string;
     service?: string;
   };
+  adminEmails: string[];
 }
 
 export function getConfig(): AppConfig {
@@ -45,6 +46,13 @@ export function getConfig(): AppConfig {
   const smtpPass = process.env.SMTP_PASS || '';
   const smtpFrom = process.env.SMTP_FROM || 'Unwind and Doodle <no-reply@unwindanddoodle.com>';
 
+  const rawAdminEmails =
+    process.env.ADMIN_NOTIFICATION_EMAILS || process.env.ADMIN_EMAILS || '';
+  const adminEmails = rawAdminEmails
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
   return {
     supabaseUrl,
     supabaseAnonKey,
@@ -66,5 +74,6 @@ export function getConfig(): AppConfig {
       from: smtpFrom,
       service: smtpService || undefined,
     },
+    adminEmails,
   };
 }

@@ -10,6 +10,16 @@ export type NotificationCategory =
   | 'stock'
   | 'system';
 
+export type EmailNotificationTemplate =
+  | 'order_confirmation'
+  | 'order_shipped'
+  | 'review_request'
+  | 'stock_alert'
+  | 'team_invitation'
+  | 'admin_new_order'
+  | 'admin_order_cancelled'
+  | 'admin_low_stock';
+
 export interface InAppNotification {
   id: string;
   organizationId: string;

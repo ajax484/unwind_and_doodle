@@ -1,15 +1,18 @@
 import nodemailer, { Transporter } from 'nodemailer';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { Database } from '../lib/supabase/types';
 import { registerDomainEventHandler } from './events.service';
 import { generateOrderAccessToken } from '../lib/order-token';
 import { getConfig } from '../lib/config';
 import { createInAppNotification } from './in-app-notification.service';
 import { getServiceSupabaseClient } from '../lib/supabase/client';
 import { formatPrice } from '../lib/format-utils';
+import { EmailNotificationTemplate } from '../types/notification';
 
 export interface EmailNotificationPayload {
   to: string;
   subject: string;
-  template: 'order_confirmation' | 'order_shipped' | 'review_request' | 'stock_alert' | 'team_invitation';
+  template: EmailNotificationTemplate;
   data: Record<string, unknown>;
   html?: string;
   text?: string;
@@ -29,9 +32,10 @@ export function getTransporter(): Transporter {
     return activeTransporter;
   }
 
+  const isTest = process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST);
   const { smtp } = getConfig();
 
-  if (smtp && (smtp.service || smtp.host)) {
+  if (!isTest && smtp && (smtp.service || smtp.host)) {
     activeTransporter = nodemailer.createTransport({
       service: smtp.service,
       host: smtp.host || undefined,
@@ -66,6 +70,57 @@ export function setTransporter(transporter: Transporter | null): void {
  */
 export function clearNotificationCache(): void {
   sentNotifications.clear();
+}
+
+/**
+ * Resolves recipient email addresses for admin notifications.
+ * Priority order:
+ * 1. AppConfig adminEmails (from ADMIN_NOTIFICATION_EMAILS / ADMIN_EMAILS)
+ * 2. Organization members with 'owner' or 'admin' role in Supabase
+ * 3. Fallback to SMTP from or default admin email
+ */
+export async function getAdminNotificationRecipients(
+  supabase?: SupabaseClient<Database>,
+  organizationId?: string,
+  options?: { ignoreConfig?: boolean }
+): Promise<string[]> {
+  const { adminEmails, smtp } = getConfig();
+
+  if (!options?.ignoreConfig && adminEmails && adminEmails.length > 0) {
+    return adminEmails;
+  }
+
+  if (supabase && organizationId) {
+    try {
+      const { data: members } = await supabase
+        .from('organization_members')
+        .select('user_id, role')
+        .eq('organization_id', organizationId)
+        .in('role', ['owner', 'admin']);
+
+      if (members && members.length > 0) {
+        const userIds = members.map((m) => m.user_id);
+        const { data: customers } = await supabase
+          .from('customers')
+          .select('email')
+          .in('user_id', userIds);
+
+        const memberEmails = (customers || [])
+          .map((c) => c.email?.trim().toLowerCase())
+          .filter(Boolean);
+
+        if (memberEmails.length > 0) {
+          return Array.from(new Set(memberEmails));
+        }
+      }
+    } catch (err) {
+      console.warn('[notification.admin_recipients_lookup_failed]', err);
+    }
+  }
+
+  // Fallback to smtp.from address or default admin email
+  const fallbackEmail = smtp?.from ? smtp.from.replace(/.*<([^>]+)>.*/, '$1').trim() : '';
+  return fallbackEmail ? [fallbackEmail] : ['admin@unwindanddoodle.com'];
 }
 
 /**
@@ -285,6 +340,138 @@ ${reviewUrl}
       return { html: baseHtmlWrapper(subject, body), text };
     }
 
+    case 'admin_new_order': {
+      const orderNumber = String(data.orderNumber || '');
+      const customerName = String(data.customerName || 'Customer');
+      const customerEmail = String(data.customerEmail || 'N/A');
+      const total = data.total ? formatPrice(Number(data.total)) : 'N/A';
+      const orderSource = String(data.orderSource || 'online');
+      const adminUrl = String(data.adminUrl || '#');
+      const items = (data.items as Array<{ name?: string; product_name?: string; quantity: number; unit_price?: number; price?: number }>) || [];
+
+      const itemsHtml = items.length > 0
+        ? `
+          <table class="item-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Qty</th>
+                <th style="text-align: right;">Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map(item => `
+                <tr>
+                  <td>${item.product_name || item.name || 'Item'}</td>
+                  <td>${item.quantity}</td>
+                  <td style="text-align: right;">${item.unit_price || item.price ? formatPrice(item.unit_price || item.price) : '—'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `
+        : '';
+
+      const body = `
+        <h2>New Order Received! 🛒</h2>
+        <p>A new <strong>${orderSource}</strong> order <strong>#${orderNumber}</strong> has been placed.</p>
+        <div class="highlight-box">
+          <p style="margin: 0;"><strong>Customer:</strong> ${customerName} (${customerEmail})</p>
+          <p style="margin: 4px 0 0;"><strong>Total Value:</strong> ${total}</p>
+        </div>
+        ${itemsHtml}
+        <div style="text-align: center;">
+          <a href="${adminUrl}" class="btn">View in Admin Console</a>
+        </div>
+      `;
+
+      const text = `
+New Order Received: #${orderNumber}
+Customer: ${customerName} (${customerEmail})
+Order Source: ${orderSource}
+Total: ${total}
+
+View in Admin Orders:
+${adminUrl}
+
+— Unwind and Doodle Admin
+      `.trim();
+
+      return { html: baseHtmlWrapper(subject, body), text };
+    }
+
+    case 'admin_order_cancelled': {
+      const orderNumber = String(data.orderNumber || '');
+      const note = data.note ? String(data.note) : 'No reason specified';
+      const previousStatus = String(data.previousStatus || 'N/A');
+      const adminUrl = String(data.adminUrl || '#');
+
+      const body = `
+        <h2>Order Cancelled ⚠️</h2>
+        <p>Order <strong>#${orderNumber}</strong> has been cancelled.</p>
+        <div class="highlight-box" style="background: #fef2f2; border-color: #fecaca; color: #991b1b;">
+          <p style="margin: 0;"><strong>Previous Status:</strong> ${previousStatus}</p>
+          <p style="margin: 4px 0 0;"><strong>Reason / Note:</strong> ${note}</p>
+        </div>
+        <div style="text-align: center;">
+          <a href="${adminUrl}" class="btn" style="background-color: #dc2626;">Review in Admin Orders</a>
+        </div>
+      `;
+
+      const text = `
+Order Cancelled: #${orderNumber}
+Previous Status: ${previousStatus}
+Reason / Note: ${note}
+
+Review in Admin Orders:
+${adminUrl}
+
+— Unwind and Doodle Admin
+      `.trim();
+
+      return { html: baseHtmlWrapper(subject, body), text };
+    }
+
+    case 'admin_low_stock': {
+      const productName = String(data.productName || 'Product');
+      const sku = data.sku ? `(SKU: ${data.sku})` : '';
+      const warehouseName = String(data.warehouseName || 'Main Warehouse');
+      const availableQuantity = Number(data.availableQuantity ?? 0);
+      const threshold = Number(data.threshold ?? 5);
+      const isOutOfStock = Boolean(data.isOutOfStock || availableQuantity <= 0);
+      const adminUrl = String(data.adminUrl || '#');
+
+      const body = `
+        <h2>${isOutOfStock ? 'Product Out of Stock! 🚨' : 'Low Stock Warning ⚠️'}</h2>
+        <p>
+          Inventory level for <strong>${productName}</strong> ${sku} has fallen to
+          <strong style="color: ${isOutOfStock ? '#dc2626' : '#d97706'}; font-size: 16px;">${availableQuantity} unit(s)</strong>
+          in <strong>${warehouseName}</strong>.
+        </p>
+        <div class="highlight-box" style="background: ${isOutOfStock ? '#fef2f2' : '#fffbeb'}; border-color: ${isOutOfStock ? '#fecaca' : '#fde68a'}; color: ${isOutOfStock ? '#991b1b' : '#92400e'};">
+          <p style="margin: 0;"><strong>Safety Threshold:</strong> ${threshold} units</p>
+          <p style="margin: 4px 0 0;"><strong>Status:</strong> ${isOutOfStock ? 'OUT OF STOCK' : 'LOW STOCK'}</p>
+        </div>
+        <div style="text-align: center;">
+          <a href="${adminUrl}" class="btn" style="background-color: ${isOutOfStock ? '#dc2626' : '#d97706'};">Restock / Manage Inventory</a>
+        </div>
+      `;
+
+      const text = `
+${isOutOfStock ? 'OUT OF STOCK ALERT' : 'LOW STOCK WARNING'}: ${productName} ${sku}
+Remaining Units: ${availableQuantity}
+Warehouse: ${warehouseName}
+Safety Threshold: ${threshold}
+
+Manage Inventory:
+${adminUrl}
+
+— Unwind and Doodle Admin
+      `.trim();
+
+      return { html: baseHtmlWrapper(subject, body), text };
+    }
+
     default: {
       const body = `<p>${subject}</p>`;
       return { html: baseHtmlWrapper(subject, body), text: subject };
@@ -400,6 +587,29 @@ export function initializeNotificationEventHandlers(): void {
         link: '/admin/orders',
         metadata: { orderNumber, total: payload.total },
       });
+
+      // Dispatch admin new order alert email
+      const orgId = (payload.organizationId as string) || (payload.organization_id as string);
+      const adminRecipients = await getAdminNotificationRecipients(supabase, orgId);
+      for (const adminEmail of adminRecipients) {
+        await dispatchTransactionalEmail(
+          {
+            to: adminEmail,
+            subject: `🛒 New Order #${orderNumber} (${payload.total ? formatPrice(payload.total as number) : 'Pending'}) — Unwind and Doodle Admin`,
+            template: 'admin_new_order',
+            data: {
+              orderNumber,
+              customerName: payload.firstName || payload.customerName || 'Customer',
+              customerEmail: email || 'N/A',
+              total: payload.total,
+              items: payload.items || [],
+              orderSource: payload.orderSource || payload.order_source || 'online',
+              adminUrl: `${appUrl}/admin/orders`,
+            },
+          },
+          `notif_admin_order_${orderNumber}_${adminEmail}_${event.id}`
+        );
+      }
     } catch (inAppErr) {
       console.warn('[notification.in_app_skipped]', inAppErr);
     }
@@ -452,7 +662,166 @@ export function initializeNotificationEventHandlers(): void {
     }
   });
 
-  // 3. Stock Replenishment Notification
+  // 3. Order Cancelled Notification (Admin in-app & Email)
+  registerDomainEventHandler('order.cancelled', async (event) => {
+    const payload = event.payload as Record<string, unknown>;
+    const orderNumber = (payload.orderNumber as string) || event.aggregateId;
+    const note = (payload.note as string) || null;
+    const previousStatus = (payload.previousStatus as string) || 'unknown';
+
+    try {
+      const supabase = getServiceSupabaseClient();
+      const orgId = (payload.organizationId as string) || (payload.organization_id as string);
+
+      await createInAppNotification(supabase, {
+        recipientType: 'admin',
+        title: `Order #${orderNumber} Cancelled ⚠️`,
+        message: note ? `Order #${orderNumber} was cancelled: ${note}` : `Order #${orderNumber} has been cancelled.`,
+        type: 'warning',
+        category: 'order',
+        link: '/admin/orders',
+        metadata: { orderNumber, note, previousStatus },
+      });
+
+      const adminRecipients = await getAdminNotificationRecipients(supabase, orgId);
+      for (const adminEmail of adminRecipients) {
+        await dispatchTransactionalEmail(
+          {
+            to: adminEmail,
+            subject: `⚠️ Order #${orderNumber} Cancelled — Unwind and Doodle Admin`,
+            template: 'admin_order_cancelled',
+            data: {
+              orderNumber,
+              note,
+              previousStatus,
+              adminUrl: `${appUrl}/admin/orders`,
+            },
+          },
+          `notif_admin_cancel_${orderNumber}_${adminEmail}_${event.id}`
+        );
+      }
+    } catch (err) {
+      console.warn('[notification.order_cancelled_skipped]', err);
+    }
+  });
+
+  // 4. Order Refunded Notification (Admin in-app)
+  registerDomainEventHandler('order.refunded', async (event) => {
+    const payload = event.payload as Record<string, unknown>;
+    const orderNumber = (payload.orderNumber as string) || event.aggregateId;
+
+    try {
+      const supabase = getServiceSupabaseClient();
+      await createInAppNotification(supabase, {
+        recipientType: 'admin',
+        title: `Order #${orderNumber} Refunded 💸`,
+        message: `Order #${orderNumber} has been marked as refunded.`,
+        type: 'info',
+        category: 'order',
+        link: '/admin/orders',
+        metadata: { orderNumber, previousStatus: payload.previousStatus },
+      });
+    } catch (err) {
+      console.warn('[notification.order_refunded_skipped]', err);
+    }
+  });
+
+  // 5. Manual Order Created Notification (Admin in-app)
+  registerDomainEventHandler('order.created', async (event) => {
+    const payload = event.payload as Record<string, unknown>;
+    if (payload.orderSource === 'manual') {
+      try {
+        const supabase = getServiceSupabaseClient();
+        const orderNumber = payload.orderNumber as string;
+        await createInAppNotification(supabase, {
+          recipientType: 'admin',
+          title: `Manual Order Created: #${orderNumber} ✍️`,
+          message: payload.totalAmount
+            ? `Manual order #${orderNumber} created totaling ${formatPrice(payload.totalAmount as number)}`
+            : `Manual order #${orderNumber} created`,
+          type: 'info',
+          category: 'order',
+          link: '/admin/orders',
+          metadata: { orderNumber, total: payload.totalAmount, orderSource: 'manual' },
+        });
+      } catch (err) {
+        console.warn('[notification.manual_order_created_in_app_skipped]', err);
+      }
+    }
+  });
+
+  // 6. Low / Out of Stock Inventory Alert (Admin in-app & Email)
+  registerDomainEventHandler('inventory.low_stock', async (event) => {
+    const payload = event.payload as {
+      productId: string;
+      productName?: string;
+      sku?: string | null;
+      warehouseId: string;
+      warehouseName?: string;
+      availableQuantity: number;
+      threshold: number;
+      isOutOfStock?: boolean;
+      organizationId?: string;
+    };
+
+    if (!payload) return;
+
+    const isOutOfStock = Boolean(payload.isOutOfStock || payload.availableQuantity <= 0);
+    const productName = payload.productName || 'Product';
+    const warehouseName = payload.warehouseName || 'Warehouse';
+    const availableQuantity = payload.availableQuantity ?? 0;
+    const threshold = payload.threshold ?? 5;
+
+    try {
+      const supabase = getServiceSupabaseClient();
+
+      await createInAppNotification(supabase, {
+        recipientType: 'admin',
+        title: isOutOfStock
+          ? `Out of Stock: ${productName} 🚨`
+          : `Low Stock Alert: ${productName} ⚠️`,
+        message: isOutOfStock
+          ? `${productName} is now completely out of stock in ${warehouseName}.`
+          : `Only ${availableQuantity} unit(s) remaining in ${warehouseName} (safety threshold: ${threshold}).`,
+        type: isOutOfStock ? 'error' : 'warning',
+        category: 'inventory',
+        link: payload.productId ? `/admin/inventory/${payload.productId}` : '/admin/inventory',
+        metadata: {
+          productId: payload.productId,
+          warehouseId: payload.warehouseId,
+          availableQuantity,
+          threshold,
+          isOutOfStock,
+        },
+      });
+
+      const adminRecipients = await getAdminNotificationRecipients(supabase, payload.organizationId);
+      for (const adminEmail of adminRecipients) {
+        await dispatchTransactionalEmail(
+          {
+            to: adminEmail,
+            subject: `${isOutOfStock ? '🚨 Out of Stock' : '⚠️ Low Stock Alert'}: ${productName} — Unwind and Doodle`,
+            template: 'admin_low_stock',
+            data: {
+              productId: payload.productId,
+              productName,
+              sku: payload.sku,
+              warehouseName,
+              availableQuantity,
+              threshold,
+              isOutOfStock,
+              adminUrl: `${appUrl}/admin/inventory/${payload.productId || ''}`,
+            },
+          },
+          `notif_admin_stock_${payload.productId}_${payload.warehouseId}_${isOutOfStock ? 'out' : 'low'}_${adminEmail}_${event.id}`
+        );
+      }
+    } catch (err) {
+      console.warn('[notification.inventory_low_stock_skipped]', err);
+    }
+  });
+
+  // 7. Stock Replenishment Notification
   registerDomainEventHandler('stock_notification.eligible', async (event) => {
     const payload = event.payload as {
       productId: string;
