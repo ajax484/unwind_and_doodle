@@ -97,7 +97,7 @@ export async function createAdminManualOrder(
       const { data: activeWarehouses, error: whErr } = await supabase
         .from('warehouses')
         .select('*')
-        .eq('is_active', true);
+        .eq('active', true);
 
       if (whErr || !activeWarehouses || activeWarehouses.length === 0) {
         throw new Error('No active warehouses available.');

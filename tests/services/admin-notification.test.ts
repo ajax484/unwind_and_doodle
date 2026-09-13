@@ -175,7 +175,7 @@ describe('Admin Notifications & Alerts (A & D)', () => {
         },
       });
 
-      await processPendingDomainEvents(mockSupabase as any, 10);
+      await processPendingDomainEvents(mockSupabase as any);
 
       const notifs = await getInAppNotifications(mockSupabase as any, {
         recipientType: 'admin',
@@ -203,7 +203,7 @@ describe('Admin Notifications & Alerts (A & D)', () => {
         },
       });
 
-      await processPendingDomainEvents(mockSupabase as any, 10);
+      await processPendingDomainEvents(mockSupabase as any);
 
       const notifs = await getInAppNotifications(mockSupabase as any, {
         recipientType: 'admin',
@@ -231,7 +231,7 @@ describe('Admin Notifications & Alerts (A & D)', () => {
         },
       });
 
-      await processPendingDomainEvents(mockSupabase as any, 10);
+      await processPendingDomainEvents(mockSupabase as any);
 
       const notifs = await getInAppNotifications(mockSupabase as any, {
         recipientType: 'admin',
@@ -264,7 +264,7 @@ describe('Admin Notifications & Alerts (A & D)', () => {
         },
       });
 
-      await processPendingDomainEvents(mockSupabase as any, 10);
+      await processPendingDomainEvents(mockSupabase as any);
 
       const notifs = await getInAppNotifications(mockSupabase as any, {
         recipientType: 'admin',

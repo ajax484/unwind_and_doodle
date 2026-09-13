@@ -112,6 +112,8 @@ export default function CustomerPaymentPage({
     const origLastName = (detail.customer.lastName || '').trim();
     const curPhone = phone.trim();
     const origPhone = (detail.customer.phone || '').trim();
+    const curLocationId = selectedLocationId;
+    const origLocationId = detail.customer.locationId || '';
     const rawAddr = (detail.customer.shippingAddress as Record<string, unknown>) || {};
     const origStreet = String(rawAddr.address_line1 || rawAddr.addressLine1 || '');
     const isPlaceholder =
