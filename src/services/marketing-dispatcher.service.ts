@@ -11,8 +11,69 @@ import {
 import { getSegmentCustomers } from './marketing-segmentation.service';
 import { getMarketingEmailProvider } from './marketing-provider/nodemailer-marketing.provider';
 import { sanitizeHtml, replacePersonalizationTags } from '@/lib/sanitize-html';
-import { generateMarketingUnsubscribeToken } from '@/lib/marketing-token';
+import {
+  generateMarketingUnsubscribeToken,
+  generateMarketingTrackingToken,
+} from '@/lib/marketing-token';
 import { getConfig } from '@/lib/config';
+
+/**
+ * Rewrites <a href="..."> links in email HTML to route through the native click tracking redirect.
+ * Skips mailto:, tel:, in-page hashes (#), and unsubscribe URLs.
+ */
+export function rewriteMarketingLinks(
+  html: string,
+  trackingToken: string,
+  appUrl: string
+): string {
+  if (!html || !trackingToken || !appUrl) return html;
+
+  return html.replace(
+    /<a\b([^>]*?)\bhref=(["'])(.*?)\2([^>]*?)>/gi,
+    (match, beforeHref, quote, targetUrl, afterHref) => {
+      const trimmed = targetUrl.trim();
+      const lower = trimmed.toLowerCase();
+
+      // Skip in-page anchors, mailto, tel, javascript, and unsubscribe URLs
+      if (
+        trimmed.startsWith('#') ||
+        lower.startsWith('mailto:') ||
+        lower.startsWith('tel:') ||
+        lower.startsWith('javascript:') ||
+        lower.includes('/unsubscribe')
+      ) {
+        return match;
+      }
+
+      // Encode target URL and wrap in click tracking endpoint
+      const trackingUrl = `${appUrl}/api/marketing/track/click?token=${encodeURIComponent(
+        trackingToken
+      )}&url=${encodeURIComponent(trimmed)}`;
+
+      return `<a${beforeHref}href=${quote}${trackingUrl}${quote}${afterHref}>`;
+    }
+  );
+}
+
+/**
+ * Injects a 1x1 transparent tracking pixel image into email HTML before </body> or at the end.
+ */
+export function injectOpenTrackingPixel(
+  html: string,
+  trackingToken: string,
+  appUrl: string
+): string {
+  if (!html || !trackingToken || !appUrl) return html;
+
+  const pixelUrl = `${appUrl}/api/marketing/track/open?token=${encodeURIComponent(trackingToken)}`;
+  const pixelImg = `<img src="${pixelUrl}" width="1" height="1" alt="" style="display:none;width:1px;height:1px;max-height:0;overflow:hidden;border:0;outline:0;" />`;
+
+  if (html.toLowerCase().includes('</body>')) {
+    return html.replace(/<\/body>/i, `${pixelImg}</body>`);
+  }
+
+  return `${html}\n${pixelImg}`;
+}
 
 export interface TestEmailDispatchResult {
   success: boolean;
@@ -253,6 +314,19 @@ export async function dispatchCampaign(
         `;
         personalizedHtml += unsubscribeFooter;
 
+        // Generate signed tracking token for open pixel and click redirects
+        const trackingToken = generateMarketingTrackingToken(
+          campaignId,
+          recipient.id,
+          recipient.customer_id || undefined
+        );
+
+        // Rewrite outbound links for native click tracking (skipping unsubscribe URL)
+        personalizedHtml = rewriteMarketingLinks(personalizedHtml, trackingToken, appUrl);
+
+        // Inject 1x1 transparent open tracking pixel
+        personalizedHtml = injectOpenTrackingPixel(personalizedHtml, trackingToken, appUrl);
+
         const personalizedText = baseText
           ? `${replacePersonalizationTags(baseText, personalizationData)}\n\nUnsubscribe: ${unsubscribeUrl}`
           : undefined;
@@ -269,6 +343,7 @@ export async function dispatchCampaign(
             'X-Campaign-Id': campaignId,
             'X-Campaign-Recipient-Id': recipient.id,
             'X-Customer-Id': recipient.customer_id || '',
+            'X-TM-CLIENT-REF': recipient.id,
           },
           tags: {
             campaign_id: campaignId,

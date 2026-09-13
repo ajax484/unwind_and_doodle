@@ -16,6 +16,7 @@ export interface ProcessEmailWebhookOptions {
   rawBody: string;
   headers: Headers | Record<string, string | null | undefined>;
   webhookSecret?: string;
+  querySecret?: string | null;
 }
 
 export interface ProcessedWebhookEventSummary {
@@ -40,13 +41,14 @@ export interface ProcessEmailWebhookResult {
 export async function processEmailWebhook(
   options: ProcessEmailWebhookOptions
 ): Promise<ProcessEmailWebhookResult> {
-  const { supabase, rawBody, headers, webhookSecret } = options;
+  const { supabase, rawBody, headers, webhookSecret, querySecret } = options;
 
   // 1. Mandatory signature verification
   const isValid = verifyMarketingWebhookSignature({
     rawBody,
     headers,
     secret: webhookSecret,
+    querySecret,
   });
 
   if (!isValid) {

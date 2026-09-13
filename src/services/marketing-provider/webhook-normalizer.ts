@@ -80,6 +80,8 @@ export function normalizeEventType(rawType: string): MarketingEmailEventType | n
   switch (clean) {
     case 'sent':
     case 'send':
+    case 'dispatch':
+    case 'dispatched':
       return 'sent';
     case 'delivered':
     case 'delivery':
@@ -94,6 +96,8 @@ export function normalizeEventType(rawType: string): MarketingEmailEventType | n
     case 'bounce':
     case 'hard_bounce':
     case 'soft_bounce':
+    case 'hardbounce':
+    case 'softbounce':
       return 'bounced';
     case 'failed':
     case 'failure':
@@ -176,16 +180,28 @@ export function normalizeEmailWebhookPayload(payload: unknown): NormalizedEmailW
     const headers = (dataObj.headers || raw.headers || {}) as Record<string, unknown>;
     const metadataObj = (dataObj.metadata || raw.metadata || {}) as Record<string, unknown>;
 
-    // Recipient ID
+    // Recipient ID (supports standard, custom headers, and Zoho ZeptoMail client_reference)
     const recipientId =
       typeof dataObj.recipient_id === 'string'
         ? dataObj.recipient_id
         : typeof raw.recipient_id === 'string'
         ? raw.recipient_id
+        : typeof dataObj.client_reference === 'string'
+        ? dataObj.client_reference
+        : typeof raw.client_reference === 'string'
+        ? raw.client_reference
+        : typeof dataObj.client_ref === 'string'
+        ? dataObj.client_ref
+        : typeof raw.client_ref === 'string'
+        ? raw.client_ref
         : typeof tags.recipient_id === 'string'
         ? tags.recipient_id
         : typeof metadataObj.recipient_id === 'string'
         ? metadataObj.recipient_id
+        : typeof headers['x-tm-client-ref'] === 'string'
+        ? (headers['x-tm-client-ref'] as string)
+        : typeof headers['X-TM-CLIENT-REF'] === 'string'
+        ? (headers['X-TM-CLIENT-REF'] as string)
         : typeof headers['x-campaign-recipient-id'] === 'string'
         ? (headers['x-campaign-recipient-id'] as string)
         : typeof headers['X-Campaign-Recipient-Id'] === 'string'

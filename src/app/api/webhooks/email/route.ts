@@ -3,6 +3,20 @@ import { getServiceSupabaseClient } from '@/lib/supabase/client';
 import { processEmailWebhook } from '@/services/marketing-webhook.service';
 
 /**
+ * Diagnostic GET endpoint to verify webhook listener availability.
+ */
+export async function GET() {
+  return NextResponse.json(
+    {
+      status: 'active',
+      service: 'email_webhook_receiver',
+      message: 'Email webhook endpoint is active and listening for POST notifications.',
+    },
+    { status: 200 }
+  );
+}
+
+/**
  * Endpoint for receiving email provider webhook delivery lifecycle events.
  *
  * Enforces cryptographic signature verification before payload processing.
@@ -13,6 +27,8 @@ export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text();
     const headers = req.headers;
+    const { searchParams } = new URL(req.url);
+    const querySecret = searchParams.get('secret') || searchParams.get('token');
 
     const supabase = getServiceSupabaseClient();
 
@@ -20,6 +36,7 @@ export async function POST(req: NextRequest) {
       supabase,
       rawBody,
       headers,
+      querySecret,
     });
 
     return NextResponse.json(result, { status: 200 });

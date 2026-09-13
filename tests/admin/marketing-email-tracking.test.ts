@@ -10,6 +10,7 @@ import {
   normalizeEventType,
 } from '@/services/marketing-provider/webhook-normalizer';
 import { processEmailWebhook } from '@/services/marketing-webhook.service';
+import { GET as webhookGetHandler } from '@/app/api/webhooks/email/route';
 import { getCampaignAnalytics } from '@/services/marketing-analytics.service';
 import { getSegmentCustomers } from '@/services/marketing-segmentation.service';
 import {
@@ -183,6 +184,43 @@ describe('Step 1H — Email Tracking, Webhooks, and Campaign Analytics', () => {
       expect(isValid).toBe(false);
     });
 
+    it('verifies webhooks using pre-shared secret header (X-Webhook-Secret / X-ZeptoMail-Secret)', () => {
+      const payload = JSON.stringify({ event: 'delivered', recipient_id: recipientAliceId });
+
+      const isValid = verifyMarketingWebhookSignature({
+        rawBody: payload,
+        headers: { 'x-webhook-secret': testSecret },
+        secret: testSecret,
+      });
+
+      expect(isValid).toBe(true);
+    });
+
+    it('verifies webhooks using Authorization Bearer token header', () => {
+      const payload = JSON.stringify({ event: 'delivered', recipient_id: recipientAliceId });
+
+      const isValid = verifyMarketingWebhookSignature({
+        rawBody: payload,
+        headers: { authorization: `Bearer ${testSecret}` },
+        secret: testSecret,
+      });
+
+      expect(isValid).toBe(true);
+    });
+
+    it('verifies webhooks using querySecret (?secret=...) parameter', () => {
+      const payload = JSON.stringify({ event: 'delivered', recipient_id: recipientAliceId });
+
+      const isValid = verifyMarketingWebhookSignature({
+        rawBody: payload,
+        headers: {},
+        secret: testSecret,
+        querySecret: testSecret,
+      });
+
+      expect(isValid).toBe(true);
+    });
+
     it('processEmailWebhook throws error when signature verification fails', async () => {
       const payload = JSON.stringify({ event: 'delivered' });
 
@@ -208,6 +246,15 @@ describe('Step 1H — Email Tracking, Webhooks, and Campaign Analytics', () => {
           webhookSecret: testSecret,
         })
       ).rejects.toThrow('Malformed webhook JSON payload');
+    });
+
+    it('returns 200 OK on GET /api/webhooks/email diagnostic check', async () => {
+      const res = await webhookGetHandler();
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.status).toBe('active');
+      expect(json.service).toBe('email_webhook_receiver');
     });
   });
 
@@ -308,6 +355,32 @@ describe('Step 1H — Email Tracking, Webhooks, and Campaign Analytics', () => {
       );
       expect(alice.status).toBe('delivered');
       expect(alice.delivered_at).toBe(new Date('2026-09-12T10:02:00Z').toISOString());
+    });
+
+    it('correlates Zoho ZeptoMail webhooks using client_reference (from X-TM-CLIENT-REF)', async () => {
+      const payload = JSON.stringify({
+        event: 'softbounce',
+        id: 'zm_evt_999',
+        client_reference: recipientAliceId,
+        occurred_at: '2026-09-12T10:03:00Z',
+        bounce_reason: 'Mailbox full',
+      });
+      const sig = computeMarketingWebhookSignature(payload, testSecret);
+
+      const result = await processEmailWebhook({
+        supabase: mockSupabase as any,
+        rawBody: payload,
+        headers: { 'x-webhook-signature': sig },
+        webhookSecret: testSecret,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.processedCount).toBe(1);
+
+      const alice = (mockSupabase as any)._store.marketing_campaign_recipients.find(
+        (r: any) => r.id === recipientAliceId
+      );
+      expect(alice.status).toBe('bounced');
     });
 
     it('correlates by provider_message_id when recipient ID is absent', async () => {

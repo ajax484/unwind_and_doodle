@@ -5,6 +5,7 @@ export interface WebhookVerificationOptions {
   rawBody: string;
   headers: Headers | Record<string, string | null | undefined>;
   secret?: string;
+  querySecret?: string | null;
 }
 
 /**
@@ -36,13 +37,16 @@ function getHeader(
 /**
  * Verifies the authenticity of an incoming email provider webhook.
  *
- * Checks standard HMAC-SHA256 signatures (`x-webhook-signature`, `x-signature`, `x-email-signature`)
- * and Svix standard signatures (`svix-signature`, `svix-id`, `svix-timestamp`).
+ * Supports:
+ * 1. Pre-shared secret header (X-Webhook-Secret, X-ZeptoMail-Secret, X-API-Key, Authorization: Bearer ...)
+ * 2. URL query parameter (?secret=... or ?token=...)
+ * 3. Standard HMAC-SHA256 signatures (`x-webhook-signature`, `x-signature`, `x-email-signature`)
+ * 4. Svix standard signatures (`svix-signature`, `svix-id`, `svix-timestamp`)
  *
  * Performs comparison using crypto.timingSafeEqual to defend against timing attacks.
  */
 export function verifyMarketingWebhookSignature(options: WebhookVerificationOptions): boolean {
-  const { rawBody, headers } = options;
+  const { rawBody, headers, querySecret } = options;
   const secret =
     options.secret ||
     getConfig().marketingWebhookSecret ||
@@ -52,7 +56,42 @@ export function verifyMarketingWebhookSignature(options: WebhookVerificationOpti
     return false;
   }
 
-  // Check standard HMAC headers
+  // 1. Check URL query param (?secret=... or ?token=...)
+  if (querySecret && typeof querySecret === 'string') {
+    const queryBuf = Buffer.from(querySecret.trim(), 'utf8');
+    const secretBuf = Buffer.from(secret.trim(), 'utf8');
+    if (queryBuf.length === secretBuf.length && crypto.timingSafeEqual(queryBuf, secretBuf)) {
+      return true;
+    }
+  }
+
+  // 2. Check pre-shared secret header (Zoho ZeptoMail custom header or general secret)
+  const preSharedHeader =
+    getHeader(headers, 'x-webhook-secret') ||
+    getHeader(headers, 'x-zeptomail-secret') ||
+    getHeader(headers, 'x-zoho-secret') ||
+    getHeader(headers, 'x-api-key');
+
+  if (preSharedHeader) {
+    const headerBuf = Buffer.from(preSharedHeader.trim(), 'utf8');
+    const secretBuf = Buffer.from(secret.trim(), 'utf8');
+    if (headerBuf.length === secretBuf.length && crypto.timingSafeEqual(headerBuf, secretBuf)) {
+      return true;
+    }
+  }
+
+  // 3. Check Authorization header (e.g. "Bearer <secret>")
+  const authHeader = getHeader(headers, 'authorization');
+  if (authHeader) {
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim();
+    const tokenBuf = Buffer.from(token, 'utf8');
+    const secretBuf = Buffer.from(secret.trim(), 'utf8');
+    if (tokenBuf.length === secretBuf.length && crypto.timingSafeEqual(tokenBuf, secretBuf)) {
+      return true;
+    }
+  }
+
+  // 4. Check standard HMAC headers
   const signatureHeader =
     getHeader(headers, 'x-webhook-signature') ||
     getHeader(headers, 'x-signature') ||

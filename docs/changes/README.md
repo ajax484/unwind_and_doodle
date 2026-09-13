@@ -36,6 +36,7 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-12 Marketing Customer Segment Builder](./admin/2026-09-12-marketing-customer-segment-builder.md)
 - [2026-09-12 Marketing Step 1G — Email Provider Integration](./admin/2026-09-12-marketing-email-provider-integration.md)
 - [2026-09-12 Marketing Step 1H — Email Tracking, Webhooks, and Campaign Analytics](./admin/2026-09-12-marketing-email-tracking-analytics.md)
+- [2026-09-12 Marketing Native Email Open Pixel & Click Tracking](./admin/2026-09-12-marketing-native-email-tracking.md)
 - [2026-09-12 Marketing Starter Seed Segments](./admin/2026-09-12-marketing-seed-segments.md)
 - [2026-09-12 Marketing Step 1D: Segmentation Engine](./admin/2026-09-12-marketing-segmentation-engine.md)
 - [2026-09-12 Marketing Step 1C: Server-Side Typed Data Access Layer](./admin/2026-09-12-marketing-typed-data-access-layer.md)
@@ -213,6 +214,6 @@ This directory maintains categorized, per-feature change records following the r
 ---
 
 ## 📊 Summary
-- **Total Changelogs**: 154 across 8 domain modules
+- **Total Changelogs**: 155 across 8 domain modules
 - **Template Scaffold**: [`docs/changes/_template.md`](./_template.md)
-- **Status**: 100% indexed (154 of 154 files registered)
+- **Status**: 100% indexed (155 of 155 files registered)
