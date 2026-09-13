@@ -51,6 +51,7 @@ export function getConfig(): AppConfig {
     supabaseServiceRoleKey,
     paystackSecretKey,
     paystackPublicKey,
+    hasServiceRoleKey,
     flutterwaveSecretKey: process.env.FLUTTERWAVE_SECRET_KEY || '',
     flutterwaveSecretHash: process.env.FLUTTERWAVE_SECRET_HASH || '',
     marketingWebhookSecret:
