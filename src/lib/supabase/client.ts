@@ -19,7 +19,15 @@ export function getServiceSupabaseClient(
     return serverClientInstance;
   }
 
-  const { supabaseUrl, supabaseServiceRoleKey } = getConfig();
+  const { supabaseUrl, supabaseServiceRoleKey, hasServiceRoleKey } = getConfig();
+
+  if (!hasServiceRoleKey && process.env.NODE_ENV !== 'test') {
+    console.warn(
+      '[CRITICAL CONFIG WARNING] SUPABASE_SERVICE_ROLE_KEY is not defined in environment variables! ' +
+      'Server-side Supabase operations will fall back to anon key and be constrained by Row Level Security (RLS), ' +
+      'which can cause catalog stock levels, inventory, orders, and administrative queries to return empty results.'
+    );
+  }
 
   if (!supabaseUrl || !supabaseServiceRoleKey) {
     // In test environment or when env is missing, return a dummy client structure or initialize if test provides mock

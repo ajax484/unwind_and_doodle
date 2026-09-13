@@ -789,7 +789,7 @@ export default function CheckoutPage() {
             className="btn-rose w-full text-sm sm:text-base !py-4 shadow-md font-heading font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? (
-              <span>Connecting to Flutterwave...</span>
+              <span>Connecting to Paystack...</span>
             ) : hasIncompleteCustomization ? (
               <span>Customization Required</span>
             ) : (
@@ -799,7 +799,7 @@ export default function CheckoutPage() {
 
           <div className="text-center space-y-1">
             <p className="text-[11px] text-text-tertiary">
-              🔒 Payments securely processed by Flutterwave
+              🔒 Payments securely processed by Paystack
             </p>
             <p className="text-[10px] text-text-tertiary">
               Mastercard • Visa • Bank Transfer • USSD

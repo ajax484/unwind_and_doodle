@@ -66,6 +66,7 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-02 Fix TypeScript Errors in Order Status Page and Manual Orders Test](./commerce/2026-09-02-fix-order-page-and-manual-orders-types.md)
 - [2026-09-04 Cart System Hardening: Validation, Query Optimization, State Unification, & Lifecycle Integrity](./commerce/2026-09-04-cart-system-hardening.md)
 - [2026-09-04 Fix Cart Session Deduplication & Stranded Cart Items](./commerce/2026-09-04-fix-cart-session-deduplication.md)
+- [2026-09-13 Inventory RLS & Service Key Hardening](./commerce/2026-09-13-inventory-rls-and-service-key-hardening.md)
 
 ---
 
@@ -214,6 +215,6 @@ This directory maintains categorized, per-feature change records following the r
 ---
 
 ## 📊 Summary
-- **Total Changelogs**: 155 across 8 domain modules
+- **Total Changelogs**: 156 across 8 domain modules
 - **Template Scaffold**: [`docs/changes/_template.md`](./_template.md)
-- **Status**: 100% indexed (155 of 155 files registered)
+- **Status**: 100% indexed (156 of 156 files registered)

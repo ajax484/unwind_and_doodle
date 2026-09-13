@@ -39,7 +39,6 @@ export default function HomePage() {
   return (
     <div className="w-full flex flex-col">
       {/* 1. HERO SECTION */}
-      <Button>Test</Button>
       <HeroSection />
 
       {/* 2. FEATURED PRODUCTS SECTION */}

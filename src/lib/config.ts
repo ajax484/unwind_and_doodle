@@ -2,6 +2,7 @@ export interface AppConfig {
   supabaseUrl: string;
   supabaseAnonKey: string;
   supabaseServiceRoleKey: string;
+  hasServiceRoleKey: boolean;
   paystackSecretKey: string;
   paystackPublicKey: string;
   flutterwaveSecretKey?: string;
@@ -26,10 +27,11 @@ export function getConfig(): AppConfig {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
     process.env.SUPABASE_ANON_KEY ||
     '';
-  const supabaseServiceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    supabaseAnonKey ||
-    '';
+  const rawServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const hasServiceRoleKey = Boolean(rawServiceKey && rawServiceKey.trim().length > 0);
+  const supabaseServiceRoleKey = hasServiceRoleKey
+    ? rawServiceKey!
+    : supabaseAnonKey || '';
   const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY || '';
   const paystackPublicKey =
     process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || process.env.PAYSTACK_PUBLIC_KEY || '';
