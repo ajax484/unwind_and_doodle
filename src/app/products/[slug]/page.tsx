@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import CustomizationUploader from '@/components/CustomizationUploader';
 import ProductCard from '@/components/ProductCard';
+import ProductImageGallery from '@/components/ProductImageGallery';
 import { ProductDetail, CatalogProductItem } from '@/services/catalog.service';
 import { PublicTheme } from '@/types/admin-theme';
 import { getCartHeaders, dispatchCartUpdated } from '@/lib/cart-client';
@@ -16,7 +17,6 @@ export default function ProductDetailPage() {
   const slug = params?.slug as string;
 
   const [product, setProduct] = useState<ProductDetail | null>(null);
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [selectedAddons, setSelectedAddons] = useState<Record<string, number>>({});
   const [customization, setCustomization] = useState<{ assetUrls: string[]; notes: string }>({
@@ -58,7 +58,6 @@ export default function ProductDetailPage() {
             ...json.data,
             supportsThemeCustomization: supportsThemes,
           });
-          setSelectedImageIndex(0);
 
           if (supportsThemes) {
             const themesRes = await fetch(`/api/products/${json.data.slug || json.data.id}/themes`);
@@ -225,8 +224,6 @@ export default function ProductDetailPage() {
       ? [product.primaryImage]
       : [];
 
-  const currentImage = galleryImages[selectedImageIndex] || null;
-
   const formattedPrice = new Intl.NumberFormat('en-NG', {
     style: 'currency',
     currency: 'NGN',
@@ -290,81 +287,20 @@ export default function ProductDetailPage() {
 
       {/* 2. MAIN PRODUCT OVERVIEW (Gallery + Information) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-        {/* Left Column: Image Gallery (5 cols) */}
+        {/* Left Column: Product Media Gallery (5 cols) */}
         <div className="lg:col-span-6 space-y-4">
-          <div className="aspect-square rounded-3xl overflow-hidden bg-bg-subtle border-2 border-border-default relative group shadow-sm">
-            {currentImage ? (
-              <img
-                src={currentImage}
-                alt={product.name}
-                className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
-              />
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-bg-brand via-bg-surface to-bg-accent p-8 text-center">
-                <span className="text-6xl mb-3">🎨</span>
-                <span className="font-heading font-bold text-lg text-text-primary">
-                  Unwind <span className="text-brand-rose">&amp;</span> Doodle
-                </span>
-                <span className="text-xs text-text-tertiary mt-1">Archival Mindful Collection</span>
-              </div>
-            )}
-
-            {/* Customization Badge */}
-            {product.requiresCustomization && (
-              <div className="absolute top-4 left-4">
+          <ProductImageGallery
+            media={product.media}
+            images={galleryImages}
+            productName={product.name}
+            badge={
+              product.requiresCustomization ? (
                 <span className="bg-action-primary text-text-inverse text-xs font-heading font-bold px-3 py-1.5 rounded-full shadow-sm">
                   ✨ Custom Photo Book
                 </span>
-              </div>
-            )}
-
-            {/* Navigation Arrows for multi-image */}
-            {galleryImages.length > 1 && (
-              <div className="absolute inset-y-0 inset-x-3 flex items-center justify-between pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSelectedImageIndex((idx) => (idx === 0 ? galleryImages.length - 1 : idx - 1))
-                  }
-                  className="pointer-events-auto w-9 h-9 rounded-full bg-white/90 hover:bg-white text-text-primary shadow-md flex items-center justify-center font-bold text-sm"
-                  aria-label="Previous Image"
-                >
-                  ←
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSelectedImageIndex((idx) => (idx === galleryImages.length - 1 ? 0 : idx + 1))
-                  }
-                  className="pointer-events-auto w-9 h-9 rounded-full bg-white/90 hover:bg-white text-text-primary shadow-md flex items-center justify-center font-bold text-sm"
-                  aria-label="Next Image"
-                >
-                  →
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Thumbnails */}
-          {galleryImages.length > 1 && (
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {galleryImages.map((imgUrl, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setSelectedImageIndex(i)}
-                  className={`w-20 h-20 rounded-2xl overflow-hidden border-2 flex-shrink-0 transition-all ${
-                    selectedImageIndex === i
-                      ? 'border-border-accent ring-2 ring-brand-rose/20'
-                      : 'border-border-default opacity-70 hover:opacity-100'
-                  }`}
-                  aria-label={`Select image ${i + 1}`}
-                >
-                  <img src={imgUrl} alt="" className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
-          )}
+              ) : undefined
+            }
+          />
         </div>
 
         {/* Right Column: Details, Add-ons & Customization (7 cols) */}

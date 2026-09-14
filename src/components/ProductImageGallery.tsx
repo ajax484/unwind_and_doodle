@@ -1,8 +1,9 @@
 'use client';
 
-import React, { forwardRef, useState, useMemo } from 'react';
+import React, { forwardRef, useState, useMemo, useRef, useEffect } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
+import { ProductMedia } from '@/types/product-media';
 
 export const productImageGalleryVariants = cva(
   'flex flex-col gap-3 w-full select-none',
@@ -26,11 +27,26 @@ export interface GalleryImage {
   alt?: string;
 }
 
+export interface GalleryItem {
+  id: string;
+  type: 'image' | 'video';
+  url: string;
+  posterUrl?: string | null;
+  thumbnailUrl?: string | null;
+  alt: string;
+}
+
 export interface ProductImageGalleryProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof productImageGalleryVariants> {
   /**
-   * Array of image URLs or GalleryImage objects to display in the gallery.
+   * Unified product media collection. If provided, display order will promote
+   * the first video to index 0, followed by remaining images and media in relative sort order.
+   */
+  media?: ProductMedia[];
+
+  /**
+   * Array of image URLs or GalleryImage objects to display in the gallery (fallback/legacy).
    */
   images?: Array<string | GalleryImage>;
 
@@ -100,18 +116,86 @@ export interface ProductImageGalleryProps
 }
 
 /**
+ * Derives the display order of media items for the storefront presentation layer:
+ * - If the collection contains a video, the first video in database sort order is promoted to index 0.
+ * - All remaining items (images and any subsequent videos) follow in their original relative sort order.
+ * - If no video exists, the media collection order is preserved as-is.
+ * - If media is not provided, falls back to the legacy images array.
+ */
+export function deriveGalleryMedia(
+  media?: ProductMedia[],
+  fallbackImages?: Array<string | GalleryImage>,
+  productName: string = 'Product'
+): GalleryItem[] {
+  if (media && media.length > 0) {
+    const firstVideoIndex = media.findIndex((m) => m.type === 'video');
+
+    let orderedMedia: ProductMedia[];
+    if (firstVideoIndex > 0) {
+      const firstVideo = media[firstVideoIndex];
+      const remaining = media.filter((_, idx) => idx !== firstVideoIndex);
+      orderedMedia = [firstVideo, ...remaining];
+    } else {
+      orderedMedia = [...media];
+    }
+
+    return orderedMedia.map((m, idx) => ({
+      id: m.id || `media-${idx}`,
+      type: m.type,
+      url: m.storagePath,
+      posterUrl: m.thumbnailPath || null,
+      thumbnailUrl: m.thumbnailPath || m.storagePath,
+      alt:
+        m.altText ||
+        `${productName} — ${m.type === 'video' ? 'Product Video' : `View ${idx + 1}`}`,
+    }));
+  }
+
+  if (fallbackImages && fallbackImages.length > 0) {
+    return fallbackImages.map((item, idx) => {
+      if (typeof item === 'string') {
+        return {
+          id: `img-${idx}`,
+          type: 'image' as const,
+          url: item,
+          posterUrl: null,
+          thumbnailUrl: item,
+          alt: `${productName} — View ${idx + 1}`,
+        };
+      }
+      return {
+        id: item.id || `img-${idx}`,
+        type: 'image' as const,
+        url: item.url,
+        posterUrl: null,
+        thumbnailUrl: item.url,
+        alt: item.alt || `${productName} — View ${idx + 1}`,
+      };
+    });
+  }
+
+  return [];
+}
+
+/**
  * ProductImageGallery Component
- * Canonical storefront product image gallery adhering directly to Figma Component Set `40:24601`
- * (32 variants) and Documentation Board `41:24602` ("Product Image Galleries" on `Components` page).
+ * Canonical storefront product media carousel & gallery adhering to Figma Component Set `40:24601`
+ * and Documentation Board `41:24602`.
  *
- * Features 1:1 dominant image viewport (`Radius/LG` 20px), square thumbnail navigation strip
- * (`64×64px` desktop / `56×56px` mobile, `Radius/MD` 14px) with Rose active border token (`#D99BA3`),
- * optional translucent charcoal image counter badge (`"1 / 4"`), previous/next arrow controls,
- * and full keyboard accessibility.
+ * Features:
+ * - 1:1 dominant media viewport with video support (muted, inline, controls)
+ * - Automatic video promotion to position 0 when product has a video
+ * - Automatic video pause on slide navigation
+ * - Touch swipe gesture support for mobile
+ * - Square thumbnail navigation strip with active rose border token (`#D99BA3`)
+ * - Video thumbnail play badge overlay (`▶`) and accessible labels
+ * - Keyboard navigation (ArrowLeft / ArrowRight)
+ * - Graceful fallback to static image on video load/format error
  */
 export const ProductImageGallery = forwardRef<HTMLDivElement, ProductImageGalleryProps>(
   (
     {
+      media,
       images = [],
       productName = 'Product',
       selectedIndex,
@@ -130,38 +214,53 @@ export const ProductImageGallery = forwardRef<HTMLDivElement, ProductImageGaller
     },
     ref
   ) => {
-    // Normalize image list
-    const normalizedImages: GalleryImage[] = useMemo(() => {
-      if (!images || images.length === 0) return [];
-      return images.map((item, idx) => {
-        if (typeof item === 'string') {
-          return {
-            id: `img-${idx}`,
-            url: item,
-            alt: `${productName} — View ${idx + 1}`,
-          };
-        }
-        return {
-          id: item.id || `img-${idx}`,
-          url: item.url,
-          alt: item.alt || `${productName} — View ${idx + 1}`,
-        };
-      });
-    }, [images, productName]);
+    // Derive ordered gallery items
+    const galleryItems: GalleryItem[] = useMemo(() => {
+      return deriveGalleryMedia(media, images, productName);
+    }, [media, images, productName]);
+
+    // Fallback static image URL if video encounters error
+    const fallbackImageUrl = useMemo(() => {
+      return galleryItems.find((item) => item.type === 'image')?.url || null;
+    }, [galleryItems]);
 
     // Uncontrolled vs Controlled state
     const [internalIndex, setInternalIndex] = useState(defaultIndex);
     const activeIndex = selectedIndex !== undefined ? selectedIndex : internalIndex;
 
     const safeIndex =
-      normalizedImages.length > 0
-        ? Math.min(Math.max(0, activeIndex), normalizedImages.length - 1)
+      galleryItems.length > 0
+        ? Math.min(Math.max(0, activeIndex), galleryItems.length - 1)
         : 0;
 
-    const currentImage = normalizedImages[safeIndex] || null;
+    const currentItem = galleryItems[safeIndex] || null;
+
+    // Active video ref & error tracking
+    const videoRef = useRef<HTMLVideoElement | null>(null);
+    const [videoHasError, setVideoHasError] = useState(false);
+
+    // Pause video whenever slide changes and reset error state
+    useEffect(() => {
+      setVideoHasError(false);
+      if (videoRef.current) {
+        videoRef.current.pause();
+      }
+    }, [safeIndex]);
+
+    // Pause video on unmount
+    useEffect(() => {
+      return () => {
+        if (videoRef.current) {
+          videoRef.current.pause();
+        }
+      };
+    }, []);
 
     const handleSelect = (index: number) => {
-      if (index < 0 || index >= normalizedImages.length) return;
+      if (index < 0 || index >= galleryItems.length) return;
+      if (videoRef.current) {
+        videoRef.current.pause();
+      }
       if (selectedIndex === undefined) {
         setInternalIndex(index);
       }
@@ -169,19 +268,19 @@ export const ProductImageGallery = forwardRef<HTMLDivElement, ProductImageGaller
     };
 
     const handlePrev = () => {
-      const prev = safeIndex === 0 ? normalizedImages.length - 1 : safeIndex - 1;
+      const prev = safeIndex === 0 ? galleryItems.length - 1 : safeIndex - 1;
       handleSelect(prev);
     };
 
     const handleNext = () => {
-      const next = safeIndex === normalizedImages.length - 1 ? 0 : safeIndex + 1;
+      const next = safeIndex === galleryItems.length - 1 ? 0 : safeIndex + 1;
       handleSelect(next);
     };
 
     // Keyboard navigation (ArrowLeft / ArrowRight)
     const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
       onKeyDown?.(e);
-      if (normalizedImages.length <= 1) return;
+      if (galleryItems.length <= 1) return;
 
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
@@ -192,10 +291,30 @@ export const ProductImageGallery = forwardRef<HTMLDivElement, ProductImageGaller
       }
     };
 
+    // Touch swipe gestures for mobile
+    const touchStartXRef = useRef<number | null>(null);
+
+    const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+      touchStartXRef.current = e.touches[0].clientX;
+    };
+
+    const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+      if (touchStartXRef.current === null) return;
+      const touchEndX = e.changedTouches[0].clientX;
+      const diff = touchStartXRef.current - touchEndX;
+      const threshold = 40; // minimum 40px delta for swipe
+      if (diff > threshold) {
+        handleNext(); // Swiped left -> next
+      } else if (diff < -threshold) {
+        handlePrev(); // Swiped right -> prev
+      }
+      touchStartXRef.current = null;
+    };
+
     // Counter badge display string (e.g. "1 / 4")
     const counterDisplay =
       imageCountText ||
-      (normalizedImages.length > 0 ? `${safeIndex + 1} / ${normalizedImages.length}` : null);
+      (galleryItems.length > 0 ? `${safeIndex + 1} / ${galleryItems.length}` : null);
 
     return (
       <div
@@ -208,22 +327,44 @@ export const ProductImageGallery = forwardRef<HTMLDivElement, ProductImageGaller
         className={cn(productImageGalleryVariants({ layout }), className)}
         {...props}
       >
-        {/* 1. Main 1:1 Dominant Image Viewport */}
+        {/* 1. Main 1:1 Dominant Media Viewport */}
         <div
           className={cn(
             'aspect-square w-full rounded-lg overflow-hidden',
             'bg-bg-subtle border border-border-default relative group select-none shadow-xs',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-brand'
           )}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
           data-testid={`${testId}-main-viewport`}
         >
-          {currentImage ? (
-            <img
-              src={currentImage.url}
-              alt={currentImage.alt || productName}
-              className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500 animate-in fade-in-50"
-              data-testid={`${testId}-main-image`}
-            />
+          {currentItem ? (
+            currentItem.type === 'video' && !videoHasError ? (
+              <video
+                ref={videoRef}
+                src={currentItem.url}
+                poster={currentItem.posterUrl || undefined}
+                muted
+                playsInline
+                controls
+                preload="metadata"
+                onError={() => setVideoHasError(true)}
+                className="w-full h-full object-cover animate-in fade-in-50"
+                aria-label={`${productName} — Product Video`}
+                data-testid={`${testId}-main-video`}
+              />
+            ) : (
+              <img
+                src={
+                  currentItem.type === 'video' && videoHasError
+                    ? currentItem.posterUrl || fallbackImageUrl || currentItem.url
+                    : currentItem.url
+                }
+                alt={currentItem.alt || productName}
+                className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500 animate-in fade-in-50"
+                data-testid={`${testId}-main-image`}
+              />
+            )
           ) : (
             // Artistic Brand Placeholder Fallback
             <div
@@ -253,7 +394,7 @@ export const ProductImageGallery = forwardRef<HTMLDivElement, ProductImageGaller
           )}
 
           {/* Previous / Next Arrow Controls */}
-          {showArrows && normalizedImages.length > 1 && (
+          {showArrows && galleryItems.length > 1 && (
             <>
               <button
                 type="button"
@@ -261,7 +402,7 @@ export const ProductImageGallery = forwardRef<HTMLDivElement, ProductImageGaller
                   e.stopPropagation();
                   handlePrev();
                 }}
-                aria-label="Previous image"
+                aria-label="Previous slide"
                 data-testid={`${testId}-prev-btn`}
                 className={cn(
                   'absolute left-3 top-1/2 -translate-y-1/2 z-10',
@@ -292,7 +433,7 @@ export const ProductImageGallery = forwardRef<HTMLDivElement, ProductImageGaller
                   e.stopPropagation();
                   handleNext();
                 }}
-                aria-label="Next image"
+                aria-label="Next slide"
                 data-testid={`${testId}-next-btn`}
                 className={cn(
                   'absolute right-3 top-1/2 -translate-y-1/2 z-10',
@@ -319,7 +460,7 @@ export const ProductImageGallery = forwardRef<HTMLDivElement, ProductImageGaller
             </>
           )}
 
-          {/* Image Count Badge Overlay */}
+          {/* Counter Badge Overlay */}
           {showImageCount && counterDisplay && (
             <div
               className={cn(
@@ -336,27 +477,32 @@ export const ProductImageGallery = forwardRef<HTMLDivElement, ProductImageGaller
         </div>
 
         {/* 2. Thumbnail Navigation Strip */}
-        {thumbnails && normalizedImages.length > 1 && (
+        {thumbnails && galleryItems.length > 1 && (
           <div
             role="tablist"
-            aria-label="Product thumbnails"
+            aria-label="Product media thumbnails"
             className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full scrollbar-none"
             data-testid={`${testId}-thumbnails`}
           >
-            {normalizedImages.map((img, idx) => {
+            {galleryItems.map((item, idx) => {
               const isSelected = idx === safeIndex;
+              const isVideo = item.type === 'video';
 
               return (
                 <button
-                  key={img.id || idx}
+                  key={item.id || idx}
                   type="button"
                   role="tab"
                   aria-selected={isSelected}
-                  aria-label={`View image ${idx + 1} of ${normalizedImages.length}`}
+                  aria-label={
+                    isVideo
+                      ? `View product video (${idx + 1} of ${galleryItems.length})`
+                      : `View image ${idx + 1} of ${galleryItems.length}`
+                  }
                   onClick={() => handleSelect(idx)}
                   data-testid={`${testId}-thumb-${idx}`}
                   className={cn(
-                    'relative shrink-0 aspect-square rounded-md overflow-hidden transition-all cursor-pointer',
+                    'relative shrink-0 aspect-square rounded-md overflow-hidden transition-all cursor-pointer bg-bg-subtle',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-brand focus-visible:ring-offset-2',
                     layout === 'desktop'
                       ? 'w-16 h-16'
@@ -368,12 +514,37 @@ export const ProductImageGallery = forwardRef<HTMLDivElement, ProductImageGaller
                       : 'border border-border-default opacity-70 hover:opacity-100 hover:border-border-brand/70'
                   )}
                 >
-                  <img
-                    src={img.url}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
+                  {item.thumbnailUrl ? (
+                    <img
+                      src={item.thumbnailUrl}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-bg-surface text-text-tertiary">
+                      <span className="text-xs">🎬</span>
+                    </div>
+                  )}
+
+                  {/* Video Play Indicator Overlay */}
+                  {isVideo && (
+                    <div
+                      className="absolute inset-0 flex items-center justify-center bg-black/25 pointer-events-none"
+                      aria-hidden="true"
+                      data-testid={`${testId}-thumb-video-indicator-${idx}`}
+                    >
+                      <div className="w-6 h-6 rounded-full bg-bg-surface/90 text-text-primary flex items-center justify-center shadow-xs">
+                        <svg
+                          className="w-2.5 h-2.5 translate-x-0.5 text-text-primary"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                        >
+                          <polygon points="5 3 19 12 5 21 5 3" />
+                        </svg>
+                      </div>
+                    </div>
+                  )}
                 </button>
               );
             })}

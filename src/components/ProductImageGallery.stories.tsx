@@ -1,7 +1,47 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, within, userEvent, fn } from 'storybook/test';
-import React from 'react';
 import ProductImageGallery, { GalleryImage } from './ProductImageGallery';
+import { ProductMedia } from '@/types/product-media';
+
+const sampleMediaWithVideo: ProductMedia[] = [
+  {
+    id: 'media-img-1',
+    productId: 'prod-demo-1',
+    type: 'image',
+    storagePath:
+      'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=800',
+    thumbnailPath: null,
+    altText: 'Mindful Coloring Rituals Vol. 1 — Book Cover View',
+    sortOrder: 0,
+    createdAt: '2026-08-01T10:00:00Z',
+    updatedAt: '2026-08-01T10:00:00Z',
+  },
+  {
+    id: 'media-vid-1',
+    productId: 'prod-demo-1',
+    type: 'video',
+    storagePath:
+      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    thumbnailPath:
+      'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&q=80&w=800',
+    altText: 'Mindful Coloring Rituals Vol. 1 — Page Flip-Through Video',
+    sortOrder: 1,
+    createdAt: '2026-08-01T10:00:00Z',
+    updatedAt: '2026-08-01T10:00:00Z',
+  },
+  {
+    id: 'media-img-2',
+    productId: 'prod-demo-1',
+    type: 'image',
+    storagePath:
+      'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&q=80&w=800',
+    thumbnailPath: null,
+    altText: '180 GSM Archival Bleed-Resistant Paper — Texture Detail',
+    sortOrder: 2,
+    createdAt: '2026-08-01T10:00:00Z',
+    updatedAt: '2026-08-01T10:00:00Z',
+  },
+];
 
 const sampleImages: GalleryImage[] = [
   {
@@ -260,3 +300,17 @@ export const CssCheck: Story = {
     await expect(thumbStyle.borderRadius).toMatch(/12px|14px/);
   },
 };
+
+/**
+ * 12. Product Media with Video (Video Promoted to First Position)
+ */
+export const WithVideo: Story = {
+  args: {
+    media: sampleMediaWithVideo,
+    productName: 'Mindful Coloring Rituals Vol. 1',
+    layout: 'desktop',
+    defaultIndex: 0,
+    'data-testid': 'with-video-gallery',
+  },
+};
+
