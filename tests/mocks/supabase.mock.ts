@@ -8,6 +8,7 @@ export function createMockSupabaseClient(initialData?: {
   warehouses?: any[];
   warehouse_locations?: any[];
   delivery_rates?: any[];
+  delivery_rate_templates?: any[];
   categories?: any[];
   products?: any[];
   product_images?: any[];
@@ -62,6 +63,7 @@ export function createMockSupabaseClient(initialData?: {
     warehouses: [...(initialData?.warehouses || [])],
     warehouse_locations: [...(initialData?.warehouse_locations || [])],
     delivery_rates: [...(initialData?.delivery_rates || [])],
+    delivery_rate_templates: [...(initialData?.delivery_rate_templates || [])],
     categories: [...(initialData?.categories || [])],
     products: [...(initialData?.products || [])],
     product_images: [...(initialData?.product_images || [])],

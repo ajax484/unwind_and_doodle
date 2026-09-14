@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { LocationSchema } from '@/types/admin-inventory';
-import { listLocations, createLocation, listEnrichedDeliveryLocations } from '@/services/admin-warehouse.service';
+import { CreateDeliveryRateTemplateSchema } from '@/types/admin-inventory';
+import {
+  listDeliveryRateTemplates,
+  createDeliveryRateTemplate,
+} from '@/services/admin-warehouse.service';
 import { getAuthenticatedAdmin } from '@/lib/auth-helpers';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
 
@@ -10,16 +13,17 @@ export async function GET(req: NextRequest) {
     const adminContext = await getAuthenticatedAdmin(req);
 
     const url = new URL(req.url);
-    const enriched = url.searchParams.get('enriched') === 'true';
-    const warehouseId = url.searchParams.get('warehouseId');
+    const activeOnly = url.searchParams.get('activeOnly') === 'true';
 
-    const data = enriched
-      ? await listEnrichedDeliveryLocations(supabase, adminContext.organization.id, warehouseId)
-      : await listLocations(supabase, adminContext.organization.id);
+    const data = await listDeliveryRateTemplates(
+      supabase,
+      adminContext.organization.id,
+      activeOnly
+    );
 
     return NextResponse.json({ success: true, data }, { status: 200 });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Error fetching locations';
+    const errorMessage = error instanceof Error ? error.message : 'Error fetching delivery rate templates';
     const isAuthError =
       errorMessage.includes('Forbidden') ||
       errorMessage.includes('Authentication required') ||
@@ -39,20 +43,20 @@ export async function POST(req: NextRequest) {
     const adminContext = await getAuthenticatedAdmin(req);
 
     const rawBody = await req.json();
-    const parseResult = LocationSchema.safeParse(rawBody);
+    const parseResult = CreateDeliveryRateTemplateSchema.safeParse(rawBody);
 
     if (!parseResult.success) {
       return NextResponse.json(
         {
           success: false,
           error: 'Validation failed',
-          details: parseResult.error.flatten().fieldErrors,
+          details: parseResult.error.format(),
         },
         { status: 400 }
       );
     }
 
-    const created = await createLocation(
+    const created = await createDeliveryRateTemplate(
       supabase,
       parseResult.data,
       adminContext.user.id,
@@ -61,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, data: created }, { status: 201 });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Error creating location';
+    const errorMessage = error instanceof Error ? error.message : 'Error creating delivery rate template';
     const isAuthError =
       errorMessage.includes('Forbidden') ||
       errorMessage.includes('Authentication required') ||
@@ -70,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       { success: false, error: errorMessage },
-      { status: isAuthError ? 403 : 500 }
+      { status: isAuthError ? 403 : 400 }
     );
   }
 }

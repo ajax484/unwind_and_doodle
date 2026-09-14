@@ -100,10 +100,11 @@ export default function LocationsSettingsPage() {
 
         <div className="flex items-center gap-3">
           <Link
-            href="/admin/inventory/warehouses"
-            className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs"
+            href="/admin/settings/delivery"
+            className="px-3.5 py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold hover:bg-rose-100 shadow-xs flex items-center gap-1.5"
           >
-            Warehouses
+            <span>🚚</span>
+            <span>Delivery Management Hub</span>
           </Link>
           <button
             type="button"
@@ -113,6 +114,25 @@ export default function LocationsSettingsPage() {
             <span>+</span> Add Location
           </button>
         </div>
+      </div>
+
+      {/* Unified Hub Hint */}
+      <div className="p-4 rounded-3xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600">
+        <div className="flex items-center gap-2.5">
+          <span className="text-xl">💡</span>
+          <div>
+            <span className="font-bold text-slate-800">Tip:</span> You can now configure locations, warehouse assignments, and delivery fees in one single step on the{' '}
+            <Link href="/admin/settings/delivery" className="font-bold text-rose-500 hover:underline">
+              Delivery Management page →
+            </Link>
+          </div>
+        </div>
+        <Link
+          href="/admin/settings/delivery"
+          className="text-xs font-bold text-rose-500 hover:text-rose-600 shrink-0"
+        >
+          Open Delivery Hub →
+        </Link>
       </div>
 
       {error && (

@@ -107,7 +107,7 @@ export default function AdminLayoutClient({
       permission: "organization.manage",
     },
     {
-      label: "Delivery Rates",
+      label: "Delivery Zones",
       href: "/admin/settings/delivery",
       icon: "🚚",
       permission: "organization.manage",

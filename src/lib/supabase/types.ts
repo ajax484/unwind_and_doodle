@@ -554,6 +554,50 @@ export type Database = {
           },
         ];
       };
+      delivery_rate_templates: {
+        Row: {
+          amount: number;
+          created_at: string;
+          currency: string;
+          description: string | null;
+          id: string;
+          is_active: boolean;
+          name: string;
+          organization_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          amount: number;
+          created_at?: string;
+          currency?: string;
+          description?: string | null;
+          id?: string;
+          is_active?: boolean;
+          name: string;
+          organization_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          amount?: number;
+          created_at?: string;
+          currency?: string;
+          description?: string | null;
+          id?: string;
+          is_active?: boolean;
+          name?: string;
+          organization_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "delivery_rate_templates_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       delivery_rates: {
         Row: {
           active: boolean;
@@ -561,6 +605,7 @@ export type Database = {
           id: string;
           location_id: string;
           price: number;
+          template_id: string | null;
           warehouse_id: string;
         };
         Insert: {
@@ -569,6 +614,7 @@ export type Database = {
           id?: string;
           location_id: string;
           price: number;
+          template_id?: string | null;
           warehouse_id: string;
         };
         Update: {
@@ -577,6 +623,7 @@ export type Database = {
           id?: string;
           location_id?: string;
           price?: number;
+          template_id?: string | null;
           warehouse_id?: string;
         };
         Relationships: [
@@ -592,6 +639,13 @@ export type Database = {
             columns: ["warehouse_id"];
             isOneToOne: false;
             referencedRelation: "warehouses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "delivery_rates_template_id_fkey";
+            columns: ["template_id"];
+            isOneToOne: false;
+            referencedRelation: "delivery_rate_templates";
             referencedColumns: ["id"];
           },
         ];

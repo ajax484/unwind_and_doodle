@@ -66,6 +66,76 @@ export const DeliveryRateSchema = z.object({
 
 export type DeliveryRateInput = z.infer<typeof DeliveryRateSchema>;
 
+export const CreateDeliveryZoneSchema = z.object({
+  warehouse_id: z.string().min(1, 'Warehouse is required'),
+  location_id: z.string().optional(),
+  name: z.string().optional(),
+  state: z.string().optional(),
+  lga: z.string().optional().nullable(),
+  price: z.number().min(0, 'Delivery fee must be 0 or greater'),
+  active: z.boolean().default(true),
+}).refine((data) => data.location_id || (data.name && data.state), {
+  message: 'Either location_id or both name and state are required',
+});
+
+export type CreateDeliveryZoneInput = z.input<typeof CreateDeliveryZoneSchema>;
+
+export const DeliveryRateTemplateSchema = z.object({
+  name: z.string().min(1, 'Template name is required').max(100),
+  description: z.string().max(500).optional().nullable(),
+  amount: z.number().min(0, 'Amount must be 0 or greater'),
+  currency: z.string().default('NGN'),
+  is_active: z.boolean().default(true),
+});
+
+export const CreateDeliveryRateTemplateSchema = DeliveryRateTemplateSchema;
+export const UpdateDeliveryRateTemplateSchema = DeliveryRateTemplateSchema.partial();
+
+export type CreateDeliveryRateTemplateInput = z.input<typeof CreateDeliveryRateTemplateSchema>;
+export type UpdateDeliveryRateTemplateInput = z.infer<typeof UpdateDeliveryRateTemplateSchema>;
+
+export const BulkDeliveryZoneItemSchema = z.object({
+  location_id: z.string().min(1, 'Location ID is required'),
+  price: z.number().min(0, 'Delivery fee must be 0 or greater').optional(),
+  template_id: z.string().min(1).optional(),
+}).refine((data) => data.price !== undefined || data.template_id !== undefined, {
+  message: 'Either price or template_id must be provided for each item',
+});
+
+export type BulkDeliveryZoneItemInput = z.infer<typeof BulkDeliveryZoneItemSchema>;
+
+export const BulkDeliveryZonesSchema = z
+  .object({
+    warehouse_id: z.string().min(1, 'Warehouse is required'),
+    template_id: z.string().min(1).optional(),
+    items: z.array(BulkDeliveryZoneItemSchema).optional(),
+    location_ids: z.array(z.string().min(1)).optional(),
+    price: z.number().min(0, 'Delivery fee must be 0 or greater').optional(),
+    include_existing: z.boolean().default(false),
+    active: z.boolean().default(true),
+  })
+  .refine(
+    (data) =>
+      (data.items && data.items.length > 0) ||
+      (data.location_ids &&
+        data.location_ids.length > 0 &&
+        (data.price !== undefined || data.template_id !== undefined)),
+    {
+      message: 'Either items with individual rates/templates or location_ids with a rate/template must be provided',
+    }
+  );
+
+export type BulkDeliveryZonesInput = z.input<typeof BulkDeliveryZonesSchema>;
+
+export const UpdateDeliveryZoneRateSchema = z.object({
+  warehouse_id: z.string().min(1, 'Warehouse is required'),
+  location_id: z.string().min(1, 'Location is required'),
+  price: z.number().min(0, 'Delivery fee must be 0 or greater').optional(),
+  active: z.boolean().optional(),
+});
+
+export type UpdateDeliveryZoneRateInput = z.infer<typeof UpdateDeliveryZoneRateSchema>;
+
 export const AdminInventoryFilterSchema = z.object({
   search: z.string().optional(),
   warehouseId: z.string().optional(),
@@ -205,3 +275,89 @@ export interface AdminDeliveryRateItem {
   price: number;
   active: boolean;
 }
+
+export interface AdminDeliveryZoneItem {
+  id: string;
+  warehouseId: string;
+  warehouseName: string;
+  locationId: string;
+  locationName: string;
+  locationState: string;
+  locationLga: string | null;
+  price: number;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface AdminDeliveryRateTemplateItem {
+  id: string;
+  organizationId: string;
+  name: string;
+  description: string | null;
+  amount: number;
+  currency: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BulkDeliveryZoneResultItem {
+  locationId: string;
+  locationName: string;
+  price: number;
+  oldPrice?: number;
+  templateId?: string | null;
+  templateName?: string | null;
+  reason?: string;
+  message?: string;
+  action?: 'created' | 'updated' | 'skipped' | 'failed';
+  error?: string;
+}
+
+export interface BulkDeliveryZoneResult {
+  warehouseId: string;
+  totalRequested: number;
+  created: BulkDeliveryZoneResultItem[];
+  updated: BulkDeliveryZoneResultItem[];
+  skipped: BulkDeliveryZoneResultItem[];
+  failed: BulkDeliveryZoneResultItem[];
+}
+
+// ==========================================
+// ENRICHED DELIVERY LOCATION TYPES
+// ==========================================
+
+export interface LocationConfigurationInfo {
+  warehouseId: string;
+  warehouseName: string;
+  price: number;
+  active: boolean;
+  templateId?: string | null;
+  templateName?: string | null;
+}
+
+export type LocationConfigStatus =
+  | 'not_configured'
+  | 'configured_here'
+  | 'configured_other'
+  | 'configured_multiple';
+
+export interface AdminEnrichedLocationItem extends AdminLocationItem {
+  configurations: LocationConfigurationInfo[];
+  statusForWarehouse: LocationConfigStatus;
+  primaryConfig?: LocationConfigurationInfo | null;
+}
+
+export type LocationStatusFilter =
+  | 'all'
+  | 'not_configured'
+  | 'configured_here'
+  | 'configured_other';
+
+export type SmartConfigChoice =
+  | 'unconfigured_only'
+  | 'keep_existing'
+  | 'replace_existing';
+
+
+

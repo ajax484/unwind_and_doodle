@@ -41,6 +41,9 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-12 Marketing Step 1D: Segmentation Engine](./admin/2026-09-12-marketing-segmentation-engine.md)
 - [2026-09-12 Marketing Step 1C: Server-Side Typed Data Access Layer](./admin/2026-09-12-marketing-typed-data-access-layer.md)
 - [2026-09-14 Admin Product Media Management](./admin/2026-09-14-admin-product-media-management.md)
+- [2026-09-14 2026-09-14: Smart Delivery Location Selection, Status & Configuration](./admin/2026-09-14-delivery-location-smart-selection.md)
+- [2026-09-14 Warehouse-Centric Delivery Management Redesign](./admin/2026-09-14-delivery-management-redesign.md)
+- [2026-09-14 Reusable Delivery Rate Templates & Bulk Setup Integration](./admin/2026-09-14-delivery-rate-templates.md)
 
 ---
 
@@ -221,6 +224,6 @@ This directory maintains categorized, per-feature change records following the r
 ---
 
 ## 📊 Summary
-- **Total Changelogs**: 162 across 8 domain modules
+- **Total Changelogs**: 165 across 8 domain modules
 - **Template Scaffold**: [`docs/changes/_template.md`](./_template.md)
-- **Status**: 100% indexed (162 of 162 files registered)
+- **Status**: 100% indexed (165 of 165 files registered)
