@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database, Json } from '../lib/supabase/types';
 import { ProductMedia, ProductMediaType } from '../types/product-media';
@@ -573,6 +574,7 @@ export async function createAdminProduct(
   // 5. Attach images & media if provided
   if (input.media && input.media.length > 0) {
     const mediaInserts = input.media.map((m, idx) => ({
+      id: m.id || crypto.randomUUID(),
       product_id: productId,
       type: m.type || 'image',
       storage_path: m.storage_path,
@@ -583,26 +585,34 @@ export async function createAdminProduct(
     const imageInserts = mediaInserts
       .filter((m) => m.type === 'image')
       .map((m, idx) => ({
+        id: crypto.randomUUID(),
         product_id: productId,
         storage_path: m.storage_path,
         alt_text: m.alt_text,
         sort_order: m.sort_order ?? idx,
       }));
 
-    await Promise.all([
+    const [mediaRes, imagesRes] = await Promise.all([
       supabase.from('product_media').insert(mediaInserts as unknown as Database['public']['Tables']['product_media']['Insert']),
       imageInserts.length > 0
         ? supabase.from('product_images').insert(imageInserts as unknown as Database['public']['Tables']['product_images']['Insert'])
-        : Promise.resolve(),
+        : Promise.resolve({ error: null }),
     ]);
+    if (mediaRes?.error) {
+      throw new Error(`Failed to save product media: ${mediaRes.error.message}`);
+    }
+    if (imagesRes && 'error' in imagesRes && imagesRes.error) {
+      throw new Error(`Failed to save product images: ${imagesRes.error.message}`);
+    }
   } else if (input.images && input.images.length > 0) {
     const imgInserts = input.images.map((img, idx) => ({
+      id: crypto.randomUUID(),
       product_id: productId,
       storage_path: img.storage_path,
       alt_text: img.alt_text || null,
       sort_order: img.sort_order ?? idx,
     }));
-    await Promise.all([
+    const [imagesRes, mediaRes] = await Promise.all([
       supabase.from('product_images').insert(imgInserts as unknown as Database['public']['Tables']['product_images']['Insert']),
       supabase.from('product_media').insert(
         imgInserts.map((img) => ({
@@ -612,6 +622,12 @@ export async function createAdminProduct(
         })) as unknown as Database['public']['Tables']['product_media']['Insert']
       ),
     ]);
+    if (imagesRes?.error) {
+      throw new Error(`Failed to save product images: ${imagesRes.error.message}`);
+    }
+    if (mediaRes?.error) {
+      throw new Error(`Failed to save product media: ${mediaRes.error.message}`);
+    }
   }
 
   // 6. Record audit log
@@ -748,7 +764,7 @@ export async function updateAdminProduct(
     ]);
     if (input.media.length > 0) {
       const mediaInserts = input.media.map((m, idx) => ({
-        ...(m.id ? { id: m.id } : {}),
+        id: m.id || crypto.randomUUID(),
         product_id: productId,
         type: m.type || 'image',
         storage_path: m.storage_path,
@@ -759,18 +775,25 @@ export async function updateAdminProduct(
       const imageInserts = mediaInserts
         .filter((m) => m.type === 'image')
         .map((m, idx) => ({
+          id: crypto.randomUUID(),
           product_id: productId,
           storage_path: m.storage_path,
           alt_text: m.alt_text,
           sort_order: m.sort_order ?? idx,
         }));
 
-      await Promise.all([
+      const [mediaRes, imagesRes] = await Promise.all([
         supabase.from('product_media').insert(mediaInserts as unknown as Database['public']['Tables']['product_media']['Insert']),
         imageInserts.length > 0
           ? supabase.from('product_images').insert(imageInserts as unknown as Database['public']['Tables']['product_images']['Insert'])
-          : Promise.resolve(),
+          : Promise.resolve({ error: null }),
       ]);
+      if (mediaRes?.error) {
+        throw new Error(`Failed to save product media: ${mediaRes.error.message}`);
+      }
+      if (imagesRes && 'error' in imagesRes && imagesRes.error) {
+        throw new Error(`Failed to save product images: ${imagesRes.error.message}`);
+      }
     }
   } else if (input.images !== undefined) {
     await Promise.all([
@@ -779,12 +802,13 @@ export async function updateAdminProduct(
     ]);
     if (input.images.length > 0) {
       const imgInserts = input.images.map((img, idx) => ({
+        id: crypto.randomUUID(),
         product_id: productId,
         storage_path: img.storage_path,
         alt_text: img.alt_text || null,
         sort_order: img.sort_order ?? idx,
       }));
-      await Promise.all([
+      const [imagesRes, mediaRes] = await Promise.all([
         supabase.from('product_images').insert(imgInserts as unknown as Database['public']['Tables']['product_images']['Insert']),
         supabase.from('product_media').insert(
           imgInserts.map((img) => ({
@@ -794,6 +818,12 @@ export async function updateAdminProduct(
           })) as unknown as Database['public']['Tables']['product_media']['Insert']
         ),
       ]);
+      if (imagesRes?.error) {
+        throw new Error(`Failed to save product images: ${imagesRes.error.message}`);
+      }
+      if (mediaRes?.error) {
+        throw new Error(`Failed to save product media: ${mediaRes.error.message}`);
+      }
     }
   }
 

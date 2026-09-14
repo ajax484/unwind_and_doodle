@@ -226,6 +226,39 @@ describe('Admin Product Media Management', () => {
       expect(updated.media![2].id).toBe('pm-3');
       expect(updated.media![2].sortOrder).toBe(2);
     });
+
+    it('persists newly uploaded media without explicit id alongside existing media with id', async () => {
+      const updated = await updateAdminProduct(
+        mockSupabase,
+        'prod-existing-book',
+        {
+          media: [
+            {
+              // Newly uploaded video has no id yet
+              type: 'video',
+              storage_path: 'products/org-unwind-doodle-01/newly-uploaded.mp4',
+              thumbnail_path: null,
+              alt_text: 'Newly uploaded video',
+              sort_order: 0,
+            },
+            {
+              id: 'pm-1',
+              type: 'image',
+              storage_path: 'products/org-unwind-doodle-01/flora-cover.jpg',
+              alt_text: 'Flora & Fauna front cover',
+              sort_order: 1,
+            },
+          ],
+        },
+        adminUserA,
+        orgA
+      );
+
+      expect(updated.media).toHaveLength(2);
+      expect(updated.media![0].id).toBeDefined();
+      expect(updated.media![0].type).toBe('video');
+      expect(updated.media![1].id).toBe('pm-1');
+    });
   });
 
   describe('4. Alt Text & Video Thumbnail Updates', () => {
