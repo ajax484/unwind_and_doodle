@@ -61,7 +61,7 @@ export default function ProductMediaManager({
 
     // Client-side validations
     if (type === 'image') {
-      if (!isAllowedImageMimeType(file.type)) {
+      if (!isAllowedImageMimeType(file.type, file.name)) {
         setUploadError('Invalid image format. Allowed: JPG, PNG, WEBP, GIF.');
         e.target.value = '';
         return;
@@ -72,7 +72,7 @@ export default function ProductMediaManager({
         return;
       }
     } else {
-      if (!isAllowedVideoMimeType(file.type)) {
+      if (!isAllowedVideoMimeType(file.type, file.name)) {
         setUploadError('Invalid video format. Allowed: MP4, WEBM, QuickTime (MOV).');
         e.target.value = '';
         return;
@@ -98,9 +98,20 @@ export default function ProductMediaManager({
         body: formData,
       });
 
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || `Failed to upload ${type}`);
+      let json: { success?: boolean; error?: string; data?: { storagePath: string; altText?: string } } | null = null;
+      const text = await res.text();
+      try {
+        json = text ? JSON.parse(text) : null;
+      } catch {
+        throw new Error(
+          res.status === 413
+            ? `File is too large for the server to process (HTTP 413). Please upload a smaller or compressed file.`
+            : `Server returned an unexpected response (HTTP ${res.status}): ${text.slice(0, 150) || res.statusText}`
+        );
+      }
+
+      if (!res.ok || !json?.success || !json.data) {
+        throw new Error(json?.error || `Failed to upload ${type}`);
       }
 
       const newMediaItem: AdminMediaItem = {
@@ -125,7 +136,7 @@ export default function ProductMediaManager({
     const file = e.target.files?.[0];
     if (!file || editingItemIndex === null) return;
 
-    if (!isAllowedImageMimeType(file.type)) {
+    if (!isAllowedImageMimeType(file.type, file.name)) {
       setUploadError('Thumbnail must be an image (JPG, PNG, WEBP, GIF).');
       e.target.value = '';
       return;
@@ -152,9 +163,20 @@ export default function ProductMediaManager({
         body: formData,
       });
 
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Failed to upload thumbnail');
+      let json: { success?: boolean; error?: string; data?: { storagePath: string } } | null = null;
+      const text = await res.text();
+      try {
+        json = text ? JSON.parse(text) : null;
+      } catch {
+        throw new Error(
+          res.status === 413
+            ? 'Thumbnail is too large for the server to process (HTTP 413).'
+            : `Upload failed with status HTTP ${res.status}: ${text.slice(0, 150) || res.statusText}`
+        );
+      }
+
+      if (!res.ok || !json?.success || !json.data) {
+        throw new Error(json?.error || 'Failed to upload thumbnail');
       }
 
       const updated = [...media];
@@ -342,7 +364,7 @@ export default function ProductMediaManager({
           <input
             ref={imageInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
+            accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
             onChange={(e) => handleFileUpload(e, 'image')}
             disabled={disabled || isUploading}
             className="hidden"
@@ -364,7 +386,7 @@ export default function ProductMediaManager({
           <input
             ref={videoInputRef}
             type="file"
-            accept="video/mp4,video/webm,video/quicktime"
+            accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.m4v,.ogv"
             onChange={(e) => handleFileUpload(e, 'video')}
             disabled={disabled || isUploading}
             className="hidden"
@@ -583,7 +605,7 @@ export default function ProductMediaManager({
       <input
         ref={thumbnailInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
+        accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
         onChange={handleThumbnailUpload}
         className="hidden"
         id="admin-upload-thumbnail-input"

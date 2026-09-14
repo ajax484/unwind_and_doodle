@@ -11,6 +11,10 @@ import {
   ProductMediaFolder,
 } from '@/lib/product-media-storage';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = getServiceSupabaseClient();
@@ -32,7 +36,7 @@ export async function POST(req: NextRequest) {
     let folder: ProductMediaFolder = 'images';
 
     if (isThumbnail) {
-      if (!isAllowedImageMimeType(file.type)) {
+      if (!isAllowedImageMimeType(file.type, file.name)) {
         return NextResponse.json(
           { success: false, error: 'Thumbnail must be an image (JPG, PNG, WEBP, GIF)' },
           { status: 400 }
@@ -46,7 +50,7 @@ export async function POST(req: NextRequest) {
       }
       folder = 'thumbnails';
       mediaType = 'image';
-    } else if (isAllowedImageMimeType(file.type)) {
+    } else if (isAllowedImageMimeType(file.type, file.name)) {
       if (file.size > MAX_IMAGE_FILE_SIZE) {
         return NextResponse.json(
           { success: false, error: `Image size exceeds limit of ${MAX_IMAGE_FILE_SIZE / (1024 * 1024)}MB` },
@@ -55,7 +59,7 @@ export async function POST(req: NextRequest) {
       }
       folder = 'images';
       mediaType = 'image';
-    } else if (isAllowedVideoMimeType(file.type)) {
+    } else if (isAllowedVideoMimeType(file.type, file.name)) {
       if (file.size > MAX_VIDEO_FILE_SIZE) {
         return NextResponse.json(
           { success: false, error: `Video size exceeds limit of ${MAX_VIDEO_FILE_SIZE / (1024 * 1024)}MB` },
@@ -87,27 +91,52 @@ export async function POST(req: NextRequest) {
     let { error: uploadError } = await supabase.storage
       .from(PRODUCT_STORAGE_BUCKET)
       .upload(storagePath, buffer, {
-        contentType: file.type,
+        contentType: file.type || (folder === 'videos' ? 'video/mp4' : 'image/jpeg'),
         upsert: true,
       });
 
-    // Auto-create bucket if missing
-    if (uploadError && (uploadError.message.includes('not found') || uploadError.message.includes('Bucket'))) {
-      try {
-        await supabase.storage.createBucket(PRODUCT_STORAGE_BUCKET, {
-          public: true,
-          fileSizeLimit: 104857600, // 100MB
-        });
-
-        const retry = await supabase.storage
-          .from(PRODUCT_STORAGE_BUCKET)
-          .upload(storagePath, buffer, {
-            contentType: file.type,
-            upsert: true,
+    // Auto-create or update bucket if missing or size limit exceeded
+    if (uploadError) {
+      if (
+        uploadError.message.includes('not found') ||
+        uploadError.message.includes('Bucket')
+      ) {
+        try {
+          await supabase.storage.createBucket(PRODUCT_STORAGE_BUCKET, {
+            public: true,
+            fileSizeLimit: 104857600, // 100MB
           });
-        uploadError = retry.error;
-      } catch {
-        // Continue fallback
+
+          const retry = await supabase.storage
+            .from(PRODUCT_STORAGE_BUCKET)
+            .upload(storagePath, buffer, {
+              contentType: file.type || (folder === 'videos' ? 'video/mp4' : 'image/jpeg'),
+              upsert: true,
+            });
+          uploadError = retry.error;
+        } catch {
+          // Continue fallback
+        }
+      } else if (
+        uploadError.message.includes('exceeded the maximum allowed size') ||
+        uploadError.message.includes('size limit')
+      ) {
+        try {
+          await supabase.storage.updateBucket(PRODUCT_STORAGE_BUCKET, {
+            public: true,
+            fileSizeLimit: 104857600, // 100MB
+          });
+
+          const retry = await supabase.storage
+            .from(PRODUCT_STORAGE_BUCKET)
+            .upload(storagePath, buffer, {
+              contentType: file.type || (folder === 'videos' ? 'video/mp4' : 'image/jpeg'),
+              upsert: true,
+            });
+          uploadError = retry.error;
+        } catch {
+          // Continue fallback
+        }
       }
     }
 

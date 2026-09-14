@@ -13,19 +13,39 @@ export const ALLOWED_VIDEO_MIME_TYPES = [
   'video/mp4',
   'video/webm',
   'video/quicktime',
+  'video/x-m4v',
+  'video/m4v',
+  'video/ogg',
 ] as const;
+
+export const ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'] as const;
+export const ALLOWED_VIDEO_EXTENSIONS = ['mp4', 'webm', 'mov', 'm4v', 'ogv'] as const;
 
 export const MAX_IMAGE_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 export const MAX_VIDEO_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 
 export type ProductMediaFolder = 'images' | 'videos' | 'thumbnails';
 
-export function isAllowedImageMimeType(mimeType: string): boolean {
-  return (ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(mimeType);
+export function isAllowedImageMimeType(mimeType: string, filename?: string): boolean {
+  if (mimeType && (ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(mimeType)) {
+    return true;
+  }
+  if (filename) {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    return ext ? (ALLOWED_IMAGE_EXTENSIONS as readonly string[]).includes(ext as any) : false;
+  }
+  return false;
 }
 
-export function isAllowedVideoMimeType(mimeType: string): boolean {
-  return (ALLOWED_VIDEO_MIME_TYPES as readonly string[]).includes(mimeType);
+export function isAllowedVideoMimeType(mimeType: string, filename?: string): boolean {
+  if (mimeType && (ALLOWED_VIDEO_MIME_TYPES as readonly string[]).includes(mimeType)) {
+    return true;
+  }
+  if (filename) {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    return ext ? (ALLOWED_VIDEO_EXTENSIONS as readonly string[]).includes(ext as any) : false;
+  }
+  return false;
 }
 
 export function getExtensionFromMime(mimeType: string, defaultExt = 'bin'): string {
@@ -37,6 +57,9 @@ export function getExtensionFromMime(mimeType: string, defaultExt = 'bin'): stri
     'video/mp4': 'mp4',
     'video/webm': 'webm',
     'video/quicktime': 'mov',
+    'video/x-m4v': 'm4v',
+    'video/m4v': 'm4v',
+    'video/ogg': 'ogv',
   };
   return map[mimeType] || defaultExt;
 }
