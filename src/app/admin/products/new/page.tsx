@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AdminProductCategoryItem } from '@/types/admin-product';
+import { AdminProductCategoryItem, AdminMediaItem } from '@/types/admin-product';
 import { generateAutoSku } from '@/lib/sku-helpers';
+import ProductMediaManager from '@/components/admin/ProductMediaManager';
 
 function slugify(text: string): string {
   return text
@@ -16,12 +17,6 @@ function slugify(text: string): string {
     .replace(/--+/g, '-')
     .replace(/^-+/, '')
     .replace(/-+$/, '');
-}
-
-interface ImageUploadItem {
-  storage_path: string;
-  alt_text: string;
-  sort_order: number;
 }
 
 export default function NewProductPage() {
@@ -38,7 +33,7 @@ export default function NewProductPage() {
   const [costPrice, setCostPrice] = useState<number | ''>('');
   const [requiresCustomization, setRequiresCustomization] = useState(false);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
-  const [images, setImages] = useState<ImageUploadItem[]>([]);
+  const [media, setMedia] = useState<AdminMediaItem[]>([]);
 
   // Categories & Modal
   const [availableCategories, setAvailableCategories] = useState<AdminProductCategoryItem[]>([]);
@@ -58,7 +53,6 @@ export default function NewProductPage() {
 
   // UI state
   const [saving, setSaving] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -177,50 +171,6 @@ export default function NewProductPage() {
     }
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setUploadingImage(true);
-      setError(null);
-
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const res = await fetch('/api/admin/products/upload-image', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const json = await res.json();
-      if (res.ok && json.success) {
-        setImages((prev) => [
-          ...prev,
-          {
-            storage_path: json.data.storagePath,
-            alt_text: json.data.altText || name || 'Product image',
-            sort_order: prev.length,
-          },
-        ]);
-      } else {
-        throw new Error(json.error || 'Image upload failed');
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error uploading image');
-    } finally {
-      setUploadingImage(false);
-      e.target.value = '';
-    }
-  };
-
-  const handleRemoveImage = (index: number) => {
-    setImages((prev) =>
-      prev
-        .filter((_, idx) => idx !== index)
-        .map((img, idx) => ({ ...img, sort_order: idx }))
-    );
-  };
 
   const handleSubmit = async (status: 'draft' | 'published') => {
     if (!name.trim()) {
@@ -249,7 +199,20 @@ export default function NewProductPage() {
         supports_theme_customization: supportsThemeCustomization,
         status,
         category_ids: selectedCategoryIds,
-        images,
+        media: media.map((m, idx) => ({
+          type: m.type,
+          storage_path: m.storage_path,
+          thumbnail_path: m.thumbnail_path || null,
+          alt_text: m.alt_text || null,
+          sort_order: idx,
+        })),
+        images: media
+          .filter((m) => m.type === 'image')
+          .map((m, idx) => ({
+            storage_path: m.storage_path,
+            alt_text: m.alt_text || null,
+            sort_order: idx,
+          })),
       };
 
       const res = await fetch('/api/admin/products', {
@@ -602,58 +565,13 @@ export default function NewProductPage() {
           )}
         </div>
 
-        {/* Section 6: Image Gallery */}
-        <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 className="font-heading font-bold text-base text-slate-900">Product Images</h3>
-            <label className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold cursor-pointer shadow-xs">
-              {uploadingImage ? 'Uploading...' : '+ Upload Image'}
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                onChange={handleImageUpload}
-                disabled={uploadingImage}
-                className="hidden"
-              />
-            </label>
-          </div>
-
-          {images.length === 0 ? (
-            <div className="py-8 border-2 border-dashed border-slate-200 rounded-2xl text-center space-y-2">
-              <div className="text-3xl text-slate-300">📷</div>
-              <p className="text-xs text-slate-500">
-                Upload product covers and interior illustration previews (JPG, PNG, WEBP).
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {images.map((img, idx) => (
-                <div
-                  key={idx}
-                  className="relative group rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 aspect-square flex items-center justify-center"
-                >
-                  <img
-                    src={img.storage_path}
-                    alt={img.alt_text}
-                    className="w-full h-full object-cover"
-                  />
-                  {idx === 0 && (
-                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-rose-500 text-white text-[10px] font-bold shadow-xs">
-                      Cover Image
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveImage(idx)}
-                    className="absolute top-2 right-2 w-6 h-6 rounded-full bg-slate-900/80 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Section 6: Product Media */}
+        <ProductMediaManager
+          media={media}
+          onChange={setMedia}
+          productName={name}
+          disabled={saving}
+        />
       </div>
 
       {/* Create Category Modal */}

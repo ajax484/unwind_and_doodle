@@ -2096,6 +2096,50 @@ export type Database = {
           },
         ];
       };
+      product_media: {
+        Row: {
+          alt_text: string | null;
+          created_at: string;
+          id: string;
+          product_id: string;
+          sort_order: number;
+          storage_path: string;
+          thumbnail_path: string | null;
+          type: Database["public"]["Enums"]["product_media_type"];
+          updated_at: string;
+        };
+        Insert: {
+          alt_text?: string | null;
+          created_at?: string;
+          id?: string;
+          product_id: string;
+          sort_order?: number;
+          storage_path: string;
+          thumbnail_path?: string | null;
+          type?: Database["public"]["Enums"]["product_media_type"];
+          updated_at?: string;
+        };
+        Update: {
+          alt_text?: string | null;
+          created_at?: string;
+          id?: string;
+          product_id?: string;
+          sort_order?: number;
+          storage_path?: string;
+          thumbnail_path?: string | null;
+          type?: Database["public"]["Enums"]["product_media_type"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_media_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       products: {
         Row: {
           cost_price: number;
@@ -2680,6 +2724,7 @@ export type Database = {
         | "cancelled"
         | "refunded";
       payment_status: "pending" | "successful" | "failed" | "refunded";
+      product_media_type: "image" | "video";
       product_status: "draft" | "published" | "archived";
       product_type: "physical" | "custom" | "bundle";
       review_status: "pending" | "approved" | "rejected";
@@ -2847,6 +2892,7 @@ export const Constants = {
         "refunded",
       ],
       payment_status: ["pending", "successful", "failed", "refunded"],
+      product_media_type: ["image", "video"],
       product_status: ["draft", "published", "archived"],
       product_type: ["physical", "custom", "bundle"],
       review_status: ["pending", "approved", "rejected"],
@@ -2905,3 +2951,4 @@ export type MarketingRecipientStatus = Database['public']['Enums']['marketing_re
 export type MarketingAutomationType = Database['public']['Enums']['marketing_automation_type'];
 export type MarketingAutomationStatus = Database['public']['Enums']['marketing_automation_status'];
 export type MarketingEmailEventType = Database['public']['Enums']['marketing_email_event_type'];
+export type ProductMediaTypeEnum = Database['public']['Enums']['product_media_type'];

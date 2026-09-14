@@ -1,8 +1,30 @@
 import { z } from 'zod';
 import { Database } from '../lib/supabase/types';
+import { ProductMedia } from './product-media';
 
 export type ProductStatus = Database['public']['Enums']['product_status'];
 export type ProductType = Database['public']['Enums']['product_type'];
+
+export const ProductMediaItemInputSchema = z.object({
+  id: z.string().uuid().optional(),
+  type: z.enum(['image', 'video']).default('image'),
+  storage_path: z.string().min(1),
+  thumbnail_path: z.string().optional().nullable(),
+  alt_text: z.string().optional().nullable(),
+  sort_order: z.number().int().min(0).default(0),
+});
+
+export type ProductMediaItemInput = z.infer<typeof ProductMediaItemInputSchema>;
+
+export interface AdminMediaItem {
+  id?: string;
+  type: 'image' | 'video';
+  storage_path: string;
+  thumbnail_path?: string | null;
+  alt_text?: string | null;
+  sort_order: number;
+  isUploading?: boolean;
+}
 
 export const CreateProductSchema = z.object({
   name: z.string().min(1, 'Product name is required').max(200),
@@ -26,6 +48,7 @@ export const CreateProductSchema = z.object({
     )
     .optional()
     .default([]),
+  media: z.array(ProductMediaItemInputSchema).optional(),
 });
 
 export const UpdateProductSchema = CreateProductSchema.partial();
@@ -82,6 +105,8 @@ export interface AdminProductListItem {
   requires_customization: boolean;
   supports_theme_customization?: boolean;
   primaryImage: string | null;
+  images: { id: string; storage_path: string; sort_order: number }[];
+  media?: ProductMedia[];
   categories: AdminProductCategoryItem[];
   totalStock: number;
   reservedStock: number;
@@ -137,6 +162,7 @@ export interface AdminProductDetail {
   supports_theme_customization?: boolean;
   organization_id: string;
   images: AdminProductImageItem[];
+  media?: ProductMedia[];
   categories: AdminProductCategoryItem[];
   addons: AdminProductAddonDetail[];
   inventory: AdminProductInventoryItem[];

@@ -52,6 +52,12 @@ describe('Live Supabase Schema & RPC Verification', { timeout: 30000 }, () => {
     const { data: pImages } = await supabase.from('product_images').select('*').limit(1);
     console.log('LIVE PRODUCT_IMAGES:', pImages?.[0] || 'empty');
 
+    const { data: pMedia, error: mediaErr } = await supabase.from('product_media').select('*').order('sort_order', { ascending: true });
+    expect(mediaErr).toBeNull();
+    expect(Array.isArray(pMedia)).toBe(true);
+    expect(pMedia!.length).toBeGreaterThanOrEqual(1);
+    console.log('LIVE PRODUCT_MEDIA count:', pMedia?.length, 'Sample:', pMedia?.[0]);
+
     const { data: pAddons } = await supabase.from('product_addons').select('*').limit(1);
     console.log('LIVE PRODUCT_ADDONS:', pAddons?.[0] || 'empty');
 

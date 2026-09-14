@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database, Json } from '../lib/supabase/types';
+import { ProductMedia, ProductMediaType } from '../types/product-media';
 import {
   CreateProductInput,
   UpdateProductInput,
@@ -131,6 +132,7 @@ export async function listAdminProducts(
   const componentProductIds = [...new Set(bundleItems.map((bi) => bi.component_product_id))];
   const allInventoryProductIds = [...new Set([...productIds, ...componentProductIds])];
 
+  let mediaList: Database['public']['Tables']['product_media']['Row'][] = [];
   let images: Database['public']['Tables']['product_images']['Row'][] = [];
   let prodCats: Database['public']['Tables']['product_categories']['Row'][] = [];
   let allCats: Database['public']['Tables']['categories']['Row'][] = [];
@@ -138,6 +140,7 @@ export async function listAdminProducts(
 
   try {
     const results = await Promise.allSettled([
+      supabase.from('product_media').select('*').in('product_id', productIds).order('sort_order', { ascending: true }),
       supabase.from('product_images').select('*').in('product_id', productIds),
       supabase.from('product_categories').select('*').in('product_id', productIds),
       filters.organizationId
@@ -147,16 +150,19 @@ export async function listAdminProducts(
     ]);
 
     if (results[0].status === 'fulfilled' && results[0].value?.data) {
-      images = results[0].value.data as unknown as Database['public']['Tables']['product_images']['Row'][];
+      mediaList = results[0].value.data as unknown as Database['public']['Tables']['product_media']['Row'][];
     }
     if (results[1].status === 'fulfilled' && results[1].value?.data) {
-      prodCats = results[1].value.data as unknown as Database['public']['Tables']['product_categories']['Row'][];
+      images = results[1].value.data as unknown as Database['public']['Tables']['product_images']['Row'][];
     }
     if (results[2].status === 'fulfilled' && results[2].value?.data) {
-      allCats = results[2].value.data as unknown as Database['public']['Tables']['categories']['Row'][];
+      prodCats = results[2].value.data as unknown as Database['public']['Tables']['product_categories']['Row'][];
     }
     if (results[3].status === 'fulfilled' && results[3].value?.data) {
-      inventory = results[3].value.data as unknown as Database['public']['Tables']['inventory']['Row'][];
+      allCats = results[3].value.data as unknown as Database['public']['Tables']['categories']['Row'][];
+    }
+    if (results[4].status === 'fulfilled' && results[4].value?.data) {
+      inventory = results[4].value.data as unknown as Database['public']['Tables']['inventory']['Row'][];
     }
   } catch (err) {
     console.warn('[listAdminProducts] Non-blocking relation fetch error:', err);
@@ -164,12 +170,61 @@ export async function listAdminProducts(
 
   const categoryMap = new Map((allCats || []).map((c) => [c.id, c]));
 
-  // Primary image per product (lowest sort_order)
+  // Media map per product
+  const mediaByProduct = new Map<string, ProductMedia[]>();
+  for (const m of mediaList || []) {
+    const list = mediaByProduct.get(m.product_id) || [];
+    list.push({
+      id: m.id,
+      productId: m.product_id,
+      type: m.type as ProductMediaType,
+      storagePath: m.storage_path,
+      thumbnailPath: m.thumbnail_path ?? null,
+      altText: m.alt_text ?? null,
+      sortOrder: m.sort_order,
+      createdAt: m.created_at,
+      updatedAt: m.updated_at,
+    });
+    mediaByProduct.set(m.product_id, list);
+  }
+
+  // Primary image per product (lowest sort_order image or fallback)
   const primaryImageMap = new Map<string, string>();
   const sortedImages = [...(images || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  const imagesByProduct = new Map<string, { id: string; storage_path: string; sort_order: number }[]>();
+
   for (const img of sortedImages) {
+    const list = imagesByProduct.get(img.product_id) || [];
+    list.push({ id: img.id, storage_path: img.storage_path, sort_order: img.sort_order });
+    imagesByProduct.set(img.product_id, list);
+
     if (!primaryImageMap.has(img.product_id)) {
       primaryImageMap.set(img.product_id, img.storage_path);
+    }
+    if (!mediaByProduct.has(img.product_id)) {
+      const mList = mediaByProduct.get(img.product_id) || [];
+      mList.push({
+        id: img.id,
+        productId: img.product_id,
+        type: 'image',
+        storagePath: img.storage_path,
+        thumbnailPath: null,
+        altText: img.alt_text ?? null,
+        sortOrder: img.sort_order || 0,
+        createdAt: img.created_at,
+        updatedAt: img.created_at,
+      });
+      mediaByProduct.set(img.product_id, mList);
+    }
+  }
+
+  // If mediaByProduct has images/video, make sure primaryImage is correctly derived
+  for (const [prodId, pMedia] of mediaByProduct.entries()) {
+    const firstImg = pMedia.find((m) => m.type === 'image');
+    if (firstImg) {
+      primaryImageMap.set(prodId, firstImg.storagePath);
+    } else if (pMedia.length > 0 && !primaryImageMap.has(prodId)) {
+      primaryImageMap.set(prodId, pMedia[0].thumbnailPath || pMedia[0].storagePath);
     }
   }
 
@@ -254,6 +309,8 @@ export async function listAdminProducts(
       requires_customization: p.requires_customization || false,
       supports_theme_customization: Boolean((p as Record<string, unknown>).supports_theme_customization),
       primaryImage: primaryImageMap.get(p.id) || null,
+      images: imagesByProduct.get(p.id) || [],
+      media: mediaByProduct.get(p.id) || [],
       categories: categoriesByProduct.get(p.id) || [],
       totalStock: stock.onHand,
       reservedStock: stock.reserved,
@@ -298,25 +355,46 @@ export async function getAdminProductDetail(
     throw new Error(`Forbidden: Product does not belong to your organization`);
   }
 
-  // 2. Fetch images, categories, add-ons, inventory, and warehouses in parallel
-  const [
-    { data: images },
-    { data: prodCats },
-    { data: allCats },
-    { data: addons },
-    { data: inventory },
-    { data: warehouses },
-  ] = await Promise.all([
-    supabase.from('product_images').select('*').eq('product_id', productId),
-    supabase.from('product_categories').select('*').eq('product_id', productId),
-    supabase.from('categories').select('*'),
-    supabase.from('product_addons').select('*').eq('parent_product_id', productId),
-    supabase.from('inventory').select('*').eq('product_id', productId),
-    supabase.from('warehouses').select('*'),
-  ]);
+  // 2. Fetch media, images, categories, add-ons, inventory, and warehouses in parallel
+  const [{ data: mediaRows }, { data: images }, { data: prodCats }, { data: allCats }, { data: addons }, { data: inventory }, { data: warehouses }] =
+    await Promise.all([
+        supabase.from('product_media').select('*').eq('product_id', productId).order('sort_order', { ascending: true }),
+        supabase.from('product_images').select('*').eq('product_id', productId),
+        supabase.from('product_categories').select('*').eq('product_id', productId),
+        supabase.from('categories').select('*'),
+        supabase.from('product_addons').select('*').eq('parent_product_id', productId),
+        supabase.from('inventory').select('*').eq('product_id', productId),
+        supabase.from('warehouses').select('*'),
+      ]);
 
   // Sort images by sort_order
   const sortedImages = [...(images || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+  // Build unified media items
+  const mappedMedia: ProductMedia[] = (mediaRows && mediaRows.length > 0)
+    ? mediaRows.map((m) => ({
+        id: m.id,
+        productId: m.product_id,
+        type: m.type as ProductMediaType,
+        storagePath: m.storage_path,
+        thumbnailPath: m.thumbnail_path ?? null,
+        altText: m.alt_text ?? null,
+        sortOrder: m.sort_order,
+        createdAt: m.created_at,
+        updatedAt: m.updated_at,
+      }))
+    : sortedImages.map((img) => ({
+        id: img.id,
+        productId: img.product_id,
+        type: 'image' as const,
+        storagePath: img.storage_path,
+        thumbnailPath: null,
+        altText: img.alt_text ?? null,
+        sortOrder: img.sort_order || 0,
+        createdAt: img.created_at,
+        updatedAt: img.created_at,
+      }));
+  const sortedMedia = [...mappedMedia].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
   // Resolve categories
   const categoryMap = new Map((allCats || []).map((c) => [c.id, c]));
@@ -408,6 +486,7 @@ export async function getAdminProductDetail(
       alt_text: img.alt_text || null,
       sort_order: img.sort_order || 0,
     })),
+    media: sortedMedia,
     categories: resolvedCats,
     addons: resolvedAddons,
     inventory: resolvedInventory,
@@ -491,15 +570,48 @@ export async function createAdminProduct(
     await supabase.from('product_categories').insert(catInserts as unknown as Database['public']['Tables']['product_categories']['Insert']);
   }
 
-  // 5. Attach images if provided
-  if (input.images && input.images.length > 0) {
+  // 5. Attach images & media if provided
+  if (input.media && input.media.length > 0) {
+    const mediaInserts = input.media.map((m, idx) => ({
+      product_id: productId,
+      type: m.type || 'image',
+      storage_path: m.storage_path,
+      thumbnail_path: m.thumbnail_path || null,
+      alt_text: m.alt_text || null,
+      sort_order: m.sort_order ?? idx,
+    }));
+    const imageInserts = mediaInserts
+      .filter((m) => m.type === 'image')
+      .map((m, idx) => ({
+        product_id: productId,
+        storage_path: m.storage_path,
+        alt_text: m.alt_text,
+        sort_order: m.sort_order ?? idx,
+      }));
+
+    await Promise.all([
+      supabase.from('product_media').insert(mediaInserts as unknown as Database['public']['Tables']['product_media']['Insert']),
+      imageInserts.length > 0
+        ? supabase.from('product_images').insert(imageInserts as unknown as Database['public']['Tables']['product_images']['Insert'])
+        : Promise.resolve(),
+    ]);
+  } else if (input.images && input.images.length > 0) {
     const imgInserts = input.images.map((img, idx) => ({
       product_id: productId,
       storage_path: img.storage_path,
       alt_text: img.alt_text || null,
       sort_order: img.sort_order ?? idx,
     }));
-    await supabase.from('product_images').insert(imgInserts as unknown as Database['public']['Tables']['product_images']['Insert']);
+    await Promise.all([
+      supabase.from('product_images').insert(imgInserts as unknown as Database['public']['Tables']['product_images']['Insert']),
+      supabase.from('product_media').insert(
+        imgInserts.map((img) => ({
+          ...img,
+          type: 'image' as const,
+          thumbnail_path: null,
+        })) as unknown as Database['public']['Tables']['product_media']['Insert']
+      ),
+    ]);
   }
 
   // 6. Record audit log
@@ -628,9 +740,43 @@ export async function updateAdminProduct(
     }
   }
 
-  // 6. Sync images if provided
-  if (input.images !== undefined) {
-    await supabase.from('product_images').delete().eq('product_id', productId);
+  // 6. Sync images & media if provided
+  if (input.media !== undefined) {
+    await Promise.all([
+      supabase.from('product_images').delete().eq('product_id', productId),
+      supabase.from('product_media').delete().eq('product_id', productId),
+    ]);
+    if (input.media.length > 0) {
+      const mediaInserts = input.media.map((m, idx) => ({
+        ...(m.id ? { id: m.id } : {}),
+        product_id: productId,
+        type: m.type || 'image',
+        storage_path: m.storage_path,
+        thumbnail_path: m.thumbnail_path || null,
+        alt_text: m.alt_text || null,
+        sort_order: m.sort_order ?? idx,
+      }));
+      const imageInserts = mediaInserts
+        .filter((m) => m.type === 'image')
+        .map((m, idx) => ({
+          product_id: productId,
+          storage_path: m.storage_path,
+          alt_text: m.alt_text,
+          sort_order: m.sort_order ?? idx,
+        }));
+
+      await Promise.all([
+        supabase.from('product_media').insert(mediaInserts as unknown as Database['public']['Tables']['product_media']['Insert']),
+        imageInserts.length > 0
+          ? supabase.from('product_images').insert(imageInserts as unknown as Database['public']['Tables']['product_images']['Insert'])
+          : Promise.resolve(),
+      ]);
+    }
+  } else if (input.images !== undefined) {
+    await Promise.all([
+      supabase.from('product_images').delete().eq('product_id', productId),
+      supabase.from('product_media').delete().eq('product_id', productId).eq('type', 'image'),
+    ]);
     if (input.images.length > 0) {
       const imgInserts = input.images.map((img, idx) => ({
         product_id: productId,
@@ -638,7 +784,16 @@ export async function updateAdminProduct(
         alt_text: img.alt_text || null,
         sort_order: img.sort_order ?? idx,
       }));
-      await supabase.from('product_images').insert(imgInserts as unknown as Database['public']['Tables']['product_images']['Insert']);
+      await Promise.all([
+        supabase.from('product_images').insert(imgInserts as unknown as Database['public']['Tables']['product_images']['Insert']),
+        supabase.from('product_media').insert(
+          imgInserts.map((img) => ({
+            ...img,
+            type: 'image' as const,
+            thumbnail_path: null,
+          })) as unknown as Database['public']['Tables']['product_media']['Insert']
+        ),
+      ]);
     }
   }
 
@@ -999,3 +1154,98 @@ export async function createCategory(
 
   return data;
 }
+
+/**
+ * Deletes an individual product media item, cleans up storage objects, and re-sequences remaining media.
+ */
+export async function deleteAdminProductMedia(
+  supabase: SupabaseClient<Database>,
+  productId: string,
+  mediaId: string,
+  organizationId: string
+): Promise<{ success: boolean; storageDeleteFailed?: boolean }> {
+  // 1. Verify ownership of product
+  const { data: product, error: prodErr } = await supabase
+    .from('products')
+    .select('id, organization_id')
+    .eq('id', productId)
+    .maybeSingle();
+
+  if (prodErr || !product) {
+    throw new Error(`Product not found: ${productId}`);
+  }
+  if (product.organization_id !== organizationId) {
+    throw new Error(`Forbidden: Product does not belong to your organization`);
+  }
+
+  // 2. Fetch the media item to get storage paths
+  const { data: mediaItem, error: mediaErr } = await supabase
+    .from('product_media')
+    .select('*')
+    .eq('id', mediaId)
+    .eq('product_id', productId)
+    .maybeSingle();
+
+  if (mediaErr || !mediaItem) {
+    throw new Error(`Media item not found: ${mediaId}`);
+  }
+
+  // 3. Delete from DB (both product_media and product_images if matching storage_path)
+  await Promise.all([
+    supabase.from('product_media').delete().eq('id', mediaId),
+    supabase.from('product_images').delete().eq('product_id', productId).eq('storage_path', mediaItem.storage_path),
+  ]);
+
+  // 4. Clean up storage files
+  let storageDeleteFailed = false;
+  const pathsToRemove: string[] = [];
+
+  const extractPath = (urlOrPath: string | null) => {
+    if (!urlOrPath) return null;
+    const marker = '/storage/v1/object/public/products/';
+    if (urlOrPath.includes(marker)) {
+      return urlOrPath.substring(urlOrPath.indexOf(marker) + marker.length);
+    }
+    return urlOrPath;
+  };
+
+  const mainPath = extractPath(mediaItem.storage_path);
+  if (mainPath) pathsToRemove.push(mainPath);
+
+  const thumbPath = extractPath(mediaItem.thumbnail_path);
+  if (thumbPath) pathsToRemove.push(thumbPath);
+
+  if (pathsToRemove.length > 0) {
+    try {
+      const { error: removeErr } = await supabase.storage.from('products').remove(pathsToRemove);
+      if (removeErr) {
+        console.warn('[deleteAdminProductMedia] Storage removal error:', removeErr);
+        storageDeleteFailed = true;
+      }
+    } catch (err) {
+      console.warn('[deleteAdminProductMedia] Storage removal exception:', err);
+      storageDeleteFailed = true;
+    }
+  }
+
+  // 5. Re-sequence remaining media items
+  const { data: remaining } = await supabase
+    .from('product_media')
+    .select('id, sort_order')
+    .eq('product_id', productId)
+    .order('sort_order', { ascending: true });
+
+  if (remaining && remaining.length > 0) {
+    for (let i = 0; i < remaining.length; i++) {
+      if (remaining[i].sort_order !== i) {
+        await supabase
+          .from('product_media')
+          .update({ sort_order: i } as unknown as Database['public']['Tables']['product_media']['Update'])
+          .eq('id', remaining[i].id);
+      }
+    }
+  }
+
+  return { success: true, storageDeleteFailed };
+}
+

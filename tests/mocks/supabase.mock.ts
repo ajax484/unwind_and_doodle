@@ -11,6 +11,7 @@ export function createMockSupabaseClient(initialData?: {
   categories?: any[];
   products?: any[];
   product_images?: any[];
+  product_media?: any[];
   product_categories?: any[];
   product_addons?: any[];
   inventory?: any[];
@@ -64,6 +65,22 @@ export function createMockSupabaseClient(initialData?: {
     categories: [...(initialData?.categories || [])],
     products: [...(initialData?.products || [])],
     product_images: [...(initialData?.product_images || [])],
+    product_media: (() => {
+      const explicit = initialData?.product_media || [];
+      const derived = (initialData?.product_images || []).map((img, idx) => ({
+        id: img.id || `pm-${idx}`,
+        product_id: img.product_id,
+        type: 'image',
+        storage_path: img.storage_path || img.image_url || '',
+        thumbnail_path: null,
+        alt_text: img.alt_text || null,
+        sort_order: typeof img.sort_order === 'number' ? img.sort_order : (img.is_primary ? 0 : 1),
+        created_at: img.created_at || new Date().toISOString(),
+        updated_at: img.updated_at || new Date().toISOString(),
+      }));
+      const ids = new Set(explicit.map((m: any) => m.id));
+      return [...explicit, ...derived.filter((d: any) => !ids.has(d.id))];
+    })(),
     product_categories: [...(initialData?.product_categories || [])],
     product_addons: [...(initialData?.product_addons || [])],
     bundle_items: [...(initialData?.bundle_items || [])],
@@ -142,12 +159,24 @@ export function createMockSupabaseClient(initialData?: {
 
       if (p_images && p_images.length > 0) {
         for (const img of p_images) {
+          const imgId = `img-${Math.random().toString(36).substring(2, 7)}`;
           store.product_images.push({
-            id: `img-${Math.random().toString(36).substring(2, 7)}`,
+            id: imgId,
             product_id: bundleId,
             storage_path: img.storage_path,
             alt_text: img.alt_text || null,
             sort_order: img.sort_order || 0,
+          });
+          store.product_media.push({
+            id: imgId,
+            product_id: bundleId,
+            type: 'image',
+            storage_path: img.storage_path,
+            thumbnail_path: null,
+            alt_text: img.alt_text || null,
+            sort_order: img.sort_order || 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           });
         }
       }
@@ -204,13 +233,26 @@ export function createMockSupabaseClient(initialData?: {
 
       if (p_images !== undefined && p_images !== null) {
         store.product_images = store.product_images.filter((img) => img.product_id !== p_bundle_id);
+        store.product_media = store.product_media.filter((m) => m.product_id !== p_bundle_id);
         for (const img of p_images) {
+          const imgId = `img-${Math.random().toString(36).substring(2, 7)}`;
           store.product_images.push({
-            id: `img-${Math.random().toString(36).substring(2, 7)}`,
+            id: imgId,
             product_id: p_bundle_id,
             storage_path: img.storage_path,
             alt_text: img.alt_text || null,
             sort_order: img.sort_order || 0,
+          });
+          store.product_media.push({
+            id: imgId,
+            product_id: p_bundle_id,
+            type: 'image',
+            storage_path: img.storage_path,
+            thumbnail_path: null,
+            alt_text: img.alt_text || null,
+            sort_order: img.sort_order || 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           });
         }
       }
@@ -268,12 +310,24 @@ export function createMockSupabaseClient(initialData?: {
 
       const sourceImages = store.product_images.filter((img) => img.product_id === p_bundle_id);
       for (const img of sourceImages) {
+        const imgId = `img-${Math.random().toString(36).substring(2, 7)}`;
         store.product_images.push({
-          id: `img-${Math.random().toString(36).substring(2, 7)}`,
+          id: imgId,
           product_id: newBundleId,
           storage_path: img.storage_path,
           alt_text: img.alt_text,
           sort_order: img.sort_order,
+        });
+        store.product_media.push({
+          id: imgId,
+          product_id: newBundleId,
+          type: 'image',
+          storage_path: img.storage_path,
+          thumbnail_path: null,
+          alt_text: img.alt_text || null,
+          sort_order: img.sort_order,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         });
       }
 
@@ -977,6 +1031,14 @@ export function createMockSupabaseClient(initialData?: {
       };
 
       return queryBuilder;
+    },
+    storage: {
+      from: (_bucket: string) => ({
+        upload: async (path: string, _buffer: any, _options?: any) => ({ data: { path }, error: null }),
+        remove: async (paths: string[]) => ({ data: paths, error: null }),
+        getPublicUrl: (path: string) => ({ data: { publicUrl: `https://mock-storage.local/products/${path}` } }),
+        createBucket: async (_bucket: string, _options?: any) => ({ data: null, error: null }),
+      }),
     },
   };
 

@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../lib/supabase/types';
+import { ProductMedia, ProductMediaType } from '../types/product-media';
 
 export interface BundleComponentDetail {
   id: string;
@@ -26,6 +27,7 @@ export interface CatalogProductItem {
   availableStock: number;
   primaryImage: string | null;
   images: { id: string; imageUrl: string; isPrimary: boolean }[];
+  media: ProductMedia[];
   categories: { id: string; name: string; slug: string }[];
   createdAt?: string;
 }
@@ -120,17 +122,24 @@ export async function getPublishedCatalog(
   const componentProductIds = [...new Set(bundleItems.map((bi) => bi.component_product_id))];
   const allInventoryProductIds = [...new Set([...productIds, ...componentProductIds])];
 
-  // 2. Fetch images, product categories, and inventory
+  // 2. Fetch media, images, product categories, and inventory
   const [
+    { data: mediaList },
     { data: images },
     { data: productCats },
     { data: categories },
     { data: inventory },
   ] = await Promise.all([
     supabase
+      .from('product_media')
+      .select('*')
+      .in('product_id', productIds)
+      .order('sort_order', { ascending: true }),
+    supabase
       .from('product_images')
       .select('*')
-      .in('product_id', productIds),
+      .in('product_id', productIds)
+      .order('sort_order', { ascending: true }),
     supabase
       .from('product_categories')
       .select('*')
@@ -142,12 +151,41 @@ export async function getPublishedCatalog(
       .in('product_id', allInventoryProductIds),
   ]);
 
-  const imagesByProduct = new Map<string, typeof images>();
+  const mediaByProduct = new Map<string, ProductMedia[]>();
+  for (const m of mediaList || []) {
+    const list = mediaByProduct.get(m.product_id) || [];
+    list.push({
+      id: m.id,
+      productId: m.product_id,
+      type: m.type as ProductMediaType,
+      storagePath: m.storage_path,
+      thumbnailPath: m.thumbnail_path ?? null,
+      altText: m.alt_text ?? null,
+      sortOrder: m.sort_order,
+      createdAt: m.created_at,
+      updatedAt: m.updated_at,
+    });
+    mediaByProduct.set(m.product_id, list);
+  }
+
+  // Graceful fallback: synthesize media from legacy product_images if product has no product_media records
   for (const img of images || []) {
-    if (!imagesByProduct.has(img.product_id)) {
-      imagesByProduct.set(img.product_id, []);
+    if (!mediaByProduct.has(img.product_id)) {
+      const list = mediaByProduct.get(img.product_id) || [];
+      const imgExt = img as Record<string, unknown>;
+      list.push({
+        id: img.id,
+        productId: img.product_id,
+        type: 'image',
+        storagePath: (imgExt.storage_path as string) || (imgExt.image_url as string) || '',
+        thumbnailPath: null,
+        altText: (imgExt.alt_text as string) || null,
+        sortOrder: typeof imgExt.sort_order === 'number' ? imgExt.sort_order : (imgExt.is_primary ? 0 : 1),
+        createdAt: (imgExt.created_at as string) || new Date().toISOString(),
+        updatedAt: (imgExt.updated_at as string) || new Date().toISOString(),
+      });
+      mediaByProduct.set(img.product_id, list);
     }
-    imagesByProduct.get(img.product_id)!.push(img);
   }
 
   const categoryMap = new Map((categories || []).map((c) => [c.id, c]));
@@ -200,16 +238,13 @@ export async function getPublishedCatalog(
   }
 
   let catalog: CatalogProductItem[] = products.map((p) => {
-    const prodImages = imagesByProduct.get(p.id) || [];
-    const sortedImages = [...prodImages].sort((a, b) => {
-      const imgA = a as typeof a & { is_primary?: boolean };
-      const imgB = b as typeof b & { is_primary?: boolean };
-      const aOrder = a.sort_order !== undefined && a.sort_order !== null ? Number(a.sort_order) : imgA.is_primary ? 0 : 1;
-      const bOrder = b.sort_order !== undefined && b.sort_order !== null ? Number(b.sort_order) : imgB.is_primary ? 0 : 1;
-      return aOrder - bOrder;
-    });
-    const primaryImgObj = sortedImages[0] as (typeof sortedImages[0] & { image_url?: string }) | undefined;
-    const primaryImage = primaryImgObj?.storage_path || primaryImgObj?.image_url || null;
+    const rawMedia = mediaByProduct.get(p.id) || [];
+    const sortedMedia = [...rawMedia].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    const firstImage = sortedMedia.find((m) => m.type === 'image');
+    const primaryImage = firstImage
+      ? firstImage.storagePath
+      : (sortedMedia[0]?.thumbnailPath || sortedMedia[0]?.storagePath || null);
+
     const stock = stockByProduct.get(p.id) || 0;
     const cats = categoriesByProduct.get(p.id) || [];
     const prodExt = p as typeof p & { price?: number };
@@ -231,15 +266,14 @@ export async function getPublishedCatalog(
       isAvailable: stock > 0,
       availableStock: stock,
       primaryImage,
-      images: sortedImages.map((img) => ({
-        id: img.id,
-        imageUrl:
-          ((img as Record<string, unknown>).storage_path as string) ||
-          ((img as Record<string, unknown>).image_url as string) ||
-          '',
-        isPrimary:
-          (img as Record<string, unknown>).sort_order === 0 || (img as Record<string, unknown>).is_primary === true,
-      })),
+      images: sortedMedia
+        .filter((m) => m.type === 'image')
+        .map((img, idx) => ({
+          id: img.id,
+          imageUrl: img.storagePath,
+          isPrimary: idx === 0,
+        })),
+      media: sortedMedia,
       categories: cats,
       createdAt: p.created_at,
     };
@@ -347,9 +381,10 @@ export async function getProductDetailBySlug(
   let addonDetails: ProductDetailAddon[] = [];
 
   if (addonProductIds.length > 0) {
-    const [{ data: addonProducts }, { data: addonImages }, { data: addonInventory }] =
+    const [{ data: addonProducts }, { data: addonMediaList }, { data: addonImages }, { data: addonInventory }] =
       await Promise.all([
         supabase.from('products').select('*').in('id', addonProductIds),
+        supabase.from('product_media').select('*').in('product_id', addonProductIds).order('sort_order', { ascending: true }),
         supabase.from('product_images').select('*').in('product_id', addonProductIds),
         supabase.from('inventory').select('*').in('product_id', addonProductIds),
       ]);
@@ -362,12 +397,17 @@ export async function getProductDetailBySlug(
     const addonProdMap = new Map(publishedAddonProds.map((p) => [p.id, p]));
 
     const addonImgMap = new Map<string, string>();
+    for (const m of addonMediaList || []) {
+      if (!addonImgMap.has(m.product_id)) {
+        addonImgMap.set(m.product_id, m.thumbnail_path || m.storage_path);
+      }
+    }
     for (const img of addonImages || []) {
       const isPrimary =
         (img as Record<string, unknown>).sort_order === 0 || (img as Record<string, unknown>).is_primary === true;
       const url =
         ((img as Record<string, unknown>).storage_path as string) || ((img as Record<string, unknown>).image_url as string);
-      if (isPrimary || !addonImgMap.has(img.product_id)) {
+      if ((isPrimary || !addonImgMap.has(img.product_id)) && url) {
         addonImgMap.set(img.product_id, url);
       }
     }

@@ -40,6 +40,7 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-12 Marketing Starter Seed Segments](./admin/2026-09-12-marketing-seed-segments.md)
 - [2026-09-12 Marketing Step 1D: Segmentation Engine](./admin/2026-09-12-marketing-segmentation-engine.md)
 - [2026-09-12 Marketing Step 1C: Server-Side Typed Data Access Layer](./admin/2026-09-12-marketing-typed-data-access-layer.md)
+- [2026-09-14 Admin Product Media Management](./admin/2026-09-14-admin-product-media-management.md)
 
 ---
 
@@ -68,6 +69,7 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-04 Fix Cart Session Deduplication & Stranded Cart Items](./commerce/2026-09-04-fix-cart-session-deduplication.md)
 - [2026-09-13 Inventory RLS & Service Key Hardening](./commerce/2026-09-13-inventory-rls-and-service-key-hardening.md)
 - [2026-09-13 2026-09-13 Manual Orders: Voluntary Address for Admins & Compulsory Address for Customers](./commerce/2026-09-13-manual-order-voluntary-address-compulsory-customer.md)
+- [2026-09-14 Unified Product Media Architecture](./commerce/2026-09-14-unified-product-media-architecture.md)
 
 ---
 
@@ -217,6 +219,6 @@ This directory maintains categorized, per-feature change records following the r
 ---
 
 ## 📊 Summary
-- **Total Changelogs**: 158 across 8 domain modules
+- **Total Changelogs**: 160 across 8 domain modules
 - **Template Scaffold**: [`docs/changes/_template.md`](./_template.md)
-- **Status**: 100% indexed (158 of 158 files registered)
+- **Status**: 100% indexed (160 of 160 files registered)
