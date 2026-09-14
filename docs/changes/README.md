@@ -101,6 +101,7 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-03 Brand Philosophy 2-Column Grid Layout](./storefront/2026-09-03-brand-philosophy-2col-layout.md)
 - [2026-09-03 Category Grid Pink Theme Redesign](./storefront/2026-09-03-category-grid-pink-theme.md)
 - [2026-09-03 Full-Width Sections and Padding-Based Separation](./storefront/2026-09-03-full-width-sections-and-padding.md)
+- [2026-09-14 ProductCard Hover Video Playback](./storefront/2026-09-14-product-card-hover-video-playback.md)
 
 ---
 
@@ -219,6 +220,6 @@ This directory maintains categorized, per-feature change records following the r
 ---
 
 ## 📊 Summary
-- **Total Changelogs**: 160 across 8 domain modules
+- **Total Changelogs**: 161 across 8 domain modules
 - **Template Scaffold**: [`docs/changes/_template.md`](./_template.md)
-- **Status**: 100% indexed (160 of 160 files registered)
+- **Status**: 100% indexed (161 of 161 files registered)

@@ -318,3 +318,43 @@ export const CssCheck: Story = {
     await expect(mediaStyle.borderRadius).toBe('14px');
   },
 };
+
+/**
+ * 14. With Hover Video Preview
+ * Shows hover preview video on pointer-capable devices.
+ */
+export const WithHoverVideo: Story = {
+  args: {
+    name: 'Artisan Watercolor Sketchbook',
+    slug: 'artisan-watercolor-sketchbook',
+    price: 2400,
+    primaryImage:
+      'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=600',
+    media: [
+      {
+        id: 'med-img-1',
+        productId: 'prod-demo-1',
+        type: 'image',
+        storagePath: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=600',
+        thumbnailPath: null,
+        altText: 'Cover image',
+        sortOrder: 0,
+        createdAt: '2026-08-01T10:00:00Z',
+        updatedAt: '2026-08-01T10:00:00Z',
+      },
+      {
+        id: 'med-vid-1',
+        productId: 'prod-demo-1',
+        type: 'video',
+        storagePath: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+        thumbnailPath: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=600',
+        altText: 'Flipthrough video preview',
+        sortOrder: 1,
+        createdAt: '2026-08-01T10:00:00Z',
+        updatedAt: '2026-08-01T10:00:00Z',
+      },
+    ],
+    'data-testid': 'hover-video-product-card',
+  },
+};
+

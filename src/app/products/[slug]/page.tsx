@@ -886,6 +886,7 @@ export default function ProductDetailPage() {
                 slug={prod.slug}
                 price={prod.price}
                 primaryImage={prod.primaryImage}
+                media={prod.media}
                 isAvailable={prod.isAvailable}
                 requiresCustomization={prod.requiresCustomization}
                 categories={prod.categories}

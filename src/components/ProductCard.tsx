@@ -1,6 +1,6 @@
 'use client';
 
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
@@ -8,6 +8,7 @@ import { formatPrice } from '@/lib/format-utils';
 import { Badge } from '@/components/Badge';
 import { Button } from '@/components/Button';
 import { RatingStars } from '@/components/RatingStars';
+import { ProductMedia } from '@/types/product-media';
 
 export const productCardVariants = cva(
   [
@@ -52,6 +53,10 @@ export interface ProductCardProps
   price: number;
   /** Primary hero image URL, or null for branded placeholder graphic. */
   primaryImage: string | null;
+  /** Optional unified product media collection. */
+  media?: ProductMedia[];
+  /** Optional direct override URL for hover preview video. */
+  hoverVideoUrl?: string | null;
   /** In-stock status; when false, marks product as out of stock. */
   isAvailable: boolean;
   /** Indicates whether the product requires personalized customer input (photo/name). */
@@ -99,6 +104,24 @@ export interface ProductCardProps
   'data-testid'?: string;
 }
 
+export function resolveProductCardMedia(
+  primaryImage: string | null,
+  media?: ProductMedia[],
+  hoverVideoUrl?: string | null
+) {
+  const firstVideoMedia = media?.find((m) => m.type === 'video');
+  const videoUrl = hoverVideoUrl || (firstVideoMedia ? firstVideoMedia.storagePath : null);
+  const videoPoster = firstVideoMedia?.thumbnailPath || null;
+  const defaultImage = primaryImage || media?.find((m) => m.type === 'image')?.storagePath || null;
+
+  return {
+    firstVideoMedia,
+    videoUrl,
+    videoPoster,
+    defaultImage,
+  };
+}
+
 export const ProductCard = forwardRef<HTMLDivElement, ProductCardProps>(
   (
     {
@@ -107,6 +130,8 @@ export const ProductCard = forwardRef<HTMLDivElement, ProductCardProps>(
       slug,
       price,
       primaryImage,
+      media,
+      hoverVideoUrl,
       isAvailable,
       requiresCustomization = false,
       productType = 'physical',
@@ -133,7 +158,70 @@ export const ProductCard = forwardRef<HTMLDivElement, ProductCardProps>(
     },
     ref
   ) => {
-    // 1. Resolve canonical variant
+    // 1. Resolve first video from media (or hoverVideoUrl override)
+    const { firstVideoMedia, videoUrl, videoPoster } = resolveProductCardMedia(
+      primaryImage,
+      media,
+      hoverVideoUrl
+    );
+
+    // 2. Hover and playback state
+    const videoRef = useRef<HTMLVideoElement | null>(null);
+    const [isHovered, setIsHovered] = useState(false);
+    const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+    const [hasVideoError, setHasVideoError] = useState(false);
+    const [supportsHover, setSupportsHover] = useState(false);
+    const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+    useEffect(() => {
+      if (typeof window !== 'undefined') {
+        const hoverQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
+        setSupportsHover(hoverQuery.matches);
+        const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+        setPrefersReducedMotion(motionQuery.matches);
+
+        const handleHoverChange = (e: MediaQueryListEvent) => setSupportsHover(e.matches);
+        const handleMotionChange = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+
+        hoverQuery.addEventListener?.('change', handleHoverChange);
+        motionQuery.addEventListener?.('change', handleMotionChange);
+
+        return () => {
+          hoverQuery.removeEventListener?.('change', handleHoverChange);
+          motionQuery.removeEventListener?.('change', handleMotionChange);
+          if (videoRef.current) {
+            videoRef.current.pause();
+          }
+        };
+      }
+    }, []);
+
+    const handlePointerEnter = (e: React.PointerEvent<HTMLDivElement>) => {
+      rest.onPointerEnter?.(e);
+      if (e.pointerType !== 'mouse' || !videoUrl || hasVideoError || !supportsHover) return;
+      setIsHovered(true);
+      if (videoRef.current) {
+        const playPromise = videoRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {
+            // Handled silently: fallback stays on static image
+          });
+        }
+      }
+    };
+
+    const handlePointerLeave = (e: React.PointerEvent<HTMLDivElement>) => {
+      rest.onPointerLeave?.(e);
+      if (e.pointerType !== 'mouse') return;
+      setIsHovered(false);
+      setIsVideoPlaying(false);
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.currentTime = 0;
+      }
+    };
+
+    // 3. Resolve canonical variant
     const effectiveVariant: ProductCardVariant =
       variant ||
       (!isAvailable
@@ -144,13 +232,13 @@ export const ProductCard = forwardRef<HTMLDivElement, ProductCardProps>(
         ? 'custom'
         : 'standard');
 
-    // 2. Format price
+    // 4. Format price
     const formattedPrice = formatPrice(price);
 
-    // 3. Resolve category eyebrow
+    // 5. Resolve category eyebrow
     const categoryName = categories && categories.length > 0 ? categories[0].name : null;
 
-    // 4. Resolve capability metadata
+    // 6. Resolve capability metadata
     const resolvedCapabilityText =
       capabilityText !== undefined
         ? capabilityText
@@ -164,7 +252,7 @@ export const ProductCard = forwardRef<HTMLDivElement, ProductCardProps>(
         ? 'Add-ons available'
         : null;
 
-    // 5. Resolve action label
+    // 7. Resolve action label
     const resolvedActionText =
       actionText ||
       (effectiveVariant === 'out_of_stock'
@@ -175,13 +263,15 @@ export const ProductCard = forwardRef<HTMLDivElement, ProductCardProps>(
         ? 'View bundle'
         : 'View product');
 
-    // 6. Resolve rating visibility
+    // 8. Resolve rating visibility
     const isRatingVisible = showRating !== undefined ? showRating : rating !== undefined;
 
     return (
       <div
         ref={ref}
         data-testid={testId}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
         className={cn(productCardVariants({ variant: effectiveVariant, size, className }))}
         {...rest}
       >
@@ -208,6 +298,28 @@ export const ProductCard = forwardRef<HTMLDivElement, ProductCardProps>(
                 unwind <span className="text-brand-rose">&amp;</span> doodle
               </span>
             </div>
+          )}
+
+          {/* Hover Video Preview Layer */}
+          {videoUrl && supportsHover && !hasVideoError && (
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              poster={videoPoster || undefined}
+              muted
+              playsInline
+              loop
+              preload="none"
+              tabIndex={-1}
+              aria-hidden="true"
+              onPlaying={() => setIsVideoPlaying(true)}
+              onError={() => setHasVideoError(true)}
+              className={cn(
+                'absolute inset-0 w-full h-full object-cover pointer-events-none transition-opacity',
+                prefersReducedMotion ? '' : 'duration-300 ease-out',
+                isHovered && isVideoPlaying ? 'opacity-100' : 'opacity-0'
+              )}
+            />
           )}
 
           {/* Media Badges Slot */}
