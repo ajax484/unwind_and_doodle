@@ -43,6 +43,10 @@ export async function linkOrCreateCustomerAccount(
   user: {
     id: string;
     email: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    phone?: string | null;
+    acceptsMarketing?: boolean;
     user_metadata?: {
       first_name?: string;
       last_name?: string;
@@ -52,8 +56,8 @@ export async function linkOrCreateCustomerAccount(
 ): Promise<CustomerProfile> {
   const email = user.email.trim().toLowerCase();
   const meta = user.user_metadata || {};
-  let firstName = meta.first_name || null;
-  let lastName = meta.last_name || null;
+  let firstName = user.firstName || meta.first_name || null;
+  let lastName = user.lastName || meta.last_name || null;
 
   if (!firstName && meta.full_name) {
     const parts = meta.full_name.trim().split(' ');
@@ -90,6 +94,7 @@ export async function linkOrCreateCustomerAccount(
         user_id: user.id,
         first_name: primary.first_name || firstName || null,
         last_name: primary.last_name || lastName || null,
+        phone: primary.phone || user.phone || null,
         updated_at: new Date().toISOString(),
       } as Database['public']['Tables']['customers']['Update'])
       .eq('id', primary.id)
@@ -128,6 +133,8 @@ export async function linkOrCreateCustomerAccount(
     }
   } catch {}
 
+  const emailMarketing = user.acceptsMarketing !== undefined ? user.acceptsMarketing : true;
+
   const { data: newCustomer, error: createError } = await supabase
     .from('customers')
     .insert({
@@ -136,7 +143,8 @@ export async function linkOrCreateCustomerAccount(
       user_id: user.id,
       first_name: firstName,
       last_name: lastName,
-      email_marketing_consent: true,
+      phone: user.phone || null,
+      email_marketing_consent: emailMarketing,
       whatsapp_marketing_consent: false,
     } as Database['public']['Tables']['customers']['Insert'])
     .select('*')

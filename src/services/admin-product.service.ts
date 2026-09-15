@@ -13,6 +13,7 @@ import {
   AdminProductDetail,
   AdminProductAddonDetail,
   AdminProductCategoryItem,
+  AdminCategory,
 } from '../types/admin-product';
 import { publishDomainEvent } from './events.service';
 import { generateAutoSku } from '../lib/sku-helpers';
@@ -1133,7 +1134,7 @@ export async function listCategories(
   supabase: SupabaseClient<Database>,
   organizationId?: string,
   options?: { includeProductCount?: boolean }
-) {
+): Promise<AdminCategory[]> {
   let query = supabase.from('categories').select('*');
   if (organizationId) {
     if (typeof (query as any).or === 'function') {
