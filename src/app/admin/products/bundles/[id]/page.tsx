@@ -245,29 +245,58 @@ export default function ViewBundlePage({
           )}
         </div>
 
-        {/* Right Column: Images */}
+        {/* Right Column: Media */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
-          <h3 className="text-sm font-heading font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2 mb-4">
-            Product Images
-          </h3>
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-4">
+            <h3 className="text-sm font-heading font-bold uppercase tracking-wider text-slate-400">
+              Product Media
+            </h3>
+            <Link
+              href={`/admin/products/bundles/${bundle.id}/edit`}
+              className="text-xs font-semibold text-rose-600 hover:text-rose-700"
+            >
+              Edit Media ↗
+            </Link>
+          </div>
 
-          {bundle.images.length === 0 ? (
+          {(bundle.media?.length ?? bundle.images.length) === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-slate-400">
               <span className="text-4xl mb-2">📷</span>
-              <span className="text-xs">No images uploaded</span>
+              <span className="text-xs">No media uploaded</span>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2">
-              {bundle.images.map((img, idx) => (
+              {(bundle.media && bundle.media.length > 0 ? bundle.media : bundle.images.map((img) => ({
+                id: img.id,
+                type: 'image' as const,
+                storagePath: img.storage_path,
+                thumbnailPath: null,
+                altText: img.alt_text,
+              }))).map((item, idx) => (
                 <div
-                  key={img.id || idx}
-                  className="aspect-square rounded-xl bg-slate-100 border border-slate-200 overflow-hidden"
+                  key={item.id || idx}
+                  className="relative aspect-square rounded-xl bg-slate-100 border border-slate-200 overflow-hidden group"
                 >
-                  <img
-                    src={img.storage_path}
-                    alt={bundle.name}
-                    className="w-full h-full object-cover"
-                  />
+                  {item.type === 'video' ? (
+                    <video
+                      src={item.storagePath}
+                      poster={item.thumbnailPath || undefined}
+                      className="w-full h-full object-cover"
+                      muted
+                      playsInline
+                    />
+                  ) : (
+                    <img
+                      src={item.storagePath}
+                      alt={item.altText || bundle.name}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                  {item.type === 'video' && (
+                    <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/60 text-[10px] text-white font-medium">
+                      ▶ Video
+                    </span>
+                  )}
                 </div>
               ))}
             </div>

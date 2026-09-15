@@ -44,6 +44,8 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-14 2026-09-14: Smart Delivery Location Selection, Status & Configuration](./admin/2026-09-14-delivery-location-smart-selection.md)
 - [2026-09-14 Warehouse-Centric Delivery Management Redesign](./admin/2026-09-14-delivery-management-redesign.md)
 - [2026-09-14 Reusable Delivery Rate Templates & Bulk Setup Integration](./admin/2026-09-14-delivery-rate-templates.md)
+- [2026-09-15 Admin Category Management & Dynamic Homepage Collections](./admin/2026-09-15-admin-category-management.md)
+- [2026-09-15 Bundle Media Management and Validation Fix](./admin/2026-09-15-bundle-media-and-validation-fix.md)
 
 ---
 

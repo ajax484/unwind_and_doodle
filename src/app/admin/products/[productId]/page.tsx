@@ -95,6 +95,10 @@ export default function AdminProductEditPage({
 
       if (res.ok && json.success) {
         const p: AdminProductDetail = json.data;
+        if (p.product_type === 'bundle') {
+          router.replace(`/admin/products/bundles/${productId}/edit`);
+          return;
+        }
         setProduct(p);
         setName(p.name);
         setSlug(p.slug);
@@ -701,13 +705,22 @@ export default function AdminProductEditPage({
         <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h3 className="font-heading font-bold text-base text-slate-900">Categories</h3>
-            <button
-              type="button"
-              onClick={() => setShowNewCatModal(true)}
-              className="text-xs font-semibold text-rose-500 hover:text-rose-600"
-            >
-              + Create Category
-            </button>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/admin/categories"
+                target="_blank"
+                className="text-xs text-slate-500 hover:text-slate-800"
+              >
+                Manage all categories ↗
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowNewCatModal(true)}
+                className="text-xs font-semibold text-rose-500 hover:text-rose-600 cursor-pointer"
+              >
+                + Create Category
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">

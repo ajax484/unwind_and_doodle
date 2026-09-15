@@ -132,6 +132,12 @@ function ProductsListContent() {
 
         <div className="flex items-center gap-3">
           <Link
+            href="/admin/categories"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold font-heading shadow-2xs transition-all cursor-pointer"
+          >
+            <span>🏷️</span> Categories
+          </Link>
+          <Link
             href="/admin/products/new"
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold font-heading shadow-xs transition-all cursor-pointer"
           >
@@ -425,7 +431,7 @@ function ProductsListContent() {
                             👁️
                           </Link>
                           <Link
-                            href={`/admin/products/${product.id}`}
+                            href={product.product_type === 'bundle' ? `/admin/products/bundles/${product.id}/edit` : `/admin/products/${product.id}`}
                             className="px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition-all shadow-2xs"
                           >
                             Edit
@@ -499,10 +505,10 @@ function ProductsListContent() {
                       Preview ↗
                     </Link>
                     <Link
-                      href={`/admin/products/${product.id}`}
+                      href={product.product_type === 'bundle' ? `/admin/products/bundles/${product.id}/edit` : `/admin/products/${product.id}`}
                       className="flex-1 text-center py-1.5 rounded-xl bg-slate-800 text-white text-xs font-semibold"
                     >
-                      Edit Product
+                      {product.product_type === 'bundle' ? 'Edit Bundle' : 'Edit Product'}
                     </Link>
                   </div>
                 </div>

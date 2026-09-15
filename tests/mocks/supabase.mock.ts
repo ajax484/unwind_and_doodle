@@ -162,19 +162,22 @@ export function createMockSupabaseClient(initialData?: {
       if (p_images && p_images.length > 0) {
         for (const img of p_images) {
           const imgId = `img-${Math.random().toString(36).substring(2, 7)}`;
-          store.product_images.push({
-            id: imgId,
-            product_id: bundleId,
-            storage_path: img.storage_path,
-            alt_text: img.alt_text || null,
-            sort_order: img.sort_order || 0,
-          });
+          const mType = img.type || 'image';
+          if (mType === 'image') {
+            store.product_images.push({
+              id: imgId,
+              product_id: bundleId,
+              storage_path: img.storage_path,
+              alt_text: img.alt_text || null,
+              sort_order: img.sort_order || 0,
+            });
+          }
           store.product_media.push({
             id: imgId,
             product_id: bundleId,
-            type: 'image',
+            type: mType,
             storage_path: img.storage_path,
-            thumbnail_path: null,
+            thumbnail_path: img.thumbnail_path || null,
             alt_text: img.alt_text || null,
             sort_order: img.sort_order || 0,
             created_at: new Date().toISOString(),
@@ -238,19 +241,22 @@ export function createMockSupabaseClient(initialData?: {
         store.product_media = store.product_media.filter((m) => m.product_id !== p_bundle_id);
         for (const img of p_images) {
           const imgId = `img-${Math.random().toString(36).substring(2, 7)}`;
-          store.product_images.push({
-            id: imgId,
-            product_id: p_bundle_id,
-            storage_path: img.storage_path,
-            alt_text: img.alt_text || null,
-            sort_order: img.sort_order || 0,
-          });
+          const mType = img.type || 'image';
+          if (mType === 'image') {
+            store.product_images.push({
+              id: imgId,
+              product_id: p_bundle_id,
+              storage_path: img.storage_path,
+              alt_text: img.alt_text || null,
+              sort_order: img.sort_order || 0,
+            });
+          }
           store.product_media.push({
             id: imgId,
             product_id: p_bundle_id,
-            type: 'image',
+            type: mType,
             storage_path: img.storage_path,
-            thumbnail_path: null,
+            thumbnail_path: img.thumbnail_path || null,
             alt_text: img.alt_text || null,
             sort_order: img.sort_order || 0,
             created_at: new Date().toISOString(),

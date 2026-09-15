@@ -4,7 +4,9 @@ import React, { useEffect, useState, useCallback, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BundleComponentBuilder, SelectedComponentItem } from '@/components/admin/BundleComponentBuilder';
+import ProductMediaManager from '@/components/admin/ProductMediaManager';
 import { AdminBundleDetail } from '@/types/admin-bundle';
+import { AdminMediaItem } from '@/types/admin-product';
 
 interface CategoryItem {
   id: string;
@@ -30,14 +32,12 @@ export default function EditBundlePage({
   const [costPrice, setCostPrice] = useState<number | ''>(0);
   const [status, setStatus] = useState<'draft' | 'published' | 'archived'>('draft');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
-  const [images, setImages] = useState<{ storage_path: string; sort_order: number }[]>([]);
-  const [imagePath, setImagePath] = useState('');
+  const [media, setMedia] = useState<AdminMediaItem[]>([]);
   const [components, setComponents] = useState<SelectedComponentItem[]>([]);
 
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchBundleData = useCallback(async () => {
@@ -67,7 +67,31 @@ export default function EditBundlePage({
         setCostPrice(b.cost_price);
         setStatus(b.status);
         setSelectedCategoryIds(b.categories.map((c) => c.id));
-        setImages(b.images.map((img) => ({ storage_path: img.storage_path, sort_order: img.sort_order })));
+        if (b.media && b.media.length > 0) {
+          setMedia(
+            b.media.map((m) => ({
+              id: m.id,
+              type: m.type,
+              storage_path: m.storagePath,
+              thumbnail_path: m.thumbnailPath,
+              alt_text: m.altText,
+              sort_order: m.sortOrder,
+            }))
+          );
+        } else if (b.images && b.images.length > 0) {
+          setMedia(
+            b.images.map((img) => ({
+              id: img.id,
+              type: 'image' as const,
+              storage_path: img.storage_path,
+              thumbnail_path: null,
+              alt_text: img.alt_text,
+              sort_order: img.sort_order,
+            }))
+          );
+        } else {
+          setMedia([]);
+        }
 
         setComponents(
           b.components.map((c) => ({
@@ -104,48 +128,6 @@ export default function EditBundlePage({
     setCostPrice(calculatedCost);
   };
 
-  const handleAddImage = () => {
-    if (!imagePath.trim()) return;
-    setImages([...images, { storage_path: imagePath.trim(), sort_order: images.length }]);
-    setImagePath('');
-  };
-
-  const handleRemoveImage = (index: number) => {
-    setImages(images.filter((_, i) => i !== index));
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setUploadingImage(true);
-      setError(null);
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const res = await fetch('/api/admin/products/upload-image', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const json = await res.json();
-      const uploadedPath = json.data?.storagePath || json.storagePath || json.data?.url || json.url;
-      if (res.ok && json.success && uploadedPath) {
-        setImages((prev) => [
-          ...prev,
-          { storage_path: uploadedPath, sort_order: prev.length },
-        ]);
-      } else {
-        throw new Error(json.error || 'Failed to upload image');
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Image upload failed');
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -178,7 +160,21 @@ export default function EditBundlePage({
         cost_price: Number(costPrice),
         status,
         category_ids: selectedCategoryIds,
-        images,
+        media: media.map((m, idx) => ({
+          ...(m.id ? { id: m.id } : {}),
+          type: m.type,
+          storage_path: m.storage_path,
+          thumbnail_path: m.thumbnail_path || null,
+          alt_text: m.alt_text || null,
+          sort_order: idx,
+        })),
+        images: media
+          .filter((m) => m.type === 'image')
+          .map((m, idx) => ({
+            storage_path: m.storage_path,
+            alt_text: m.alt_text || null,
+            sort_order: idx,
+          })),
         components: components.map((c) => ({
           component_product_id: c.component_product_id,
           quantity: c.quantity,
@@ -407,64 +403,17 @@ export default function EditBundlePage({
               </div>
             )}
 
-            {/* Product Images */}
-            <div className="space-y-2 sm:col-span-2">
-              <label className="text-xs font-bold text-slate-700">Product Images</label>
-              <div className="flex flex-wrap gap-3">
-                {images.map((img, idx) => (
-                  <div
-                    key={idx}
-                    className="relative w-20 h-20 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden group"
-                  >
-                    <img src={img.storage_path} alt="Bundle" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveImage(idx)}
-                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] flex items-center justify-center opacity-90 hover:opacity-100"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-
-                <label className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-300 hover:border-rose-400 bg-slate-50 flex flex-col items-center justify-center cursor-pointer text-slate-400 hover:text-rose-600 transition-colors">
-                  {uploadingImage ? (
-                    <span className="text-xs animate-spin">⚙️</span>
-                  ) : (
-                    <>
-                      <span className="text-lg">📷</span>
-                      <span className="text-[10px] font-semibold mt-0.5">Upload</span>
-                    </>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    disabled={uploadingImage}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="text"
-                  value={imagePath}
-                  onChange={(e) => setImagePath(e.target.value)}
-                  placeholder="Or enter image URL / storage path..."
-                  className="flex-1 px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddImage}
-                  className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-xl transition-colors"
-                >
-                  Add Path
-                </button>
-              </div>
-            </div>
           </div>
         </div>
+
+        {/* Product Media Manager */}
+        <ProductMediaManager
+          media={media}
+          onChange={setMedia}
+          productId={bundleId}
+          productName={name || 'Bundle'}
+          disabled={saving}
+        />
 
         {/* Component Builder */}
         <BundleComponentBuilder

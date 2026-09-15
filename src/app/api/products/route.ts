@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     const paginatedProducts = allMatching.slice(startIndex, startIndex + itemsPerPage);
 
     // Fetch dynamic categories from DB
-    const { data: dbCategories } = await supabase.from('categories').select('id, name, slug');
+    const { data: dbCategories } = await supabase.from('categories').select('id, name, slug, description');
 
     return NextResponse.json(
       {

@@ -104,6 +104,7 @@ export default function AdminLayoutClient({
       title: "Catalog & Stock",
       items: [
         { label: "Products", href: "/admin/products", icon: "🎨", exact: true },
+        { label: "Categories", href: "/admin/categories", icon: "🏷️" },
         { label: "Bundles", href: "/admin/products/bundles", icon: "🎁" },
         { label: "Inventory", href: "/admin/inventory", icon: "📋" },
         { label: "Customizations", href: "/admin/customizations", icon: "✂️" },

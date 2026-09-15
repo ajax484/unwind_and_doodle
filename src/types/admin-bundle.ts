@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { Database } from '../lib/supabase/types';
+import { ProductMediaItemInputSchema } from './admin-product';
+import { ProductMedia } from './product-media';
 
 export type ProductStatus = Database['public']['Enums']['product_status'];
 export type ProductType = Database['public']['Enums']['product_type'];
@@ -28,6 +30,7 @@ export const CreateBundleSchema = z.object({
     )
     .optional()
     .default([]),
+  media: z.array(ProductMediaItemInputSchema).optional(),
   components: z
     .array(BundleComponentInputSchema)
     .min(1, 'A bundle must contain at least one component product'),
@@ -108,6 +111,7 @@ export interface AdminBundleDetail {
   status: ProductStatus;
   organization_id: string;
   images: { id: string; storage_path: string; alt_text: string | null; sort_order: number }[];
+  media?: ProductMedia[];
   categories: { id: string; name: string; slug: string }[];
   components: BundleComponentDetail[];
   pricingSummary: AdminBundlePricingSummary;

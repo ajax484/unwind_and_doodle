@@ -218,6 +218,7 @@ export type Database = {
       categories: {
         Row: {
           created_at: string;
+          description: string | null;
           id: string;
           name: string;
           organization_id: string;
@@ -225,6 +226,7 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
+          description?: string | null;
           id?: string;
           name: string;
           organization_id: string;
@@ -232,6 +234,7 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          description?: string | null;
           id?: string;
           name?: string;
           organization_id?: string;

@@ -398,4 +398,97 @@ describe('Phase 6H: Admin Bundle Management Workflow', () => {
 
     expect(sumComponentCost).toBe(8600); // (2500 * 2) + (1200 * 3)
   });
+
+  it('11. Creates a bundle product with rich media (image and video) and retrieves them via detail', async () => {
+    const created = await createAdminBundle(
+      mockSupabase,
+      {
+        name: 'Media Showcase Bundle',
+        selling_price: 15000,
+        cost_price: 7000,
+        status: 'published',
+        media: [
+          {
+            type: 'image',
+            storage_path: 'products/orgA/bundle_main.jpg',
+            alt_text: 'Main Bundle Image',
+            sort_order: 0,
+          },
+          {
+            type: 'video',
+            storage_path: 'products/orgA/bundle_showcase.mp4',
+            thumbnail_path: 'products/orgA/bundle_thumb.jpg',
+            alt_text: 'Bundle Showcase Video',
+            sort_order: 1,
+          },
+        ],
+        components: [{ component_product_id: prodBookId, quantity: 1 }],
+      },
+      adminUserA,
+      orgA
+    );
+
+    const detail = await getAdminBundleDetail(mockSupabase, created.id, orgA);
+    expect(detail.media).toBeDefined();
+    expect(detail.media).toHaveLength(2);
+    expect(detail.media?.[0].type).toBe('image');
+    expect(detail.media?.[0].storagePath).toBe('products/orgA/bundle_main.jpg');
+    expect(detail.media?.[1].type).toBe('video');
+    expect(detail.media?.[1].storagePath).toBe('products/orgA/bundle_showcase.mp4');
+
+    // Images legacy array should only include image type
+    expect(detail.images).toHaveLength(1);
+    expect(detail.images[0].storage_path).toBe('products/orgA/bundle_main.jpg');
+  });
+
+  it('12. Updates bundle media, replacing previous media with new images/videos', async () => {
+    const bundle = await createAdminBundle(
+      mockSupabase,
+      {
+        name: 'Initial Media Bundle',
+        selling_price: 10000,
+        cost_price: 4000,
+        status: 'published',
+        media: [
+          {
+            type: 'image',
+            storage_path: 'products/orgA/old_image.jpg',
+            sort_order: 0,
+          },
+        ],
+        components: [{ component_product_id: prodBookId, quantity: 1 }],
+      },
+      adminUserA,
+      orgA
+    );
+
+    expect(bundle.media).toHaveLength(1);
+
+    const updated = await updateAdminBundle(
+      mockSupabase,
+      bundle.id,
+      {
+        media: [
+          {
+            type: 'image',
+            storage_path: 'products/orgA/new_image_1.jpg',
+            alt_text: 'Updated Image 1',
+            sort_order: 0,
+          },
+          {
+            type: 'image',
+            storage_path: 'products/orgA/new_image_2.jpg',
+            alt_text: 'Updated Image 2',
+            sort_order: 1,
+          },
+        ],
+      },
+      adminUserA,
+      orgA
+    );
+
+    expect(updated.media).toHaveLength(2);
+    expect(updated.media?.[0].storagePath).toBe('products/orgA/new_image_1.jpg');
+    expect(updated.media?.[1].storagePath).toBe('products/orgA/new_image_2.jpg');
+  });
 });

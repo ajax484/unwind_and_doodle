@@ -1127,11 +1127,12 @@ export async function removeProductAddon(
 }
 
 /**
- * Lists all categories for an organization.
+ * Lists all categories for an organization, optionally including product counts.
  */
 export async function listCategories(
   supabase: SupabaseClient<Database>,
-  organizationId?: string
+  organizationId?: string,
+  options?: { includeProductCount?: boolean }
 ) {
   let query = supabase.from('categories').select('*');
   if (organizationId) {
@@ -1148,18 +1149,42 @@ export async function listCategories(
     throw new Error(`Failed to list categories: ${error.message}`);
   }
 
-  return (data || []).sort((a, b) => a.name.localeCompare(b.name));
+  const categories = data || [];
+
+  if (options?.includeProductCount && categories.length > 0) {
+    const categoryIds = categories.map((c) => c.id);
+    const { data: prodCats } = await supabase
+      .from('product_categories')
+      .select('category_id')
+      .in('category_id', categoryIds);
+
+    const countMap: Record<string, number> = {};
+    (prodCats || []).forEach((pc) => {
+      countMap[pc.category_id] = (countMap[pc.category_id] || 0) + 1;
+    });
+
+    return categories
+      .map((c) => ({
+        ...c,
+        product_count: countMap[c.id] || 0,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  return categories.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /**
- * Creates a new category for an organization with a generated slug.
+ * Creates a new category for an organization with a generated or custom slug.
  */
 export async function createCategory(
   supabase: SupabaseClient<Database>,
   name: string,
-  organizationId: string
+  organizationId: string,
+  options?: { slug?: string; description?: string | null }
 ) {
-  const baseSlug = slugify(name) || 'category';
+  const customSlug = options?.slug ? slugify(options.slug) : null;
+  const baseSlug = customSlug || slugify(name) || 'category';
   const { data: existing } = await supabase
     .from('categories')
     .select('id')
@@ -1174,6 +1199,7 @@ export async function createCategory(
       organization_id: organizationId,
       name: name.trim(),
       slug,
+      description: options?.description !== undefined ? options.description : null,
     } as unknown as Database['public']['Tables']['categories']['Insert'])
     .select()
     .single();
@@ -1183,6 +1209,133 @@ export async function createCategory(
   }
 
   return data;
+}
+
+/**
+ * Updates an existing category's name, slug, or description.
+ */
+export async function updateCategory(
+  supabase: SupabaseClient<Database>,
+  categoryId: string,
+  organizationId: string,
+  updates: {
+    name?: string;
+    slug?: string;
+    description?: string | null;
+  }
+) {
+  // 1. Verify category exists and belongs to organization
+  const { data: category, error: findError } = await supabase
+    .from('categories')
+    .select('*')
+    .eq('id', categoryId)
+    .single();
+
+  if (findError || !category) {
+    throw new Error('Category not found');
+  }
+
+  if (category.organization_id !== organizationId) {
+    throw new Error('Unauthorized to modify category for another organization');
+  }
+
+  const payload: Record<string, any> = {};
+
+  if (updates.name !== undefined) {
+    const trimmed = updates.name.trim();
+    if (!trimmed) {
+      throw new Error('Category name cannot be empty');
+    }
+    payload.name = trimmed;
+  }
+
+  if (updates.slug !== undefined) {
+    const rawSlug = slugify(updates.slug);
+    if (!rawSlug) {
+      throw new Error('Category slug cannot be empty');
+    }
+    // Check slug collision within org (excluding self)
+    const { data: slugExisting } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('organization_id', organizationId)
+      .eq('slug', rawSlug)
+      .neq('id', categoryId);
+
+    if (slugExisting && slugExisting.length > 0) {
+      throw new Error('A category with this slug already exists');
+    }
+    payload.slug = rawSlug;
+  }
+
+  if (updates.description !== undefined) {
+    payload.description = updates.description && updates.description.trim() ? updates.description.trim() : null;
+  }
+
+  const { data: updated, error: updateError } = await supabase
+    .from('categories')
+    .update(payload as unknown as Database['public']['Tables']['categories']['Update'])
+    .eq('id', categoryId)
+    .select()
+    .single();
+
+  if (updateError || !updated) {
+    throw new Error(`Failed to update category: ${updateError?.message}`);
+  }
+
+  return updated;
+}
+
+/**
+ * Deletes a category for an organization and returns counts of detached associations.
+ */
+export async function deleteCategory(
+  supabase: SupabaseClient<Database>,
+  categoryId: string,
+  organizationId: string
+) {
+  // 1. Verify category exists and belongs to organization
+  const { data: category, error: findError } = await supabase
+    .from('categories')
+    .select('id, name, organization_id')
+    .eq('id', categoryId)
+    .single();
+
+  if (findError || !category) {
+    throw new Error('Category not found');
+  }
+
+  if (category.organization_id !== organizationId) {
+    throw new Error('Unauthorized to delete category for another organization');
+  }
+
+  // Count products and discounts that will be detached
+  const { count: productCount } = await supabase
+    .from('product_categories')
+    .select('*', { count: 'exact', head: true })
+    .eq('category_id', categoryId);
+
+  const { count: discountCount } = await supabase
+    .from('discount_categories')
+    .select('*', { count: 'exact', head: true })
+    .eq('category_id', categoryId);
+
+  // 2. Perform delete (product_categories and discount_categories cascade on delete)
+  const { error: deleteError } = await supabase
+    .from('categories')
+    .delete()
+    .eq('id', categoryId);
+
+  if (deleteError) {
+    throw new Error(`Failed to delete category: ${deleteError.message}`);
+  }
+
+  return {
+    success: true,
+    deletedId: categoryId,
+    detachedProductCount: productCount || 0,
+    detachedDiscountCount: discountCount || 0,
+  };
 }
 
 /**

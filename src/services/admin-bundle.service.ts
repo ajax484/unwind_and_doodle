@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 import { Database, Json } from '../lib/supabase/types';
 import {
   CreateBundleInput,
@@ -10,6 +11,7 @@ import {
   BundleComponentDetail,
   AdminBundlePricingSummary,
 } from '../types/admin-bundle';
+import { ProductMedia } from '../types/product-media';
 import { generateUniqueSlug, slugify } from './admin-product.service';
 import { generateAutoSku } from '../lib/sku-helpers';
 import { publishDomainEvent } from './events.service';
@@ -104,9 +106,10 @@ export async function listAdminBundles(
 
   const bundleIds = paginated.map((b) => b.id);
 
-  // Batch fetch images, categories, and bundle component counts
-  const [imagesRes, prodCatsRes, allCatsRes, bundleItemsRes] = await Promise.all([
-    supabase.from('product_images').select('*').in('product_id', bundleIds),
+  // Batch fetch media, images, categories, and bundle component counts
+  const [mediaRes, imagesRes, prodCatsRes, allCatsRes, bundleItemsRes] = await Promise.all([
+    supabase.from('product_media').select('*').in('product_id', bundleIds).order('sort_order', { ascending: true }),
+    supabase.from('product_images').select('*').in('product_id', bundleIds).order('sort_order', { ascending: true }),
     supabase.from('product_categories').select('*').in('product_id', bundleIds),
     filters.organizationId
       ? supabase.from('categories').select('*').eq('organization_id', filters.organizationId)
@@ -114,6 +117,7 @@ export async function listAdminBundles(
     supabase.from('bundle_items').select('bundle_product_id, id').in('bundle_product_id', bundleIds),
   ]);
 
+  const mediaList = mediaRes.data || [];
   const images = imagesRes.data || [];
   const prodCats = prodCatsRes.data || [];
   const allCats = allCatsRes.data || [];
@@ -121,10 +125,14 @@ export async function listAdminBundles(
 
   const categoryMap = new Map((allCats || []).map((c) => [c.id, c]));
 
-  // Primary image map (lowest sort_order)
+  // Primary image map (from product_media first, fallback to product_images)
   const primaryImageMap = new Map<string, string>();
-  const sortedImages = [...images].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-  for (const img of sortedImages) {
+  for (const m of mediaList) {
+    if (!primaryImageMap.has(m.product_id)) {
+      primaryImageMap.set(m.product_id, m.thumbnail_path || m.storage_path);
+    }
+  }
+  for (const img of images) {
     if (!primaryImageMap.has(img.product_id)) {
       primaryImageMap.set(img.product_id, img.storage_path);
     }
@@ -201,20 +209,57 @@ export async function getAdminBundleDetail(
     throw new Error(`Product ${bundleId} is not a bundle product`);
   }
 
-  // 2. Fetch images, categories, and bundle items
-  const [imagesRes, prodCatsRes, allCatsRes, bundleItemsRes] = await Promise.all([
+  // 2. Fetch media, images, categories, and bundle items
+  const [mediaRes, imagesRes, prodCatsRes, allCatsRes, bundleItemsRes] = await Promise.all([
+    supabase.from('product_media').select('*').eq('product_id', bundleId).order('sort_order', { ascending: true }),
     supabase.from('product_images').select('*').eq('product_id', bundleId).order('sort_order', { ascending: true }),
     supabase.from('product_categories').select('category_id').eq('product_id', bundleId),
     supabase.from('categories').select('*').eq('organization_id', organizationId),
     supabase.from('bundle_items').select('*').eq('bundle_product_id', bundleId),
   ]);
 
-  const images = (imagesRes.data || []).map((img) => ({
-    id: img.id,
-    storage_path: img.storage_path,
-    alt_text: img.alt_text,
-    sort_order: img.sort_order,
-  }));
+  const rawMedia = mediaRes.data || [];
+  const rawImages = imagesRes.data || [];
+
+  const media: ProductMedia[] = rawMedia.length > 0
+    ? rawMedia.map((m) => ({
+        id: m.id,
+        productId: m.product_id,
+        type: m.type as 'image' | 'video',
+        storagePath: m.storage_path,
+        thumbnailPath: m.thumbnail_path ?? null,
+        altText: m.alt_text ?? null,
+        sortOrder: m.sort_order,
+        createdAt: m.created_at,
+        updatedAt: m.updated_at,
+      }))
+    : rawImages.map((img) => ({
+        id: img.id,
+        productId: bundleId,
+        type: 'image' as const,
+        storagePath: img.storage_path,
+        thumbnailPath: null,
+        altText: img.alt_text ?? null,
+        sortOrder: img.sort_order,
+        createdAt: bundle.created_at,
+        updatedAt: bundle.updated_at,
+      }));
+
+  const images = rawMedia.length > 0
+    ? rawMedia
+        .filter((m) => m.type === 'image')
+        .map((m) => ({
+          id: m.id,
+          storage_path: m.storage_path,
+          alt_text: m.alt_text,
+          sort_order: m.sort_order,
+        }))
+    : rawImages.map((img) => ({
+        id: img.id,
+        storage_path: img.storage_path,
+        alt_text: img.alt_text,
+        sort_order: img.sort_order,
+      }));
 
   const categoryMap = new Map((allCatsRes.data || []).map((c) => [c.id, c]));
   const categories = (prodCatsRes.data || [])
@@ -290,6 +335,7 @@ export async function getAdminBundleDetail(
     status: bundle.status,
     organization_id: bundle.organization_id,
     images,
+    media,
     categories,
     components: componentDetails,
     pricingSummary,
@@ -365,7 +411,21 @@ export async function createAdminBundle(
     p_cost_price: input.cost_price,
     p_status: input.status,
     p_category_ids: input.category_ids || [],
-    p_images: input.images || [],
+    p_images: (input.media && input.media.length > 0)
+      ? input.media.map((m, idx) => ({
+          type: m.type || 'image',
+          storage_path: m.storage_path,
+          thumbnail_path: m.thumbnail_path || null,
+          alt_text: m.alt_text || null,
+          sort_order: m.sort_order ?? idx,
+        }))
+      : (input.images || []).map((img, idx) => ({
+          type: 'image',
+          storage_path: img.storage_path,
+          thumbnail_path: null,
+          alt_text: img.alt_text || null,
+          sort_order: img.sort_order ?? idx,
+        })),
     p_components: input.components,
   } as unknown as Database['public']['Functions']['create_admin_bundle']['Args']);
 
@@ -374,6 +434,60 @@ export async function createAdminBundle(
   }
 
   const createdBundleId = bundleId as string;
+
+  // Sync product_media and product_images explicitly
+  if (input.media !== undefined && input.media.length > 0) {
+    const mediaInserts = input.media.map((m, idx) => ({
+      id: m.id || crypto.randomUUID(),
+      product_id: createdBundleId,
+      type: m.type || 'image',
+      storage_path: m.storage_path,
+      thumbnail_path: m.thumbnail_path || null,
+      alt_text: m.alt_text || null,
+      sort_order: m.sort_order ?? idx,
+    }));
+    const imageInserts = mediaInserts
+      .filter((m) => m.type === 'image')
+      .map((m, idx) => ({
+        id: crypto.randomUUID(),
+        product_id: createdBundleId,
+        storage_path: m.storage_path,
+        alt_text: m.alt_text,
+        sort_order: m.sort_order ?? idx,
+      }));
+    await Promise.all([
+      supabase.from('product_media').delete().eq('product_id', createdBundleId),
+      supabase.from('product_images').delete().eq('product_id', createdBundleId),
+    ]);
+    await Promise.all([
+      supabase.from('product_media').insert(mediaInserts as unknown as Database['public']['Tables']['product_media']['Insert']),
+      imageInserts.length > 0
+        ? supabase.from('product_images').insert(imageInserts as unknown as Database['public']['Tables']['product_images']['Insert'])
+        : Promise.resolve({ error: null }),
+    ]);
+  } else if (input.images !== undefined && input.images.length > 0) {
+    const imgInserts = input.images.map((img, idx) => ({
+      id: crypto.randomUUID(),
+      product_id: createdBundleId,
+      storage_path: img.storage_path,
+      alt_text: img.alt_text || null,
+      sort_order: img.sort_order ?? idx,
+    }));
+    await Promise.all([
+      supabase.from('product_media').delete().eq('product_id', createdBundleId),
+      supabase.from('product_images').delete().eq('product_id', createdBundleId),
+    ]);
+    await Promise.all([
+      supabase.from('product_images').insert(imgInserts as unknown as Database['public']['Tables']['product_images']['Insert']),
+      supabase.from('product_media').insert(
+        imgInserts.map((img) => ({
+          ...img,
+          type: 'image' as const,
+          thumbnail_path: null,
+        })) as unknown as Database['public']['Tables']['product_media']['Insert']
+      ),
+    ]);
+  }
 
   // 5. Record audit log
   await supabase.from('audit_logs').insert({
@@ -501,12 +615,86 @@ export async function updateAdminBundle(
     p_cost_price: input.cost_price !== undefined ? input.cost_price : Number(existing.cost_price),
     p_status: input.status !== undefined ? input.status : existing.status,
     p_category_ids: input.category_ids !== undefined ? input.category_ids : null,
-    p_images: input.images !== undefined ? input.images : null,
+    p_images: input.media !== undefined
+      ? input.media.map((m, idx) => ({
+          type: m.type || 'image',
+          storage_path: m.storage_path,
+          thumbnail_path: m.thumbnail_path || null,
+          alt_text: m.alt_text || null,
+          sort_order: m.sort_order ?? idx,
+        }))
+      : input.images !== undefined
+      ? input.images.map((img, idx) => ({
+          type: 'image',
+          storage_path: img.storage_path,
+          thumbnail_path: null,
+          alt_text: img.alt_text || null,
+          sort_order: img.sort_order ?? idx,
+        }))
+      : null,
     p_components: input.components !== undefined ? input.components : null,
   } as unknown as Database['public']['Functions']['update_admin_bundle']['Args']);
 
   if (rpcErr) {
     throw new Error(`Failed to update bundle product: ${rpcErr.message}`);
+  }
+
+  // Explicit sync of product_media & product_images tables
+  if (input.media !== undefined) {
+    await Promise.all([
+      supabase.from('product_images').delete().eq('product_id', bundleId),
+      supabase.from('product_media').delete().eq('product_id', bundleId),
+    ]);
+    if (input.media.length > 0) {
+      const mediaInserts = input.media.map((m, idx) => ({
+        id: m.id || crypto.randomUUID(),
+        product_id: bundleId,
+        type: m.type || 'image',
+        storage_path: m.storage_path,
+        thumbnail_path: m.thumbnail_path || null,
+        alt_text: m.alt_text || null,
+        sort_order: m.sort_order ?? idx,
+      }));
+      const imgInserts = mediaInserts
+        .filter((m) => m.type === 'image')
+        .map((m, idx) => ({
+          id: crypto.randomUUID(),
+          product_id: bundleId,
+          storage_path: m.storage_path,
+          alt_text: m.alt_text,
+          sort_order: m.sort_order ?? idx,
+        }));
+      await Promise.all([
+        supabase.from('product_media').insert(mediaInserts as unknown as Database['public']['Tables']['product_media']['Insert']),
+        imgInserts.length > 0
+          ? supabase.from('product_images').insert(imgInserts as unknown as Database['public']['Tables']['product_images']['Insert'])
+          : Promise.resolve({ error: null }),
+      ]);
+    }
+  } else if (input.images !== undefined) {
+    await Promise.all([
+      supabase.from('product_images').delete().eq('product_id', bundleId),
+      supabase.from('product_media').delete().eq('product_id', bundleId).eq('type', 'image'),
+    ]);
+    if (input.images.length > 0) {
+      const imgInserts = input.images.map((img, idx) => ({
+        id: crypto.randomUUID(),
+        product_id: bundleId,
+        storage_path: img.storage_path,
+        alt_text: img.alt_text || null,
+        sort_order: img.sort_order ?? idx,
+      }));
+      await Promise.all([
+        supabase.from('product_images').insert(imgInserts as unknown as Database['public']['Tables']['product_images']['Insert']),
+        supabase.from('product_media').insert(
+          imgInserts.map((img) => ({
+            ...img,
+            type: 'image' as const,
+            thumbnail_path: null,
+          })) as unknown as Database['public']['Tables']['product_media']['Insert']
+        ),
+      ]);
+    }
   }
 
   // 6. Record audit log

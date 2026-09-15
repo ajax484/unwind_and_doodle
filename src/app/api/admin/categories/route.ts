@@ -8,7 +8,9 @@ export async function GET(req: NextRequest) {
     const supabase = getServiceSupabaseClient();
     const adminContext = await getAuthenticatedAdmin(req);
 
-    const categories = await listCategories(supabase, adminContext.organization.id);
+    const categories = await listCategories(supabase, adminContext.organization.id, {
+      includeProductCount: true,
+    });
     return NextResponse.json({ success: true, data: categories }, { status: 200 });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Error fetching categories';
@@ -32,6 +34,8 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const name = body?.name;
+    const slug = typeof body?.slug === 'string' ? body.slug.trim() : undefined;
+    const description = typeof body?.description === 'string' ? body.description.trim() : null;
 
     if (!name || typeof name !== 'string' || !name.trim()) {
       return NextResponse.json(
@@ -43,7 +47,8 @@ export async function POST(req: NextRequest) {
     const category = await createCategory(
       supabase,
       name.trim(),
-      adminContext.organization.id
+      adminContext.organization.id,
+      { slug, description }
     );
 
     return NextResponse.json({ success: true, data: category }, { status: 201 });
