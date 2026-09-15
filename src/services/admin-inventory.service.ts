@@ -98,35 +98,70 @@ export async function listAdminInventory(
     throw new Error(`Failed to query inventory: ${invError.message}`);
   }
 
-  // 5. Combine and calculate available stock
+  // 5. Combine and calculate available stock across all active warehouses
   const allInventoryItems: AdminInventoryItem[] = [];
 
+  const primaryWarehouseId = validWarehouseIds[0] || 'default';
+  const primaryWarehouseName = warehouseMap.get(primaryWarehouseId) || 'Main Warehouse';
+  const activeWarehouses =
+    validWarehouseIds.length > 0 ? validWarehouseIds : [primaryWarehouseId];
+
+  // Map existing DB inventory rows by warehouse_id + product_id
+  const existingInvMap = new Map<string, Database['public']['Tables']['inventory']['Row']>();
   for (const inv of rawInventory || []) {
-    const product = productMap.get(inv.product_id);
-    if (!product) continue;
+    existingInvMap.set(`${inv.warehouse_id}:${inv.product_id}`, inv);
+  }
 
-    const warehouseName = warehouseMap.get(inv.warehouse_id) || 'Unknown Warehouse';
-    const quantityOnHand = inv.quantity ?? (inv as Record<string, unknown>).quantity_on_hand as number ?? 0;
-    const quantityReserved = inv.reserved_quantity ?? (inv as Record<string, unknown>).quantity_reserved as number ?? 0;
-    const availableToSell = Math.max(0, quantityOnHand - quantityReserved);
+  // Populate physical & custom products across every active warehouse (dense view from sparse DB)
+  const physicalProducts = validProducts.filter((p) => p.product_type !== 'bundle');
 
-    allInventoryItems.push({
-      id: inv.id,
-      productId: product.id,
-      productName: product.name,
-      productSlug: product.slug,
-      sku: product.sku,
-      productType: product.product_type,
-      primaryImage: primaryImageMap.get(product.id) || null,
-      costPrice: product.cost_price || 0,
-      sellingPrice: product.selling_price || 0,
-      warehouseId: inv.warehouse_id,
-      warehouseName,
-      quantityOnHand,
-      quantityReserved,
-      availableToSell,
-      updatedAt: inv.updated_at,
-    });
+  for (const prod of physicalProducts) {
+    for (const whId of activeWarehouses) {
+      const warehouseName = warehouseMap.get(whId) || primaryWarehouseName;
+      const existingInv = existingInvMap.get(`${whId}:${prod.id}`);
+
+      if (existingInv) {
+        const quantityOnHand = existingInv.quantity ?? (existingInv as Record<string, unknown>).quantity_on_hand as number ?? 0;
+        const quantityReserved = existingInv.reserved_quantity ?? (existingInv as Record<string, unknown>).quantity_reserved as number ?? 0;
+        const availableToSell = Math.max(0, quantityOnHand - quantityReserved);
+
+        allInventoryItems.push({
+          id: existingInv.id,
+          productId: prod.id,
+          productName: prod.name,
+          productSlug: prod.slug,
+          sku: prod.sku,
+          productType: prod.product_type,
+          primaryImage: primaryImageMap.get(prod.id) || null,
+          costPrice: prod.cost_price || 0,
+          sellingPrice: prod.selling_price || 0,
+          warehouseId: whId,
+          warehouseName,
+          quantityOnHand,
+          quantityReserved,
+          availableToSell,
+          updatedAt: existingInv.updated_at,
+        });
+      } else {
+        allInventoryItems.push({
+          id: `synth-${prod.id}-${whId}`,
+          productId: prod.id,
+          productName: prod.name,
+          productSlug: prod.slug,
+          sku: prod.sku,
+          productType: prod.product_type,
+          primaryImage: primaryImageMap.get(prod.id) || null,
+          costPrice: prod.cost_price || 0,
+          sellingPrice: prod.selling_price || 0,
+          warehouseId: whId,
+          warehouseName,
+          quantityOnHand: 0,
+          quantityReserved: 0,
+          availableToSell: 0,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
   }
 
   // Calculate virtual stock for bundle products across warehouses
@@ -172,13 +207,8 @@ export async function listAdminInventory(
     });
   }
 
-  const primaryWarehouseId = validWarehouseIds[0] || 'default';
-  const primaryWarehouseName = warehouseMap.get(primaryWarehouseId) || 'Main Warehouse';
-
   for (const bundle of bundleProducts) {
     const items = bundleItemsByBundle.get(bundle.id) || [];
-    const activeWarehouses =
-      validWarehouseIds.length > 0 ? validWarehouseIds : [primaryWarehouseId];
 
     for (const whId of activeWarehouses) {
       const whName = warehouseMap.get(whId) || primaryWarehouseName;
@@ -242,30 +272,6 @@ export async function listAdminInventory(
           updatedAt: new Date().toISOString(),
         });
       }
-    }
-  }
-
-  // Synthesize 0-stock records for physical/custom products not tracked in inventory
-  const trackedProductIdsInInventory = new Set(allInventoryItems.map((i) => i.productId));
-  for (const prod of validProducts) {
-    if (prod.product_type !== 'bundle' && !trackedProductIdsInInventory.has(prod.id)) {
-      allInventoryItems.push({
-        id: `synth-${prod.id}`,
-        productId: prod.id,
-        productName: prod.name,
-        productSlug: prod.slug,
-        sku: prod.sku,
-        productType: prod.product_type,
-        primaryImage: primaryImageMap.get(prod.id) || null,
-        costPrice: prod.cost_price || 0,
-        sellingPrice: prod.selling_price || 0,
-        warehouseId: primaryWarehouseId,
-        warehouseName: primaryWarehouseName,
-        quantityOnHand: 0,
-        quantityReserved: 0,
-        availableToSell: 0,
-        updatedAt: new Date().toISOString(),
-      });
     }
   }
 

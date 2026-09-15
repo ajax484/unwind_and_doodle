@@ -242,7 +242,7 @@ describe('Phase 6D: Admin Inventory, Warehouses & Stock Management', () => {
       expect(safariMain?.availableToSell).toBe(45);
     });
 
-    it('searches inventory by product name and SKU', async () => {
+    it('searches inventory by product name and SKU across all warehouses', async () => {
       const searchByName = await listAdminInventory(mockSupabase, {
         organizationId: orgA,
         search: 'Safari',
@@ -253,8 +253,9 @@ describe('Phase 6D: Admin Inventory, Warehouses & Stock Management', () => {
         organizationId: orgA,
         search: 'ACC-PENCILS-24',
       });
-      expect(searchBySku.inventory.length).toBe(1);
-      expect(searchBySku.inventory[0].productId).toBe('prod-pencils-pack');
+      expect(searchBySku.inventory.length).toBe(2); // In Lagos (30 on hand) and Abuja (0 on hand)
+      expect(searchBySku.inventory.some((i) => i.productId === 'prod-pencils-pack' && i.warehouseId === 'wh-lagos-main')).toBe(true);
+      expect(searchBySku.inventory.some((i) => i.productId === 'prod-pencils-pack' && i.warehouseId === 'wh-abuja')).toBe(true);
     });
 
     it('filters inventory by warehouse and stock status', async () => {
@@ -262,15 +263,29 @@ describe('Phase 6D: Admin Inventory, Warehouses & Stock Management', () => {
         organizationId: orgA,
         warehouseId: 'wh-abuja',
       });
-      expect(abujaStock.inventory.length).toBe(1);
-      expect(abujaStock.inventory[0].warehouseName).toBe('Abuja Regional Depot');
+      // All products now represented for Abuja (Safari with stock, others with 0)
+      expect(abujaStock.inventory.length).toBe(3);
+      const abujaSafari = abujaStock.inventory.find((i) => i.productId === 'prod-safari-book');
+      expect(abujaSafari?.warehouseName).toBe('Abuja Regional Depot');
+      expect(abujaSafari?.quantityOnHand).toBe(20);
+      expect(abujaSafari?.availableToSell).toBe(18);
 
-      const outOfStock = await listAdminInventory(mockSupabase, {
+      // Filtering out of stock in Lagos
+      const outOfStockLagos = await listAdminInventory(mockSupabase, {
+        organizationId: orgA,
+        warehouseId: 'wh-lagos-main',
+        stockStatus: 'out_of_stock',
+      });
+      expect(outOfStockLagos.inventory.length).toBe(1);
+      expect(outOfStockLagos.inventory[0].productId).toBe('prod-empty-stock');
+
+      // Filtering out of stock across all warehouses
+      const outOfStockAll = await listAdminInventory(mockSupabase, {
         organizationId: orgA,
         stockStatus: 'out_of_stock',
       });
-      expect(outOfStock.inventory.length).toBe(1);
-      expect(outOfStock.inventory[0].productId).toBe('prod-empty-stock');
+      // 3 entries: empty-stock in Lagos, pencils in Abuja, empty-stock in Abuja
+      expect(outOfStockAll.inventory.length).toBe(3);
     });
   });
 
