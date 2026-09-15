@@ -92,15 +92,19 @@ describe('Comprehensive API Routes Verification', { timeout: 15000 }, () => {
     });
 
     it('returns product details with 200 OK for published slug', async () => {
-      const req = new NextRequest('http://localhost:3000/api/products/test-coloring-book');
+      const catalogRes = await getProducts(new NextRequest('http://localhost:3000/api/products?limit=1'));
+      const catalogJson = await catalogRes.json();
+      const targetSlug = catalogJson?.data?.[0]?.slug || 'general-themed';
+
+      const req = new NextRequest(`http://localhost:3000/api/products/${targetSlug}`);
       const res = await getProductBySlug(req, {
-        params: Promise.resolve({ slug: 'test-coloring-book' }),
+        params: Promise.resolve({ slug: targetSlug }),
       });
       const json = await res.json();
 
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
-      expect(json.data.slug).toBe('test-coloring-book');
+      expect(json.data.slug).toBe(targetSlug);
       expect(json.data).toHaveProperty('price');
       expect(json.data).toHaveProperty('addons');
     });
@@ -155,7 +159,9 @@ describe('Comprehensive API Routes Verification', { timeout: 15000 }, () => {
     });
 
     it('adds product with customization to cart, updates quantity, and removes item', async () => {
-      const liveProductId = '3741d987-e674-4317-90a2-8c635a7c6aa9'; // TEST Coloring Book
+      const catalogRes = await getProducts(new NextRequest('http://localhost:3000/api/products?limit=1'));
+      const catalogJson = await catalogRes.json();
+      const liveProductId = catalogJson?.data?.[0]?.id || '7a25e191-6742-4a14-bc8b-ddb8a46cdfc1';
       const testSessionId = `cart_flow_test_${Date.now()}`;
 
       // 1. Add item with customization
@@ -217,9 +223,11 @@ describe('Comprehensive API Routes Verification', { timeout: 15000 }, () => {
     });
 
     it('adds product with theme customization to cart and preserves theme selections', async () => {
-      const liveProductId = '3741d987-e674-4317-90a2-8c635a7c6aa9';
+      const catalogRes = await getProducts(new NextRequest('http://localhost:3000/api/products?limit=1'));
+      const catalogJson = await catalogRes.json();
+      const liveProductId = catalogJson?.data?.[0]?.id || '7a25e191-6742-4a14-bc8b-ddb8a46cdfc1';
       const testSessionId = `cart_theme_flow_${Date.now()}`;
-      const dummyThemeId = '88c7af2e-afd4-4504-a43f-b14cc45d6263';
+      const dummyThemeId = '473ef7b8-def9-49b8-b335-0b2c8aa6262b';
 
       const addReq = new NextRequest('http://localhost:3000/api/cart', {
         method: 'POST',
