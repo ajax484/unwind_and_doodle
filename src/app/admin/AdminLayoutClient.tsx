@@ -35,6 +35,38 @@ export default function AdminLayoutClient({
     setMobileSidebarOpen(false);
   }, [pathname]);
 
+  // Session keep-alive & visibility listener
+  useEffect(() => {
+    const keepSessionAlive = async () => {
+      try {
+        const res = await fetch("/api/auth/session");
+        if (res.ok) {
+          const data = await res.json();
+          if (!data.authenticated) {
+            router.replace("/admin/login");
+          }
+        }
+      } catch (err) {
+        console.warn("[admin-session-heartbeat] Ping failed:", err);
+      }
+    };
+
+    const interval = setInterval(keepSessionAlive, 25 * 60 * 1000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        keepSessionAlive();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [router]);
+
   const role = session?.membership.role?.toLowerCase() || "staff";
   const isOwner = role === "owner";
   const isAdmin = role === "admin" || isOwner;

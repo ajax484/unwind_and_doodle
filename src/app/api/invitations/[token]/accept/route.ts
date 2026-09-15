@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { extractAuthToken } from '@/lib/auth-helpers';
+import { extractAuthToken, setAuthCookies } from '@/lib/auth-helpers';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
 import { acceptTeamInvitation } from '@/services/team.service';
 import { AcceptInvitationBodySchema } from '@/types/admin-team';
@@ -72,6 +72,7 @@ export async function POST(
 
     let currentUser: { id: string; email?: string; user_metadata?: Record<string, any> } | null = null;
     let sessionToken: string | null = null;
+    let refreshToken: string | null = null;
 
     if (password) {
 
@@ -88,6 +89,7 @@ export async function POST(
           user_metadata: signInData.user.user_metadata,
         };
         sessionToken = signInData.session.access_token;
+        refreshToken = signInData.session.refresh_token || null;
       } else {
         // Create user directly via admin API (auto-confirmed)
         let createdUserId: string | null = null;
@@ -125,6 +127,10 @@ export async function POST(
           if (signUpData?.user) {
             createdUserId = signUpData.user.id;
           }
+          if (signUpData?.session) {
+            sessionToken = signUpData.session.access_token;
+            refreshToken = signUpData.session.refresh_token;
+          }
         }
 
         // Now sign in to get active session
@@ -146,6 +152,7 @@ export async function POST(
           user_metadata: authData.user.user_metadata,
         };
         sessionToken = authData.session.access_token;
+        refreshToken = authData.session.refresh_token;
       }
     } else {
       // 3. Authenticate via existing session token or test headers
@@ -191,14 +198,11 @@ export async function POST(
       message: 'Invitation successfully accepted! Welcome to the team.',
     });
 
-    // 5. If we obtained a session token, set the session cookie
+    // 5. If we obtained a session token, set the session cookies
     if (sessionToken) {
-      response.cookies.set('sb-access-token', sessionToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60 * 60 * 24 * 30, // 30 days
+      setAuthCookies(response, {
+        accessToken: sessionToken,
+        refreshToken,
       });
     }
 

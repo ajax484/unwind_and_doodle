@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
 import { linkOrCreateCustomerAccount } from '@/services/customer-account.service';
+import { setAuthCookies } from '@/lib/auth-helpers';
 import { z } from 'zod';
 
 const VerifyOtpSchema = z.object({
@@ -47,31 +48,31 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. If still fails, try 'magiclink'
+    // 3. If both fail, try 'magiclink'
     if (authError || !authData?.session) {
-      const magicAttempt = await supabase.auth.verifyOtp({
+      const magiclinkAttempt = await supabase.auth.verifyOtp({
         email: cleanEmail,
         token: cleanToken,
         type: 'magiclink',
       });
 
-      if (!magicAttempt.error && magicAttempt.data?.session) {
-        authData = magicAttempt.data;
+      if (!magiclinkAttempt.error && magiclinkAttempt.data?.session) {
+        authData = magiclinkAttempt.data;
         authError = null;
       }
     }
 
     if (authError || !authData?.user || !authData?.session) {
       return NextResponse.json(
-        { success: false, error: authError?.message || 'Invalid or expired verification code' },
+        { success: false, error: authError?.message || 'Invalid or expired OTP code' },
         { status: 401 }
       );
     }
 
     const user = authData.user;
 
-    // 4. Check if user is an organization member (merchant/admin)
-    const { data: members } = await supabase
+    // Check organization membership
+    const { data: members, error: memberError } = await supabase
       .from('organization_members')
       .select('id, organization_id, user_id, role')
       .eq('user_id', user.id)
@@ -110,12 +111,9 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      response.cookies.set('sb-access-token', authData.session.access_token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60 * 60 * 24 * 30,
+      setAuthCookies(response, {
+        accessToken: authData.session.access_token,
+        refreshToken: authData.session.refresh_token,
       });
 
       return response;
@@ -139,12 +137,9 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      response.cookies.set('sb-access-token', authData.session.access_token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60 * 60 * 24 * 30,
+      setAuthCookies(response, {
+        accessToken: authData.session.access_token,
+        refreshToken: authData.session.refresh_token,
       });
 
       return response;
@@ -170,13 +165,10 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Set secure HTTP-only session cookie for 30 days
-    response.cookies.set('sb-access-token', authData.session.access_token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30,
+    // Set secure HTTP-only session cookies
+    setAuthCookies(response, {
+      accessToken: authData.session.access_token,
+      refreshToken: authData.session.refresh_token,
     });
 
     return response;

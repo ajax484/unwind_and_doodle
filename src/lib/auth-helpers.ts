@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServiceSupabaseClient } from './supabase/client';
 import { CustomerProfile, getCustomerProfile, linkOrCreateCustomerAccount } from '../services/customer-account.service';
 import { AdminOrganizationContext, requireOrganizationMember } from '../services/auth.service';
@@ -9,6 +9,15 @@ export interface AuthenticatedCustomerContext {
   userId: string;
   customer: CustomerProfile;
 }
+
+export const AUTH_COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days in seconds
+
+export const AUTH_COOKIE_NAMES = {
+  ACCESS_TOKEN: 'sb-access-token',
+  REFRESH_TOKEN: 'sb-refresh-token',
+  LEGACY_SESSION: 'app_session_token',
+  LEGACY_SUPABASE: 'supabase-auth-token',
+} as const;
 
 /**
  * Extracts auth token from Authorization Bearer header or standard Supabase session cookies.
@@ -80,6 +89,97 @@ export function extractAuthToken(req: NextRequest): string | null {
 }
 
 /**
+ * Extracts refresh token from standard Supabase refresh cookies.
+ */
+export function extractRefreshToken(req: NextRequest): string | null {
+  return (
+    req.cookies.get(AUTH_COOKIE_NAMES.REFRESH_TOKEN)?.value ||
+    req.cookies.get('app_refresh_token')?.value ||
+    null
+  );
+}
+
+/**
+ * Attaches standard 30-day sliding session cookies to a response.
+ */
+export function setAuthCookies(
+  res: NextResponse,
+  tokens: { accessToken: string; refreshToken?: string | null },
+  options?: { maxAge?: number }
+): void {
+  const maxAge = options?.maxAge ?? AUTH_COOKIE_MAX_AGE;
+  const isProd = process.env.NODE_ENV === 'production';
+
+  res.cookies.set(AUTH_COOKIE_NAMES.ACCESS_TOKEN, tokens.accessToken, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'lax',
+    path: '/',
+    maxAge,
+  });
+
+  if (tokens.refreshToken) {
+    res.cookies.set(AUTH_COOKIE_NAMES.REFRESH_TOKEN, tokens.refreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax',
+      path: '/',
+      maxAge,
+    });
+  }
+}
+
+/**
+ * Clears all authentication cookies from response.
+ */
+export function clearAuthCookies(res: NextResponse): void {
+  const isProd = process.env.NODE_ENV === 'production';
+  const cookieNames = [
+    AUTH_COOKIE_NAMES.ACCESS_TOKEN,
+    AUTH_COOKIE_NAMES.REFRESH_TOKEN,
+    AUTH_COOKIE_NAMES.LEGACY_SESSION,
+    AUTH_COOKIE_NAMES.LEGACY_SUPABASE,
+  ];
+
+  for (const name of cookieNames) {
+    res.cookies.set(name, '', {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 0,
+    });
+  }
+}
+
+/**
+ * Attempts to refresh a Supabase session using the provided refresh token.
+ */
+export async function refreshSupabaseSession(
+  refreshToken: string,
+  customClient?: SupabaseClient<Database>
+) {
+  try {
+    const supabase = getServiceSupabaseClient(customClient);
+    const { data, error } = await supabase.auth.refreshSession({
+      refresh_token: refreshToken,
+    });
+
+    if (error || !data?.session || !data?.user) {
+      return null;
+    }
+
+    return {
+      session: data.session,
+      user: data.user,
+    };
+  } catch (err) {
+    console.warn('[refreshSupabaseSession] Refresh failed:', err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+/**
  * Extracts and verifies the authenticated user and their linked customer profile from request headers/cookies.
  * Returns null if not authenticated.
  */
@@ -93,7 +193,7 @@ export async function getAuthenticatedCustomer(
   // Support mock headers in test environment if specified
   const testUserId = req.headers.get('x-test-user-id');
   const testEmail = req.headers.get('x-test-email');
-  if (testUserId && testEmail && process.env.NODE_ENV === 'test') {
+  if (testUserId && testEmail && (process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST))) {
     const customer = await linkOrCreateCustomerAccount(supabase, {
       id: testUserId,
       email: testEmail,
@@ -101,17 +201,35 @@ export async function getAuthenticatedCustomer(
     return { userId: testUserId, customer };
   }
 
-  if (!token) {
+  let user: any = null;
+
+  if (token) {
+    try {
+      const { data: userData, error } = await supabase.auth.getUser(token);
+      if (!error && userData?.user) {
+        user = userData.user;
+      }
+    } catch (err) {
+      console.warn(`Auth token verification failed:`, err);
+    }
+  }
+
+  // Fallback: Attempt refresh using refresh token if access token was missing or expired
+  if (!user) {
+    const refreshToken = extractRefreshToken(req);
+    if (refreshToken) {
+      const refreshed = await refreshSupabaseSession(refreshToken, supabase);
+      if (refreshed?.user) {
+        user = refreshed.user;
+      }
+    }
+  }
+
+  if (!user) {
     return null;
   }
 
   try {
-    const { data: userData, error } = await supabase.auth.getUser(token);
-    if (error || !userData?.user) {
-      return null;
-    }
-
-    const user = userData.user;
     let customer = await getCustomerProfile(supabase, { userId: user.id });
 
     if (!customer && user.email) {
@@ -132,7 +250,7 @@ export async function getAuthenticatedCustomer(
       customer,
     };
   } catch (err) {
-    console.warn(`Auth token verification failed:`, err);
+    console.warn(`Customer resolution failed:`, err);
     return null;
   }
 }
@@ -150,14 +268,10 @@ export async function getAuthenticatedAdmin(
   const testAdminId = req.headers.get('x-admin-user-id') || req.headers.get('x-test-admin-id');
   const testAdminEmail = req.headers.get('x-test-admin-email');
 
-  if (!token && !testAdminId) {
-    throw new Error('Authentication required: No session token provided');
-  }
-
   const supabase = getServiceSupabaseClient(customClient);
 
   // Test environment bypass headers if present in tests
-  if (testAdminId && process.env.NODE_ENV === 'test') {
+  if (testAdminId && (process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST))) {
     return requireOrganizationMember(supabase, {
       userId: testAdminId,
       requestedOrgId: requestedOrgId || req.headers.get('x-organization-id') || undefined,
@@ -165,16 +279,33 @@ export async function getAuthenticatedAdmin(
     });
   }
 
-  if (!token) {
+  if (!token && !testAdminId && !extractRefreshToken(req)) {
     throw new Error('Authentication required: No session token provided');
   }
 
-  const { data: userData, error: userError } = await supabase.auth.getUser(token);
-  if (userError || !userData?.user) {
-    throw new Error('Authentication required: Invalid or expired session');
+  let user: any = null;
+
+  if (token) {
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (!userError && userData?.user) {
+      user = userData.user;
+    }
   }
 
-  const user = userData.user;
+  // Fallback: Attempt refresh using refresh token if access token was missing or expired
+  if (!user) {
+    const refreshToken = extractRefreshToken(req);
+    if (refreshToken) {
+      const refreshed = await refreshSupabaseSession(refreshToken, supabase);
+      if (refreshed?.user) {
+        user = refreshed.user;
+      }
+    }
+  }
+
+  if (!user) {
+    throw new Error('Authentication required: Invalid or expired session');
+  }
 
   // Resolve membership and organization context
   return requireOrganizationMember(supabase, {

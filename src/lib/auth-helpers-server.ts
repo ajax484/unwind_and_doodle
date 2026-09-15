@@ -101,12 +101,15 @@ export async function getAuthenticatedAdminServer(): Promise<AdminServerSession 
     const headerStore = await headers();
 
     const token = extractTokenFromStores(cookieStore, headerStore);
+    const refreshToken =
+      cookieStore.get('sb-refresh-token')?.value ||
+      cookieStore.get('app_refresh_token')?.value;
 
     // Check test environment headers if running in test
     const testAdminId = headerStore.get('x-admin-user-id') || headerStore.get('x-test-admin-id');
     const testAdminEmail = headerStore.get('x-test-admin-email');
 
-    if (!token && !testAdminId) {
+    if (!token && !testAdminId && !refreshToken) {
       return null;
     }
 
@@ -120,16 +123,31 @@ export async function getAuthenticatedAdminServer(): Promise<AdminServerSession 
         userEmail: testAdminEmail || 'admin@unwindanddoodle.com',
       });
     } else {
-      if (!token) {
-        return null;
+      let user: any = null;
+
+      if (token) {
+        const { data: userData, error: userError } = await supabase.auth.getUser(token);
+        if (!userError && userData?.user) {
+          user = userData.user;
+        }
       }
 
-      const { data: userData, error: userError } = await supabase.auth.getUser(token);
-      if (userError || !userData?.user) {
-        return null;
+      if (!user && refreshToken) {
+        try {
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession({
+            refresh_token: refreshToken,
+          });
+          if (!refreshError && refreshData?.user) {
+            user = refreshData.user;
+          }
+        } catch (refreshErr) {
+          console.warn('[getAuthenticatedAdminServer] Refresh failed:', refreshErr);
+        }
       }
 
-      const user = userData.user;
+      if (!user) {
+        return null;
+      }
 
       adminContext = await requireOrganizationMember(supabase, {
         userId: user.id,

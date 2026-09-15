@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
 import { linkOrCreateCustomerAccount } from '@/services/customer-account.service';
+import { setAuthCookies } from '@/lib/auth-helpers';
 import { z } from 'zod';
 
 const CustomerRegisterSchema = z.object({
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
     const cleanEmail = email.trim().toLowerCase();
     const supabase = getServiceSupabaseClient();
 
-    // 1. Check if user already exists in auth
+    // 1. Create Supabase Auth User
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: cleanEmail,
       password,
@@ -36,36 +37,42 @@ export async function POST(req: NextRequest) {
         data: {
           first_name: firstName.trim(),
           last_name: lastName.trim(),
-          full_name: `${firstName.trim()} ${lastName.trim()}`,
+          phone: phone ? phone.trim() : null,
         },
       },
     });
 
-    if (authError) {
-      const msg = authError.message.toLowerCase();
-      if (msg.includes('already registered') || msg.includes('user already exists')) {
+    if (authError || !authData.user) {
+      const isAlreadyRegistered =
+        authError?.message?.includes('already registered') ||
+        authError?.status === 400 ||
+        (authData?.user?.identities && authData.user.identities.length === 0);
+
+      if (isAlreadyRegistered) {
         return NextResponse.json(
-          { success: false, error: 'This email is already registered. Please sign in instead.' },
+          {
+            success: false,
+            error: 'This email is already registered. Please sign in instead.',
+            code: 'EMAIL_EXISTS',
+          },
           { status: 409 }
         );
       }
+
       return NextResponse.json(
-        { success: false, error: authError.message || 'Registration failed' },
+        { success: false, error: authError?.message || 'Registration failed' },
         { status: 400 }
       );
     }
 
-    if (!authData.user) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to create user account' },
-        { status: 500 }
-      );
-    }
-
-    // 2. Provision customer record in database
+    // 2. Link or create customer record
     const customer = await linkOrCreateCustomerAccount(supabase, {
       id: authData.user.id,
       email: cleanEmail,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      phone: phone ? phone.trim() : null,
+      acceptsMarketing: emailMarketingConsent,
       user_metadata: {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
@@ -85,14 +92,11 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // 3. Set session cookie if session was generated
+    // 3. Set session cookies if session was generated
     if (authData.session?.access_token) {
-      response.cookies.set('sb-access-token', authData.session.access_token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60 * 60 * 24 * 30,
+      setAuthCookies(response, {
+        accessToken: authData.session.access_token,
+        refreshToken: authData.session.refresh_token,
       });
     }
 

@@ -116,6 +116,7 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-02 2026-09-02: Separate Admin and User Login](./auth/2026-09-02-separate-admin-and-user-login.md)
 - [2026-09-02 2026-09-02: Teams & Permissions System](./auth/2026-09-02-teams-and-permissions.md)
 - [2026-09-04 Remove Redundant Client-Side Authentication Checks](./auth/2026-09-04-remove-client-side-auth-checks.md)
+- [2026-09-15 Auth Session Longevity & Sliding Refresh Token Rotation](./auth/2026-09-15-auth-session-longevity-and-refresh.md)
 
 ---
 

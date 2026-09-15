@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
 import { linkOrCreateCustomerAccount } from '@/services/customer-account.service';
+import { setAuthCookies } from '@/lib/auth-helpers';
 
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url);
@@ -66,12 +67,9 @@ export async function GET(req: NextRequest) {
   }
 
   const response = NextResponse.redirect(`${origin}${destination}`);
-  response.cookies.set('sb-access-token', data.session.access_token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30, // 30 days
+  setAuthCookies(response, {
+    accessToken: data.session.access_token,
+    refreshToken: data.session.refresh_token,
   });
 
   return response;

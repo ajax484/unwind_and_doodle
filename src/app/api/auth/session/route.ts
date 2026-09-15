@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUserContext } from '@/services/user-context.service';
+import { setAuthCookies, clearAuthCookies } from '@/lib/auth-helpers';
 
 export async function GET(req: NextRequest) {
   try {
     const authContext = await getAuthenticatedUserContext(req);
 
     if (!authContext.authenticated) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         {
           success: true,
           authenticated: false,
@@ -18,9 +19,15 @@ export async function GET(req: NextRequest) {
         },
         { status: 200 }
       );
+
+      if (authContext.shouldClearCookies) {
+        clearAuthCookies(response);
+      }
+
+      return response;
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       authenticated: true,
       data: {
@@ -33,6 +40,12 @@ export async function GET(req: NextRequest) {
         permissions: authContext.permissions,
       },
     });
+
+    if (authContext.refreshedSession) {
+      setAuthCookies(response, authContext.refreshedSession);
+    }
+
+    return response;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Session verification failed';
     return NextResponse.json({ success: false, authenticated: false, error: msg }, { status: 500 });

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { clearAuthCookies } from '@/lib/auth-helpers';
 
 export async function POST(req: NextRequest) {
   const response = NextResponse.json({
@@ -7,14 +8,7 @@ export async function POST(req: NextRequest) {
   });
 
   // Clear standard session cookies
-  const cookiesToClear = ['sb-access-token', 'app_session_token', 'supabase-auth-token'];
-  for (const cookieName of cookiesToClear) {
-    response.cookies.set(cookieName, '', {
-      httpOnly: true,
-      path: '/',
-      maxAge: 0,
-    });
-  }
+  clearAuthCookies(response);
 
   // Clear any project-specific supabase chunked cookies present in the request
   const allCookies = req.cookies.getAll();

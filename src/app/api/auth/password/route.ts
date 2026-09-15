@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
 import { linkOrCreateCustomerAccount } from '@/services/customer-account.service';
+import { setAuthCookies } from '@/lib/auth-helpers';
 import { z } from 'zod';
 
 const PasswordSignInSchema = z.object({
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
     const cleanEmail = email.trim().toLowerCase();
     const supabase = getServiceSupabaseClient();
 
-    // 1. Authenticate with Supabase using email and password
+    // Authenticate with Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: cleanEmail,
       password,
@@ -33,14 +34,14 @@ export async function POST(req: NextRequest) {
 
     if (authError || !authData.user || !authData.session) {
       return NextResponse.json(
-        { success: false, error: authError?.message || 'Invalid email or password' },
+        { success: false, error: 'Invalid email or password' },
         { status: 401 }
       );
     }
 
     const user = authData.user;
 
-    // 2. Check if this user is an organization member (merchant/admin)
+    // Check organization membership
     const { data: members } = await supabase
       .from('organization_members')
       .select('id, organization_id, user_id, role')
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
     const isOrgMember = members && members.length > 0;
     const member = isOrgMember ? members[0] : null;
 
-    // 3. Handle Admin Intent validation
+    // 3. Handle Admin Explicit Intent
     if (intent === 'admin') {
       if (!isOrgMember) {
         return NextResponse.json(
@@ -81,13 +82,10 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Set secure HTTP-only session cookie
-      response.cookies.set('sb-access-token', authData.session.access_token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60 * 60 * 24 * 30, // 30 days
+      // Set secure HTTP-only session cookies
+      setAuthCookies(response, {
+        accessToken: authData.session.access_token,
+        refreshToken: authData.session.refresh_token,
       });
 
       return response;
@@ -113,12 +111,9 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      response.cookies.set('sb-access-token', authData.session.access_token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60 * 60 * 24 * 30,
+      setAuthCookies(response, {
+        accessToken: authData.session.access_token,
+        refreshToken: authData.session.refresh_token,
       });
 
       return response;
@@ -144,13 +139,10 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Set secure HTTP-only session cookie
-    response.cookies.set('sb-access-token', authData.session.access_token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30,
+    // Set secure HTTP-only session cookies
+    setAuthCookies(response, {
+      accessToken: authData.session.access_token,
+      refreshToken: authData.session.refresh_token,
     });
 
     return response;

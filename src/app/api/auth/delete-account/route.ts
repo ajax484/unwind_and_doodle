@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedCustomer } from '@/lib/auth-helpers';
+import { getAuthenticatedCustomer, clearAuthCookies } from '@/lib/auth-helpers';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
 import { deleteCustomerAccount } from '@/services/customer-account.service';
 
@@ -24,16 +24,7 @@ export async function POST(req: NextRequest) {
     const response = NextResponse.json(result);
 
     // Clear session cookies
-    response.cookies.set('sb-access-token', '', {
-      httpOnly: true,
-      path: '/',
-      maxAge: 0,
-    });
-    response.cookies.set('app_session_token', '', {
-      httpOnly: true,
-      path: '/',
-      maxAge: 0,
-    });
+    clearAuthCookies(response);
 
     return response;
   } catch (err: unknown) {

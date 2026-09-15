@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../lib/supabase/types';
 import { getServiceSupabaseClient } from '../lib/supabase/client';
-import { extractAuthToken } from '../lib/auth-helpers';
+import { extractAuthToken, extractRefreshToken, refreshSupabaseSession } from '../lib/auth-helpers';
 import { Role, Permission } from '../types/admin-team';
 import { getRolePermissions } from './permission.service';
 import { CustomerProfile, getCustomerProfile, linkOrCreateCustomerAccount } from './customer-account.service';
@@ -30,6 +30,10 @@ export interface AuthenticatedMerchantUserContext {
   };
   permissions: Permission[];
   customer: null;
+  refreshedSession?: {
+    accessToken: string;
+    refreshToken: string;
+  };
 }
 
 export interface AuthenticatedCustomerUserContext {
@@ -40,6 +44,10 @@ export interface AuthenticatedCustomerUserContext {
   membership: null;
   permissions: Permission[];
   customer: CustomerProfile;
+  refreshedSession?: {
+    accessToken: string;
+    refreshToken: string;
+  };
 }
 
 export interface AuthenticatedUnassignedUserContext {
@@ -50,6 +58,10 @@ export interface AuthenticatedUnassignedUserContext {
   membership: null;
   permissions: Permission[];
   customer: null;
+  refreshedSession?: {
+    accessToken: string;
+    refreshToken: string;
+  };
 }
 
 export interface AnonymousUserContext {
@@ -60,6 +72,7 @@ export interface AnonymousUserContext {
   membership: null;
   permissions: Permission[];
   customer: null;
+  shouldClearCookies?: boolean;
 }
 
 export type AuthenticatedUserContext =
@@ -82,7 +95,7 @@ export async function getAuthenticatedUserContext(
   // 1. Support test environment bypass headers in test mode
   const testAdminId = req.headers.get('x-admin-user-id') || req.headers.get('x-test-admin-id');
   const testAdminEmail = req.headers.get('x-test-admin-email');
-  if (testAdminId && process.env.NODE_ENV === 'test') {
+  if (testAdminId && (process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST))) {
     const { data: member } = await supabase
       .from('organization_members')
       .select('id, organization_id, user_id, role')
@@ -123,7 +136,7 @@ export async function getAuthenticatedUserContext(
 
   const testUserId = req.headers.get('x-test-user-id');
   const testEmail = req.headers.get('x-test-email');
-  if (testUserId && testEmail && process.env.NODE_ENV === 'test') {
+  if (testUserId && testEmail && (process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST))) {
     const customer = await linkOrCreateCustomerAccount(supabase, {
       id: testUserId,
       email: testEmail,
@@ -144,7 +157,9 @@ export async function getAuthenticatedUserContext(
 
   // 2. Extract token from Authorization Bearer header or Supabase cookies
   const token = extractAuthToken(req);
-  if (!token) {
+  const refreshToken = extractRefreshToken(req);
+
+  if (!token && !refreshToken) {
     return {
       authenticated: false,
       user: null,
@@ -157,8 +172,28 @@ export async function getAuthenticatedUserContext(
   }
 
   try {
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !userData?.user) {
+    let authUser: any = null;
+    let refreshedSession: { accessToken: string; refreshToken: string } | undefined;
+
+    if (token) {
+      const { data: userData, error: userError } = await supabase.auth.getUser(token);
+      if (!userError && userData?.user) {
+        authUser = userData.user;
+      }
+    }
+
+    if (!authUser && refreshToken) {
+      const refreshResult = await refreshSupabaseSession(refreshToken, customClient);
+      if (refreshResult?.user && refreshResult?.session) {
+        authUser = refreshResult.user;
+        refreshedSession = {
+          accessToken: refreshResult.session.access_token,
+          refreshToken: refreshResult.session.refresh_token,
+        };
+      }
+    }
+
+    if (!authUser) {
       return {
         authenticated: false,
         user: null,
@@ -167,10 +202,10 @@ export async function getAuthenticatedUserContext(
         membership: null,
         permissions: [],
         customer: null,
+        shouldClearCookies: Boolean(refreshToken),
       };
     }
 
-    const authUser = userData.user;
     const userSummary: AuthenticatedUserBase = {
       id: authUser.id,
       email: authUser.email,
@@ -210,6 +245,7 @@ export async function getAuthenticatedUserContext(
         },
         permissions: getRolePermissions(role),
         customer: null,
+        refreshedSession,
       };
     }
 
@@ -233,6 +269,7 @@ export async function getAuthenticatedUserContext(
         membership: null,
         permissions: [],
         customer,
+        refreshedSession,
       };
     }
 
@@ -245,6 +282,7 @@ export async function getAuthenticatedUserContext(
       membership: null,
       permissions: [],
       customer: null,
+      refreshedSession,
     };
   } catch (err) {
     console.warn(`[getAuthenticatedUserContext] Exception resolving user context:`, err);

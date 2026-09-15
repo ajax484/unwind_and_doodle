@@ -21,13 +21,15 @@ export function middleware(request: NextRequest) {
   // 3. Check for session tokens across standard Supabase cookie names
   const hasDirectCookie = Boolean(
     request.cookies.get('sb-access-token')?.value ||
+      request.cookies.get('sb-refresh-token')?.value ||
       request.cookies.get('app_session_token')?.value ||
+      request.cookies.get('app_refresh_token')?.value ||
       request.cookies.get('supabase-auth-token')?.value
   );
 
   const hasSbChunkedCookie = request.cookies
     .getAll()
-    .some((c) => c.name.startsWith('sb-') && c.name.includes('-auth-token'));
+    .some((c) => c.name.startsWith('sb-') && (c.name.includes('-auth-token') || c.name.includes('-refresh-token')));
 
   const isAuthenticated = hasDirectCookie || hasSbChunkedCookie;
 

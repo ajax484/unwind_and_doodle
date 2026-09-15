@@ -221,9 +221,21 @@ export function Navbar({
     const handleAuthUpdate = () => fetchSession();
     window.addEventListener('auth-updated', handleAuthUpdate);
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchSession();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Heartbeat every 25 minutes to keep active session cookies fresh
+    const heartbeatInterval = setInterval(fetchSession, 25 * 60 * 1000);
+
     return () => {
       isMounted = false;
       window.removeEventListener('auth-updated', handleAuthUpdate);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(heartbeatInterval);
     };
   }, [pathname, isAuthenticatedProp]);
 
