@@ -50,6 +50,7 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-16 Marketing Step 2B: Marketing Automation Execution](./admin/2026-09-16-marketing-automation-execution.md)
 - [2026-09-16 Step 2A: Marketing Automation Foundation](./admin/2026-09-16-marketing-automation-foundation.md)
 - [2026-09-16 Rich Text Product and Bundle Descriptions (TipTap & HTML Sanitization)](./admin/2026-09-16-rich-text-description.md)
+- [2026-09-16 Order Status History, Audit Trail Logging & Timeline Display Fix](./admin/2026-09-16-order-status-history-and-audit-trail-fix.md)
 
 ---
 

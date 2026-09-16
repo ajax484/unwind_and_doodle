@@ -39,6 +39,7 @@ export default function AdminOrderDetailPage({
   const [carrier, setCarrier] = useState("GIG Logistics");
   const [cancelReason, setCancelReason] = useState("");
   const [refundReason, setRefundReason] = useState("");
+  const [timelineFilter, setTimelineFilter] = useState<"all" | "status" | "audit">("all");
 
   const fetchOrderDetail = useCallback(async () => {
     try {
@@ -596,39 +597,206 @@ export default function AdminOrderDetailPage({
             </div>
           </div>
 
-          {/* Order Lifecycle Timeline */}
+          {/* Order Lifecycle Timeline & Audit Trail */}
           <div className="p-5 sm:p-6 rounded-2xl bg-bg-surface border border-border-default shadow-card space-y-4">
-            <h3 className="font-heading font-bold text-base text-text-primary border-b border-border-default pb-3">
-              Status History &amp; Audit Trail
-            </h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-default pb-3">
+              <div className="flex items-center gap-2">
+                <h3 className="font-heading font-bold text-base text-text-primary">
+                  Status History &amp; Audit Trail
+                </h3>
+                <span className="text-xs bg-bg-subtle text-text-secondary px-2 py-0.5 rounded-full border border-border-default font-medium">
+                  {((order.statusHistory?.length || 0) + (order.auditLogs?.length || 0))}
+                </span>
+              </div>
 
-            <div className="relative space-y-6 pt-2">
-              {/* Timeline line */}
-              <div className="absolute left-1.25 top-3 bottom-3 w-0.5 bg-border-default" />
-
-              {order.statusHistory.map((hist) => (
-                <div key={hist.id} className="relative flex gap-4">
-                  {/* Timeline dot */}
-                  <div className="relative z-10 mt-1.5 h-3 w-3 shrink-0 rounded-full bg-neutral-muted border-2 border-bg-surface ring-2 ring-border-default" />
-
-                  {/* Content */}
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <OrderStatusBadge status={hist.status} size="sm" />
-                      <span className="text-[11px] text-text-tertiary">
-                        {formatDate(hist.createdAt)}
-                      </span>
-                    </div>
-
-                    {hist.note && (
-                      <div className="text-xs text-text-secondary bg-bg-subtle p-2.5 rounded-xl border border-border-default">
-                        {hist.note}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
+              {/* Segmented Filter Control */}
+              <div className="inline-flex rounded-lg bg-bg-subtle p-1 border border-border-default text-xs font-medium self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setTimelineFilter("all")}
+                  className={`px-2.5 py-1 rounded-md transition-colors ${
+                    timelineFilter === "all"
+                      ? "bg-bg-surface text-text-primary font-semibold shadow-xs"
+                      : "text-text-secondary hover:text-text-primary"
+                  }`}
+                >
+                  All ({((order.statusHistory?.length || 0) + (order.auditLogs?.length || 0))})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTimelineFilter("status")}
+                  className={`px-2.5 py-1 rounded-md transition-colors ${
+                    timelineFilter === "status"
+                      ? "bg-bg-surface text-text-primary font-semibold shadow-xs"
+                      : "text-text-secondary hover:text-text-primary"
+                  }`}
+                >
+                  Status ({order.statusHistory?.length || 0})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTimelineFilter("audit")}
+                  className={`px-2.5 py-1 rounded-md transition-colors ${
+                    timelineFilter === "audit"
+                      ? "bg-bg-surface text-text-primary font-semibold shadow-xs"
+                      : "text-text-secondary hover:text-text-primary"
+                  }`}
+                >
+                  Audit ({order.auditLogs?.length || 0})
+                </button>
+              </div>
             </div>
+
+            {(() => {
+              type TimelineItem =
+                | {
+                    type: "status";
+                    id: string;
+                    status: typeof order.status;
+                    previousStatus: typeof order.status | null;
+                    note: string | null;
+                    createdBy: string | null;
+                    createdAt: string;
+                  }
+                | {
+                    type: "audit";
+                    id: string;
+                    userId: string | null;
+                    action: string;
+                    oldValues: Record<string, unknown> | null;
+                    newValues: Record<string, unknown> | null;
+                    createdAt: string;
+                  };
+
+              const allItems: TimelineItem[] = [
+                ...(order.statusHistory || []).map((h) => ({
+                  ...h,
+                  type: "status" as const,
+                })),
+                ...(order.auditLogs || []).map((a) => ({
+                  type: "audit" as const,
+                  id: a.id,
+                  userId: a.userId,
+                  action: a.action,
+                  oldValues: a.oldValues as Record<string, unknown> | null,
+                  newValues: a.newValues as Record<string, unknown> | null,
+                  createdAt: a.createdAt,
+                })),
+              ].sort(
+                (a, b) =>
+                  new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+              );
+
+              const visibleItems = allItems.filter((item) => {
+                if (timelineFilter === "status") return item.type === "status";
+                if (timelineFilter === "audit") return item.type === "audit";
+                return true;
+              });
+
+              if (visibleItems.length === 0) {
+                return (
+                  <p className="text-xs text-text-tertiary py-4 text-center">
+                    No timeline records found for this filter.
+                  </p>
+                );
+              }
+
+              return (
+                <div className="relative space-y-6 pt-2">
+                  {/* Timeline line */}
+                  <div className="absolute left-1.25 top-3 bottom-3 w-0.5 bg-border-default" />
+
+                  {visibleItems.map((item) => {
+                    if (item.type === "status") {
+                      return (
+                        <div key={`status-${item.id}`} className="relative flex gap-4">
+                          {/* Timeline dot */}
+                          <div className="relative z-10 mt-1.5 h-3 w-3 shrink-0 rounded-full bg-action-primary border-2 border-bg-surface ring-2 ring-border-default" />
+
+                          {/* Content */}
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <OrderStatusBadge status={item.status} size="sm" />
+                              {item.previousStatus && (
+                                <span className="text-[11px] text-text-tertiary">
+                                  from <span className="capitalize font-medium text-text-secondary">{item.previousStatus}</span>
+                                </span>
+                              )}
+                              <span className="text-[11px] text-text-tertiary ml-auto">
+                                {formatDate(item.createdAt)}
+                              </span>
+                            </div>
+
+                            {item.note && (
+                              <div className="text-xs text-text-secondary bg-bg-subtle p-2.5 rounded-xl border border-border-default">
+                                {item.note}
+                              </div>
+                            )}
+
+                            {item.createdBy && (
+                              <div className="text-[10px] text-text-tertiary">
+                                Changed by: <code className="text-text-secondary font-mono">{item.createdBy.slice(0, 8)}</code>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Audit entry
+                    const operation =
+                      (item.newValues?.operation as string) ||
+                      (item.newValues?.action as string) ||
+                      item.action;
+
+                    return (
+                      <div key={`audit-${item.id}`} className="relative flex gap-4">
+                        {/* Timeline dot */}
+                        <div className="relative z-10 mt-1.5 h-3 w-3 shrink-0 rounded-full bg-status-purple-base border-2 border-bg-surface ring-2 ring-border-default" />
+
+                        {/* Content */}
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider uppercase bg-purple-50 text-status-purple-base border border-purple-200 dark:bg-purple-950/30 dark:border-purple-800/40">
+                              Audit: {operation.replace(/^[a-z_]+\./, "")}
+                            </span>
+                            <span className="text-[11px] text-text-tertiary ml-auto">
+                              {formatDate(item.createdAt)}
+                            </span>
+                          </div>
+
+                          {item.newValues && typeof item.newValues === "object" && (
+                            <div className="text-xs text-text-secondary bg-bg-subtle p-2.5 rounded-xl border border-border-default space-y-1">
+                              {item.newValues.note && (
+                                <p className="font-medium text-text-primary">
+                                  {String(item.newValues.note)}
+                                </p>
+                              )}
+                              {item.oldValues?.status && item.newValues?.status && (
+                                <p className="text-[11px] text-text-secondary">
+                                  Status: <span className="font-medium text-text-primary">{String(item.oldValues.status)}</span> &rarr; <span className="font-medium text-text-primary">{String(item.newValues.status)}</span>
+                                </p>
+                              )}
+                              {item.newValues.provider && (
+                                <p className="text-[11px] text-text-secondary">
+                                  Provider: <span className="font-medium text-text-primary">{String(item.newValues.provider)}</span> ({String(item.newValues.reference || "")})
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                          {item.userId && (
+                            <div className="text-[10px] text-text-tertiary">
+                              Actor ID: <code className="text-text-secondary font-mono">{item.userId.slice(0, 8)}</code>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         </div>
 

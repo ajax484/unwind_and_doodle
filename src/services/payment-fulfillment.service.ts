@@ -178,37 +178,27 @@ export async function fulfillSuccessfulPayment(
     order_id: order.id,
     from_status: order.status,
     to_status: targetStatus,
-    status: targetStatus,
-    previous_status: order.status,
     note: `Payment confirmed via ${provider} reference ${reference} (${source})`,
-  } as unknown as Database['public']['Tables']['order_status_history']['Insert']);
+  } as Database['public']['Tables']['order_status_history']['Insert']);
 
   // 8. Record audit log
   const orgId = order.organization_id || DEFAULT_ORGANIZATION_ID;
   await supabase.from('audit_logs').insert({
     organization_id: orgId,
     actor_id: actorId,
-    user_id: actorId,
-    action: 'payment.verified',
+    action: 'update',
     entity_type: 'payment',
     entity_id: payment.id,
     before_data: { status: payment.status },
-    old_values: { status: payment.status },
     after_data: {
       status: PAYMENT_STATUS.SUCCESSFUL,
+      operation: 'payment.verified',
       provider,
       amount: payment.amount,
       reference,
       source,
     },
-    new_values: {
-      status: PAYMENT_STATUS.SUCCESSFUL,
-      provider,
-      amount: payment.amount,
-      reference,
-      source,
-    },
-  } as unknown as Database['public']['Tables']['audit_logs']['Insert']);
+  } as Database['public']['Tables']['audit_logs']['Insert']);
 
   // 9. Emit domain event (payment.completed)
   await publishDomainEvent(supabase, {

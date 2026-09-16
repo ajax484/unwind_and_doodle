@@ -146,12 +146,9 @@ export async function transitionOrderStatus(
     order_id: orderId,
     from_status: currentStatus,
     to_status: targetStatus,
-    status: targetStatus,
-    previous_status: currentStatus,
     note: note || null,
     changed_by: userId || null,
-    created_by: userId || null,
-  } as unknown as Database['public']['Tables']['order_status_history']['Insert']);
+  } as Database['public']['Tables']['order_status_history']['Insert']);
 
   if (historyError) {
     console.error('Failed to create order status history:', historyError.message);
@@ -162,25 +159,18 @@ export async function transitionOrderStatus(
   const { error: auditError } = await supabase.from('audit_logs').insert({
     organization_id: orgId,
     actor_id: userId || null,
-    user_id: userId || null,
-    action: 'order.status_transition',
+    action: 'update',
     entity_type: 'order',
     entity_id: orderId,
     before_data: { status: currentStatus },
-    old_values: { status: currentStatus },
     after_data: {
       status: targetStatus,
+      operation: 'order.status_transition',
       note: note || null,
       metadata: (metadata as Json) || null,
       timestamp: now,
     },
-    new_values: {
-      status: targetStatus,
-      note: note || null,
-      metadata: (metadata as Json) || null,
-      timestamp: now,
-    },
-  } as unknown as Database['public']['Tables']['audit_logs']['Insert']);
+  } as Database['public']['Tables']['audit_logs']['Insert']);
 
   if (auditError) {
     console.error('Failed to create audit log:', auditError.message);

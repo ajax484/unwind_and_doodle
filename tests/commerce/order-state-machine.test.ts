@@ -213,21 +213,24 @@ describe('Order State Machine & Admin Management', () => {
 
       // 2. Verify order_status_history
       const history = mockSupabase._store.order_status_history.find(
-        (h) => h.order_id === orderId && h.status === ORDER_STATUS.CONFIRMED
+        (h) => h.order_id === orderId && h.to_status === ORDER_STATUS.CONFIRMED
       );
       expect(history).toBeDefined();
-      expect(history.previous_status).toBe(ORDER_STATUS.PENDING);
-      expect(history.created_by).toBe(adminUserId);
+      expect(history.to_status).toBe(ORDER_STATUS.CONFIRMED);
+      expect(history.from_status).toBe(ORDER_STATUS.PENDING);
+      expect(history.changed_by).toBe(adminUserId);
       expect(history.note).toBe('Order confirmed and ready for packaging');
 
       // 3. Verify audit_logs
       const audit = mockSupabase._store.audit_logs.find(
-        (a) => a.entity_id === orderId && a.action === 'order.status_transition'
+        (a) => a.entity_id === orderId
       );
       expect(audit).toBeDefined();
-      expect(audit.user_id).toBe(adminUserId);
-      expect(audit.old_values.status).toBe(ORDER_STATUS.PENDING);
-      expect(audit.new_values.status).toBe(ORDER_STATUS.CONFIRMED);
+      expect(audit.actor_id).toBe(adminUserId);
+      expect(audit.action).toBe('update');
+      expect(audit.before_data.status).toBe(ORDER_STATUS.PENDING);
+      expect(audit.after_data.status).toBe(ORDER_STATUS.CONFIRMED);
+      expect(audit.after_data.operation).toBe('order.status_transition');
 
       // 4. Verify domain_events
       const event = mockSupabase._store.domain_events.find(
