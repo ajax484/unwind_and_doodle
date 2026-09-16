@@ -83,7 +83,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       if (isRichTextEmpty(normalizedValue) && isRichTextEmpty(currentHtml)) {
         return;
       }
-      editor.commands.setContent(normalizedValue, false);
+      editor.commands.setContent(normalizedValue, { emitUpdate: false });
     }
   }, [value, editor]);
 
