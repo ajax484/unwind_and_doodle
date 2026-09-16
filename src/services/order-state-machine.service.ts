@@ -3,6 +3,7 @@ import { Database, OrderStatus, Json } from '../lib/supabase/types';
 import { releaseOrderReservations, commitOrderReservations } from './inventory.service';
 import { publishDomainEvent } from './events.service';
 import { ORDER_STATUS, DEFAULT_ORGANIZATION_ID } from '../lib/constants';
+import { captureError, recordBreadcrumb } from '../lib/observability/error-monitoring';
 
 export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
   [ORDER_STATUS.CREATED]: [ORDER_STATUS.PENDING, ORDER_STATUS.CANCELLED],
@@ -77,6 +78,12 @@ export async function transitionOrderStatus(
     );
   }
 
+  recordBreadcrumb({
+    category: 'order_lifecycle',
+    message: `Transitioning order ${orderId} from ${currentStatus} to ${targetStatus}`,
+    data: { orderId, currentStatus, targetStatus },
+  });
+
   const now = new Date().toISOString();
 
   // 2b. Commit inventory reservations on fulfillment transition
@@ -85,6 +92,10 @@ export async function transitionOrderStatus(
       await commitOrderReservations(supabase, orderId);
     } catch (commitErr) {
       const msg = commitErr instanceof Error ? commitErr.message : 'Inventory commit failed';
+      captureError(commitErr, {
+        tags: { operation: 'order.commit_reservations' },
+        extra: { orderId, targetStatus },
+      });
       throw new Error(`Fulfillment failed: ${msg}`);
     }
   }
@@ -95,6 +106,10 @@ export async function transitionOrderStatus(
       await releaseOrderReservations(supabase, orderId);
     } catch (releaseErr) {
       console.error(`Failed to release reservations for cancelled order ${orderId}:`, releaseErr);
+      captureError(releaseErr, {
+        tags: { operation: 'order.cancel_release_reservations' },
+        extra: { orderId, targetStatus },
+      });
     }
   }
 

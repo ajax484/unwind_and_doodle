@@ -152,6 +152,12 @@ export default function AdminLayoutClient({
       icon: "🛡️",
       permission: "team.read",
     },
+    {
+      label: "Audit Logs",
+      href: "/admin/audit-logs",
+      icon: "📜",
+      permission: "organization.manage",
+    },
   ];
 
   const navSettings = allNavSettings.filter((item) => {
@@ -167,6 +173,7 @@ export default function AdminLayoutClient({
 
   const getPageTitle = () => {
     if (pathname === "/admin") return "Dashboard";
+    if (pathname.startsWith("/admin/audit-logs")) return "Audit Logs";
     if (pathname.startsWith("/admin/analytics")) return "Store Analytics";
     if (pathname.startsWith("/admin/orders")) return "Order Management";
     if (pathname.startsWith("/admin/products/bundles"))

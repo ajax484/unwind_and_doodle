@@ -16,6 +16,7 @@ import {
 } from '@/lib/marketing-token';
 import { rewriteMarketingLinks, injectOpenTrackingPixel } from './marketing-dispatcher.service';
 import { getConfig } from '@/lib/config';
+import { captureError, recordBreadcrumb } from '@/lib/observability/error-monitoring';
 
 export interface ProcessDueAutomationsResult {
   processed: number;
@@ -348,6 +349,10 @@ export async function executeSingleAutomation(
       .eq('id', executionId);
 
     console.error(`[marketing_automation.failed] id=${executionId} error=${errorMessage}`);
+    captureError(new Error(errorMessage), {
+      tags: { operation: 'marketing_automation.failed', executionId },
+      extra: { automationId: execution.automation_id },
+    });
     return { success: false, status: 'failed' as MarketingAutomationExecutionStatus, reason: errorMessage };
   };
 

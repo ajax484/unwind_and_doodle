@@ -15,6 +15,7 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.74.0",
     "@supabase/supabase-js": "^2.49.1",
     "@tiptap/extension-link": "^3.31.3",
     "@tiptap/pm": "^3.31.3",

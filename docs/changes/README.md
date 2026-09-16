@@ -46,9 +46,10 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-14 Reusable Delivery Rate Templates & Bulk Setup Integration](./admin/2026-09-14-delivery-rate-templates.md)
 - [2026-09-15 Admin Category Management & Dynamic Homepage Collections](./admin/2026-09-15-admin-category-management.md)
 - [2026-09-15 Bundle Media Management and Validation Fix](./admin/2026-09-15-bundle-media-and-validation-fix.md)
+- [2026-09-16 Admin Audit Log Viewer (`/admin/audit-logs`)](./admin/2026-09-16-admin-audit-log-viewer.md)
+- [2026-09-16 Marketing Step 2B: Marketing Automation Execution](./admin/2026-09-16-marketing-automation-execution.md)
+- [2026-09-16 Step 2A: Marketing Automation Foundation](./admin/2026-09-16-marketing-automation-foundation.md)
 - [2026-09-16 Rich Text Product and Bundle Descriptions (TipTap & HTML Sanitization)](./admin/2026-09-16-rich-text-description.md)
-- [2026-09-16 Step 2A — Marketing Automation Foundation](./admin/2026-09-16-marketing-automation-foundation.md)
-- [2026-09-16 Step 2B — Marketing Automation Execution](./admin/2026-09-16-marketing-automation-execution.md)
 
 ---
 
@@ -151,6 +152,7 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-04 Clean Code Phase 1: Constants & Unified Formatters](./quality-and-tests/2026-09-04-clean-code-phase-1-constants-and-formatters.md)
 - [2026-09-04 Clean Code Phase 3: Type Safety, Zod Validation & Cart Model Deduplication](./quality-and-tests/2026-09-04-clean-code-phase-3-types-and-validation.md)
 - [2026-09-04 Clean Code Phase 4: Next.js Performance & Admin Query Projections](./quality-and-tests/2026-09-04-clean-code-phase-4-nextjs-performance-and-architecture.md)
+- [2026-09-16 Production Error Monitoring & Runtime Diagnostics (Sentry)](./quality-and-tests/2026-09-16-sentry-error-monitoring.md)
 
 ---
 
@@ -230,6 +232,6 @@ This directory maintains categorized, per-feature change records following the r
 ---
 
 ## 📊 Summary
-- **Total Changelogs**: 169 across 8 domain modules
+- **Total Changelogs**: 173 across 8 domain modules
 - **Template Scaffold**: [`docs/changes/_template.md`](./_template.md)
-- **Status**: 100% indexed (169 of 169 files registered)
+- **Status**: 100% indexed (173 of 173 files registered)

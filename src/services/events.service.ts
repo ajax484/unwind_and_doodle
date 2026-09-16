@@ -2,6 +2,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Database, Json } from '../lib/supabase/types';
 import { DEFAULT_ORGANIZATION_ID } from '../lib/constants';
 import { handleMarketingAutomationEvent } from './marketing-executor.service';
+import { captureError, recordBreadcrumb } from '../lib/observability/error-monitoring';
 
 export type DomainEventHandler = (event: {
   id: string;
@@ -167,6 +168,17 @@ export async function processPendingDomainEvents(
       createdAt: rawEvent.created_at,
     };
 
+    recordBreadcrumb({
+      category: 'domain_events',
+      message: `Processing domain event: ${event.eventType}`,
+      data: {
+        eventId: event.id,
+        eventType: event.eventType,
+        aggregateType: event.aggregateType,
+        aggregateId: event.aggregateId,
+      },
+    });
+
     try {
       // Execute custom handlers if provided
       if (customHandlers) {
@@ -198,6 +210,11 @@ export async function processPendingDomainEvents(
         });
       } catch (autoErr: unknown) {
         console.warn(`[marketing_automation.event_trigger_warning] event_id=${rawEvent.id}`, autoErr);
+        captureError(autoErr, {
+          level: 'warning',
+          tags: { operation: 'marketing_automation.trigger_warning', eventType: event.eventType },
+          extra: { eventId: event.id, aggregateId: event.aggregateId },
+        });
       }
 
       // Mark event as processed
@@ -217,6 +234,17 @@ export async function processPendingDomainEvents(
       console.error(
         `[domain_event.failed] event_id=${event.id} type=${event.eventType} error=${errorMessage}`
       );
+      captureError(err, {
+        tags: {
+          operation: 'domain_event.failed',
+          eventType: event.eventType,
+          aggregateType: event.aggregateType,
+        },
+        extra: {
+          eventId: event.id,
+          aggregateId: event.aggregateId,
+        },
+      });
       // Event remains with processed_at = null for next retry
     }
   }

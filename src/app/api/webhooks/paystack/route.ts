@@ -2,9 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { processPaymentWebhook } from '@/services/webhook.service';
 import { PaystackPaymentProvider } from '@/services/paystack.service';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
+import { captureError, recordBreadcrumb } from '@/lib/observability/error-monitoring';
 
 export async function POST(req: NextRequest) {
   try {
+    recordBreadcrumb({
+      category: 'webhook',
+      message: 'Received Paystack webhook request',
+    });
+
     const rawBody = await req.text();
     const headers = req.headers;
 
@@ -28,6 +34,11 @@ export async function POST(req: NextRequest) {
       errorMessage.includes('Invalid') ||
       errorMessage.includes('mismatch') ||
       errorMessage.includes('Payment not found');
+
+    captureError(error, {
+      tags: { operation: 'webhook.paystack', isClientError },
+      level: isClientError ? 'warning' : 'error',
+    });
 
     return NextResponse.json(
       {
