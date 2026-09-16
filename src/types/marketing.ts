@@ -222,7 +222,7 @@ export interface CreateMarketingAutomationInput {
   name: string;
   type: MarketingAutomationType;
   status?: MarketingAutomationStatus;
-  config: MarketingAutomationConfig | Json;
+  config?: MarketingAutomationConfig | Json;
   created_by?: string | null;
 }
 

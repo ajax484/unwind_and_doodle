@@ -20,6 +20,7 @@ export interface SendMarketingEmailInput {
 export interface SendMarketingEmailResult {
   success: boolean;
   providerMessageId?: string;
+  messageId?: string;
   error?: string;
 }
 

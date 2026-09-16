@@ -151,6 +151,52 @@ export async function linkOrCreateCustomerAccount(
     .single();
 
   if (createError || !newCustomer) {
+    const isDuplicate =
+      createError?.code === '23505' ||
+      createError?.message?.includes('duplicate key') ||
+      createError?.message?.includes('customers_email_unique');
+
+    if (isDuplicate) {
+      // Handle concurrent creation race condition by re-querying the existing customer
+      const { data: byUser } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (byUser) {
+        return formatCustomerProfile(byUser);
+      }
+
+      const { data: byEmail } = await supabase
+        .from('customers')
+        .select('*')
+        .ilike('email', email)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (byEmail) {
+        if (!byEmail.user_id) {
+          const { data: linked } = await supabase
+            .from('customers')
+            .update({
+              user_id: user.id,
+              first_name: byEmail.first_name || firstName || null,
+              last_name: byEmail.last_name || lastName || null,
+              phone: byEmail.phone || user.phone || null,
+              updated_at: new Date().toISOString(),
+            } as Database['public']['Tables']['customers']['Update'])
+            .eq('id', byEmail.id)
+            .select('*')
+            .maybeSingle();
+
+          return formatCustomerProfile(linked || byEmail);
+        }
+        return formatCustomerProfile(byEmail);
+      }
+    }
+
     throw new Error(`Failed to create customer profile: ${createError?.message}`);
   }
 

@@ -397,7 +397,7 @@ export async function executeSingleAutomation(
         .eq('customer_id', execution.customer_id)
         .eq('organization_id', execution.organization_id)
         .gte('created_at', execution.created_at)
-        .in('status', ['confirmed', 'paid', 'processing', 'shipped', 'delivered', 'received'])
+        .in('status', ['created', 'confirmed', 'paid', 'processing', 'shipped', 'delivered', 'received'] as any)
         .limit(1)
         .maybeSingle();
 
@@ -551,16 +551,15 @@ export async function executeSingleAutomation(
 
     // 11. Record in marketing_email_events
     await supabase.from('marketing_email_events').insert({
-      organization_id: execution.organization_id,
       campaign_id: campaign.id,
-      recipient_id: recipientId,
+      campaign_recipient_id: recipientId,
       customer_id: execution.customer_id || null,
       event_type: 'sent',
       occurred_at: executedNow,
-      provider_event_id: sendResult.messageId || null,
       metadata: {
         automation_id: execution.automation_id,
         execution_id: execution.id,
+        provider_message_id: sendResult.providerMessageId || null,
       },
     });
 
@@ -570,7 +569,7 @@ export async function executeSingleAutomation(
       .update({
         status: 'completed',
         executed_at: executedNow,
-        provider_message_id: sendResult.messageId || null,
+        provider_message_id: sendResult.providerMessageId || null,
         updated_at: executedNow,
       })
       .eq('id', executionId);
