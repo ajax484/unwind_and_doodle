@@ -11,6 +11,7 @@ import { PublicTheme } from '@/types/admin-theme';
 import { getCartHeaders, dispatchCartUpdated } from '@/lib/cart-client';
 import { Tabs } from '@/components/Tabs';
 import { toast } from 'sonner';
+import { RichTextContent } from '@/components/RichTextContent';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -340,11 +341,9 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
-          {/* Description Snippet */}
+          {/* Description */}
           {product.description && (
-            <p className="text-sm sm:text-base text-text-secondary leading-relaxed">
-              {product.description}
-            </p>
+            <RichTextContent html={product.description} />
           )}
 
           {/* Bundle What's Included Section */}

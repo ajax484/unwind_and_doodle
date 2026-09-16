@@ -12,6 +12,7 @@ import {
 } from '@/types/admin-product';
 import { generateAutoSku } from '@/lib/sku-helpers';
 import ProductMediaManager from '@/components/admin/ProductMediaManager';
+import { RichTextEditor } from '@/components/admin/RichTextEditor';
 
 function slugify(text: string): string {
   return text
@@ -584,11 +585,11 @@ export default function AdminProductEditPage({
 
             <div className="space-y-1">
               <label className="font-semibold text-slate-700 block">Description</label>
-              <textarea
+              <RichTextEditor
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                className="w-full p-3 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-hidden focus:border-rose-400"
+                onChange={setDescription}
+                placeholder="Describe your coloring book or product in detail..."
+                minHeight="150px"
               />
             </div>
 

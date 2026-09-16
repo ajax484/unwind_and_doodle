@@ -46,6 +46,7 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-14 Reusable Delivery Rate Templates & Bulk Setup Integration](./admin/2026-09-14-delivery-rate-templates.md)
 - [2026-09-15 Admin Category Management & Dynamic Homepage Collections](./admin/2026-09-15-admin-category-management.md)
 - [2026-09-15 Bundle Media Management and Validation Fix](./admin/2026-09-15-bundle-media-and-validation-fix.md)
+- [2026-09-16 Rich Text Product and Bundle Descriptions (TipTap & HTML Sanitization)](./admin/2026-09-16-rich-text-description.md)
 
 ---
 
@@ -227,6 +228,6 @@ This directory maintains categorized, per-feature change records following the r
 ---
 
 ## 📊 Summary
-- **Total Changelogs**: 165 across 8 domain modules
+- **Total Changelogs**: 169 across 8 domain modules
 - **Template Scaffold**: [`docs/changes/_template.md`](./_template.md)
-- **Status**: 100% indexed (165 of 165 files registered)
+- **Status**: 100% indexed (169 of 169 files registered)

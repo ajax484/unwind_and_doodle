@@ -7,6 +7,7 @@ import { BundleComponentBuilder, SelectedComponentItem } from '@/components/admi
 import ProductMediaManager from '@/components/admin/ProductMediaManager';
 import { AdminBundleDetail } from '@/types/admin-bundle';
 import { AdminMediaItem } from '@/types/admin-product';
+import { RichTextEditor } from '@/components/admin/RichTextEditor';
 
 interface CategoryItem {
   id: string;
@@ -361,12 +362,11 @@ export default function EditBundlePage({
             {/* Description */}
             <div className="space-y-1.5 sm:col-span-2">
               <label className="text-xs font-bold text-slate-700">Description</label>
-              <textarea
-                rows={3}
+              <RichTextEditor
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={setDescription}
                 placeholder="Describe what customers get in this bundle..."
-                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                minHeight="140px"
               />
             </div>
 

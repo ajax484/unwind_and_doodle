@@ -1,6 +1,6 @@
 'use client';
 
-import React, { forwardRef, useState, useRef, useEffect } from 'react';
+import React, { forwardRef, useState, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,7 @@ import { Badge } from '@/components/Badge';
 import { Button } from '@/components/Button';
 import { RatingStars } from '@/components/RatingStars';
 import { ProductMedia } from '@/types/product-media';
+import { extractPlainText } from '@/lib/rich-text';
 
 export const productCardVariants = cva(
   [
@@ -172,6 +173,11 @@ export const ProductCard = forwardRef<HTMLDivElement, ProductCardProps>(
     const [hasVideoError, setHasVideoError] = useState(false);
     const [supportsHover, setSupportsHover] = useState(false);
     const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+    const resolvedDescription = useMemo(
+      () => (description ? extractPlainText(description, 160) : ''),
+      [description]
+    );
 
     useEffect(() => {
       if (typeof window !== 'undefined') {
@@ -395,9 +401,9 @@ export const ProductCard = forwardRef<HTMLDivElement, ProductCardProps>(
             </Link>
 
             {/* Optional Description */}
-            {description && (
+            {resolvedDescription && (
               <p className="text-xs sm:text-sm text-text-secondary line-clamp-2">
-                {description}
+                {resolvedDescription}
               </p>
             )}
 

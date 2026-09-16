@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AdminBundleDetail } from '@/types/admin-bundle';
 import { DuplicateBundleModal } from '@/components/admin/DuplicateBundleModal';
+import { RichTextContent } from '@/components/RichTextContent';
 
 export default function ViewBundlePage({
   params,
@@ -222,9 +223,7 @@ export default function ViewBundlePage({
           {bundle.description && (
             <div className="pt-2 border-t border-slate-100">
               <span className="text-xs text-slate-400 block font-medium mb-1">Description</span>
-              <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
-                {bundle.description}
-              </p>
+              <RichTextContent html={bundle.description} className="text-xs text-slate-700" />
             </div>
           )}
 

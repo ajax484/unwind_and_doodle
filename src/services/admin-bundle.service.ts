@@ -15,6 +15,7 @@ import { ProductMedia } from '../types/product-media';
 import { generateUniqueSlug, slugify } from './admin-product.service';
 import { generateAutoSku } from '../lib/sku-helpers';
 import { publishDomainEvent } from './events.service';
+import { sanitizeRichText, isRichTextEmpty } from '../lib/rich-text';
 
 /**
  * Lists bundle products with filtering, search, sorting, and pagination.
@@ -405,7 +406,11 @@ export async function createAdminBundle(
     p_org_id: organizationId,
     p_name: input.name.trim(),
     p_slug: finalSlug,
-    p_description: input.description || null,
+    p_description: input.description
+      ? isRichTextEmpty(input.description)
+        ? null
+        : sanitizeRichText(input.description)
+      : null,
     p_sku: resolvedSku || null,
     p_selling_price: input.selling_price,
     p_cost_price: input.cost_price,
@@ -609,7 +614,13 @@ export async function updateAdminBundle(
     p_org_id: organizationId,
     p_name: input.name !== undefined ? input.name.trim() : existing.name,
     p_slug: finalSlug,
-    p_description: input.description !== undefined ? input.description : existing.description,
+    p_description: input.description !== undefined
+      ? input.description
+        ? isRichTextEmpty(input.description)
+          ? null
+          : sanitizeRichText(input.description)
+        : null
+      : existing.description,
     p_sku: resolvedSku,
     p_selling_price: input.selling_price !== undefined ? input.selling_price : Number(existing.selling_price),
     p_cost_price: input.cost_price !== undefined ? input.cost_price : Number(existing.cost_price),

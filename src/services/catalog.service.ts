@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../lib/supabase/types';
 import { ProductMedia, ProductMediaType } from '../types/product-media';
+import { stripHtml } from '../lib/rich-text';
 
 export interface BundleComponentDetail {
   id: string;
@@ -97,7 +98,7 @@ export async function getPublishedCatalog(
     products = products.filter(
       (p) =>
         (p.name && p.name.toLowerCase().includes(qLower)) ||
-        (p.description && p.description.toLowerCase().includes(qLower)) ||
+        (p.description && stripHtml(p.description).toLowerCase().includes(qLower)) ||
         (p.sku && p.sku.toLowerCase().includes(qLower))
     );
   }

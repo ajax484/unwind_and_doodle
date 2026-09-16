@@ -18,6 +18,7 @@ import {
 import { publishDomainEvent } from './events.service';
 import { generateAutoSku } from '../lib/sku-helpers';
 import { slugify, generateUniqueSlug } from '../lib/slug-helpers';
+import { sanitizeRichText, isRichTextEmpty } from '../lib/rich-text';
 
 export { slugify, generateUniqueSlug };
 
@@ -546,7 +547,11 @@ export async function createAdminProduct(
       organization_id: organizationId,
       name: input.name.trim(),
       slug: finalSlug,
-      description: input.description || null,
+      description: input.description
+        ? isRichTextEmpty(input.description)
+          ? null
+          : sanitizeRichText(input.description)
+        : null,
       sku: resolvedSku || null,
       product_type: input.product_type,
       selling_price: input.selling_price,
@@ -725,7 +730,13 @@ export async function updateAdminProduct(
 
   if (input.name !== undefined) updatePayload.name = input.name.trim();
   if (finalSlug !== undefined) updatePayload.slug = finalSlug;
-  if (input.description !== undefined) updatePayload.description = input.description;
+  if (input.description !== undefined) {
+    updatePayload.description = input.description
+      ? isRichTextEmpty(input.description)
+        ? null
+        : sanitizeRichText(input.description)
+      : null;
+  }
   if (input.sku !== undefined) updatePayload.sku = input.sku ? input.sku.trim() : null;
   if (input.product_type !== undefined) updatePayload.product_type = input.product_type;
   if (input.selling_price !== undefined) updatePayload.selling_price = input.selling_price;
