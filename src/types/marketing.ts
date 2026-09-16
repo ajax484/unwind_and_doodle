@@ -184,11 +184,45 @@ export type MarketingAutomation = Database['public']['Tables']['marketing_automa
 export type MarketingAutomationInsert = Database['public']['Tables']['marketing_automations']['Insert'];
 export type MarketingAutomationUpdate = Database['public']['Tables']['marketing_automations']['Update'];
 
+export type AutomationTriggerEventType =
+  | 'customer.created'
+  | 'checkout.abandoned'
+  | 'order.created'
+  | 'order.paid'
+  | 'customer.inactive';
+
+export interface MarketingAutomationTrigger {
+  type: AutomationTriggerEventType;
+  filters?: Record<string, unknown>;
+}
+
+export type MarketingAutomationDelayUnit = 'minutes' | 'hours' | 'days';
+
+export interface MarketingAutomationDelay {
+  amount: number;
+  unit: MarketingAutomationDelayUnit;
+}
+
+export interface MarketingAutomationAction {
+  type: 'email';
+  campaignId: string;
+}
+
+export interface MarketingAutomationConfig {
+  trigger: MarketingAutomationTrigger;
+  delay?: MarketingAutomationDelay;
+  action: MarketingAutomationAction;
+}
+
+export type MarketingAutomationWithParsedConfig = Omit<MarketingAutomation, 'config'> & {
+  config: MarketingAutomationConfig;
+};
+
 export interface CreateMarketingAutomationInput {
   name: string;
   type: MarketingAutomationType;
   status?: MarketingAutomationStatus;
-  config?: Json;
+  config: MarketingAutomationConfig | Json;
   created_by?: string | null;
 }
 
@@ -196,12 +230,50 @@ export interface UpdateMarketingAutomationInput {
   name?: string;
   type?: MarketingAutomationType;
   status?: MarketingAutomationStatus;
-  config?: Json;
+  config?: MarketingAutomationConfig | Json;
 }
 
 export interface MarketingAutomationFilter {
   status?: MarketingAutomationStatus;
   type?: MarketingAutomationType;
+}
+
+export interface AutomationTypeMetadata {
+  type: MarketingAutomationType;
+  label: string;
+  description: string;
+  compatibleEventTypes: AutomationTriggerEventType[];
+  defaultDelay?: MarketingAutomationDelay;
+}
+
+export type MarketingAutomationExecutionStatus =
+  | 'pending'
+  | 'processing'
+  | 'completed'
+  | 'skipped'
+  | 'failed';
+
+export interface MarketingAutomationExecution {
+  id: string;
+  organization_id: string;
+  automation_id: string;
+  domain_event_id: string;
+  campaign_id: string;
+  customer_id: string | null;
+  customer_email: string;
+  status: MarketingAutomationExecutionStatus;
+  scheduled_for: string;
+  executed_at: string | null;
+  skip_reason: string | null;
+  error_message: string | null;
+  provider_message_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MarketingAutomationExecutionFilter {
+  automation_id?: string;
+  status?: MarketingAutomationExecutionStatus;
 }
 
 // ============================================================================

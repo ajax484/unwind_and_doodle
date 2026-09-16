@@ -1,6 +1,6 @@
 import nodemailer, { Transporter } from 'nodemailer';
 import { getConfig } from '@/lib/config';
-import { getTransporter } from '@/services/notification.service';
+import { getTransporter } from '@/lib/email-transporter';
 import {
   MarketingEmailProvider,
   SendMarketingEmailInput,

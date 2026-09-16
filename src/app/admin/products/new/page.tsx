@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AdminProductCategoryItem, AdminMediaItem } from '@/types/admin-product';
 import { generateAutoSku } from '@/lib/sku-helpers';
 import ProductMediaManager from '@/components/admin/ProductMediaManager';
-import { RichTextEditor } from '@/components/admin/RichTextEditor';
+import { RichTextEditor } from '@/components/RichTextEditor';
 
 function slugify(text: string): string {
   return text

@@ -53,6 +53,7 @@ export function createMockSupabaseClient(initialData?: {
   marketing_campaign_recipients?: any[];
   marketing_email_events?: any[];
   marketing_automations?: any[];
+  marketing_automation_executions?: any[];
   [key: string]: any[] | undefined;
 }) {
   const store = {
@@ -123,6 +124,7 @@ export function createMockSupabaseClient(initialData?: {
     marketing_campaign_recipients: [...(initialData?.marketing_campaign_recipients || [])],
     marketing_email_events: [...(initialData?.marketing_email_events || [])],
     marketing_automations: [...(initialData?.marketing_automations || [])],
+    marketing_automation_executions: [...(initialData?.marketing_automation_executions || [])],
   };
 
   const rpcHandlers: Record<string, Function> = {

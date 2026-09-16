@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database, Json } from '../lib/supabase/types';
 import { DEFAULT_ORGANIZATION_ID } from '../lib/constants';
+import { handleMarketingAutomationEvent } from './marketing-executor.service';
 
 export type DomainEventHandler = (event: {
   id: string;
@@ -11,7 +12,15 @@ export type DomainEventHandler = (event: {
   createdAt: string;
 }) => Promise<void>;
 
-const registeredHandlers = new Map<string, DomainEventHandler[]>();
+// Lazily initialized map to guarantee safety even during circular module evaluation
+var registeredHandlers: Map<string, DomainEventHandler[]> | undefined;
+
+function getRegisteredHandlers(): Map<string, DomainEventHandler[]> {
+  if (!registeredHandlers) {
+    registeredHandlers = new Map<string, DomainEventHandler[]>();
+  }
+  return registeredHandlers;
+}
 
 /**
  * Registers an asynchronous handler for a specific domain event type.
@@ -20,9 +29,10 @@ export function registerDomainEventHandler(
   eventType: string,
   handler: DomainEventHandler
 ): void {
-  const existing = registeredHandlers.get(eventType) || [];
+  const handlers = getRegisteredHandlers();
+  const existing = handlers.get(eventType) || [];
   existing.push(handler);
-  registeredHandlers.set(eventType, existing);
+  handlers.set(eventType, existing);
 }
 
 /**
@@ -170,9 +180,24 @@ export async function processPendingDomainEvents(
       }
 
       // Execute globally registered handlers
-      const globalFns = registeredHandlers.get(event.eventType) || [];
+      const globalFns = getRegisteredHandlers().get(event.eventType) || [];
       for (const fn of globalFns) {
         await fn(event);
+      }
+
+      // Execute matching marketing automations
+      try {
+        await handleMarketingAutomationEvent(supabase, {
+          id: rawEvent.id,
+          event_type: rawEvent.event_type,
+          aggregate_type: rawEvent.aggregate_type,
+          aggregate_id: rawEvent.aggregate_id,
+          organization_id: rawEvent.organization_id,
+          payload: rawEvent.payload,
+          created_at: rawEvent.created_at,
+        });
+      } catch (autoErr: unknown) {
+        console.warn(`[marketing_automation.event_trigger_warning] event_id=${rawEvent.id}`, autoErr);
       }
 
       // Mark event as processed

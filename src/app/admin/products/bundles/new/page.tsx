@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { BundleComponentBuilder, SelectedComponentItem } from '@/components/admin/BundleComponentBuilder';
 import ProductMediaManager from '@/components/admin/ProductMediaManager';
 import { AdminMediaItem } from '@/types/admin-product';
-import { RichTextEditor } from '@/components/admin/RichTextEditor';
+import { RichTextEditor } from '@/components/RichTextEditor';
 
 interface CategoryItem {
   id: string;

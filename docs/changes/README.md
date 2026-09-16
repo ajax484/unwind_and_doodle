@@ -47,6 +47,8 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-15 Admin Category Management & Dynamic Homepage Collections](./admin/2026-09-15-admin-category-management.md)
 - [2026-09-15 Bundle Media Management and Validation Fix](./admin/2026-09-15-bundle-media-and-validation-fix.md)
 - [2026-09-16 Rich Text Product and Bundle Descriptions (TipTap & HTML Sanitization)](./admin/2026-09-16-rich-text-description.md)
+- [2026-09-16 Step 2A — Marketing Automation Foundation](./admin/2026-09-16-marketing-automation-foundation.md)
+- [2026-09-16 Step 2B — Marketing Automation Execution](./admin/2026-09-16-marketing-automation-execution.md)
 
 ---
 

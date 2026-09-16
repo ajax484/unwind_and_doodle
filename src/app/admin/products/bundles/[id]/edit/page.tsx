@@ -7,7 +7,7 @@ import { BundleComponentBuilder, SelectedComponentItem } from '@/components/admi
 import ProductMediaManager from '@/components/admin/ProductMediaManager';
 import { AdminBundleDetail } from '@/types/admin-bundle';
 import { AdminMediaItem } from '@/types/admin-product';
-import { RichTextEditor } from '@/components/admin/RichTextEditor';
+import { RichTextEditor } from '@/components/RichTextEditor';
 
 interface CategoryItem {
   id: string;

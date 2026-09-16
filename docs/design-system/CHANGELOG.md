@@ -2,6 +2,29 @@
 
 All updates to individual Figma canvas components, frames, variant iterations, and token adjustments are documented here per design system governance rules.
 
+## 2026-09-16 — RichTextEditor Component Set & Standardization
+
+### What Changed
+
+- **New Component Set in Figma Canvas**: `RichTextEditor` (`250:10990`) on the `Components` page (`16:2942`)
+  - **Coordinates**: `x: 5644, y: 1400` (placed directly below `Textarea` `16:3977` in the form controls column).
+  - **Variant Dimensions**:
+    - `State`: `Default`, `Focus`, `Error`, `Disabled`
+    - `Size`: `SM` (320px wide, min-h 120px), `MD` (360px wide, min-h 150px), `LG` (400px wide, min-h 190px)
+    - `Message`: `None`, `Helper`, `Error`
+  - **Structure & Layout**: Auto-layout vertical frame containing accessible `Label` ("Description"), `Editor Container` with rounded-xl corners (`12px`), responsive `Toolbar` (`#FFFDF7` background with 1px `#DCE7EE` bottom border and icon buttons for Bold, Italic, Strike, Headings, Lists, Blockquotes, Links, and Dividers), `Content Area` with typography tokens, and optional `Message` footer (Helper in `#8295A8`, Error in `#EF4444`).
+  - Total variants: **13 canonical variants**.
+
+- **Canonical React Component (`src/components/RichTextEditor.tsx`)**:
+  - Promoted from admin-specific component to the canonical design system layer.
+  - Implements `cva` container variants with sizing scales (`sm`, `md`, `lg`), accessible `label`, `helperText`, `errorMessage`, and semantic design tokens (`border-border-input`, `focus-within:ring-border-brand`, `bg-bg-surface`, `text-text-primary`).
+  - Preserves backwards compatibility via re-export in `src/components/admin/RichTextEditor.tsx`.
+
+- **Storybook Interactive Documentation (`src/components/RichTextEditor.stories.tsx`)**:
+  - Registered under `Design System/Molecules/RichTextEditor` with autodocs, size variants, label/helper/error states, and interactive user event play tests.
+
+---
+
 ## 2026-09-11 — Phase 9A.2: Product Listing Page (PLP) Design in Figma
 
 ### What Changed
