@@ -264,11 +264,11 @@ export async function createAdminManualOrder(
     await supabase.from('audit_logs').insert({
       organization_id: organizationId,
       actor_id: userId,
-      user_id: userId,
-      action: 'order.created',
+      action: 'create',
       entity_type: 'order',
       entity_id: orderId,
       after_data: {
+        operation: 'order.created',
         order_number: result.order_number,
         order_source: 'manual',
         channel: validated.manualOrderChannel,
@@ -603,11 +603,14 @@ export async function cancelManualOrder(
   await supabase.from('audit_logs').insert({
     organization_id: organizationId,
     actor_id: userId,
-    user_id: userId,
-    action: 'order.updated',
+    action: 'update',
     entity_type: 'order',
     entity_id: orderId,
-    after_data: { status: ORDER_STATUS.CANCELLED },
+    before_data: { status: order.status },
+    after_data: {
+      status: ORDER_STATUS.CANCELLED,
+      operation: 'order.cancelled',
+    },
   } as unknown as Database['public']['Tables']['audit_logs']['Insert']);
 }
 

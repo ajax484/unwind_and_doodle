@@ -364,12 +364,28 @@ export async function commitOrderReservations(
   supabase: SupabaseClient<Database>,
   orderId: string
 ): Promise<{ committedCount: number }> {
-  const [{ data: byOrderId }, { data: byRefId }] = await Promise.all([
-    supabase.from('inventory_reservations').select('id, status').eq('order_id', orderId).eq('status', 'active'),
-    supabase.from('inventory_reservations').select('id, status').eq('reference_id' as unknown as 'order_id', orderId).eq('status', 'active'),
-  ]);
+  const { data: byOrderId, error } = await supabase
+    .from('inventory_reservations')
+    .select('id, status')
+    .eq('order_id', orderId)
+    .eq('status', 'active');
 
-  const reservations = (byOrderId && byOrderId.length > 0) ? byOrderId : (byRefId || []);
+  if (error) {
+    console.error(`Failed to fetch reservations for committing order ${orderId}:`, error.message);
+    return { committedCount: 0 };
+  }
+
+  let reservations = byOrderId || [];
+  if (reservations.length === 0) {
+    const { data: byRefId } = await supabase
+      .from('inventory_reservations')
+      .select('id, status')
+      .eq('reference_id' as unknown as 'order_id', orderId)
+      .eq('status', 'active');
+    if (byRefId && byRefId.length > 0) {
+      reservations = byRefId;
+    }
+  }
 
   let count = 0;
   for (const res of reservations) {
@@ -449,12 +465,28 @@ export async function releaseOrderReservations(
   supabase: SupabaseClient<Database>,
   orderId: string
 ): Promise<{ releasedCount: number }> {
-  const [{ data: byOrderId }, { data: byRefId }] = await Promise.all([
-    supabase.from('inventory_reservations').select('id, status').eq('order_id', orderId).eq('status', 'active'),
-    supabase.from('inventory_reservations').select('id, status').eq('reference_id' as unknown as 'order_id', orderId).eq('status', 'active'),
-  ]);
+  const { data: byOrderId, error } = await supabase
+    .from('inventory_reservations')
+    .select('id, status')
+    .eq('order_id', orderId)
+    .eq('status', 'active');
 
-  const reservations = (byOrderId && byOrderId.length > 0) ? byOrderId : (byRefId || []);
+  if (error) {
+    console.error(`Failed to fetch reservations for releasing order ${orderId}:`, error.message);
+    return { releasedCount: 0 };
+  }
+
+  let reservations = byOrderId || [];
+  if (reservations.length === 0) {
+    const { data: byRefId } = await supabase
+      .from('inventory_reservations')
+      .select('id, status')
+      .eq('reference_id' as unknown as 'order_id', orderId)
+      .eq('status', 'active');
+    if (byRefId && byRefId.length > 0) {
+      reservations = byRefId;
+    }
+  }
 
   let count = 0;
   for (const res of reservations) {
