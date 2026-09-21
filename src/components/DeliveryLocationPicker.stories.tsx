@@ -32,6 +32,7 @@ const meta = {
     showSummary: true,
     size: 'md',
     allowBlank: false,
+    onChange: () => {},
   },
 } satisfies Meta<typeof DeliveryLocationPicker>;
 
