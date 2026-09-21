@@ -54,6 +54,7 @@ export function createMockSupabaseClient(initialData?: {
   marketing_email_events?: any[];
   marketing_automations?: any[];
   marketing_automation_executions?: any[];
+  organization_payment_methods?: any[];
   [key: string]: any[] | undefined;
 }) {
   const store = {
@@ -125,6 +126,7 @@ export function createMockSupabaseClient(initialData?: {
     marketing_email_events: [...(initialData?.marketing_email_events || [])],
     marketing_automations: [...(initialData?.marketing_automations || [])],
     marketing_automation_executions: [...(initialData?.marketing_automation_executions || [])],
+    organization_payment_methods: [...(initialData?.organization_payment_methods || [])],
   };
 
   const rpcHandlers: Record<string, Function> = {
@@ -682,6 +684,51 @@ export function createMockSupabaseClient(initialData?: {
       disc.usage_count = (disc.usage_count || 0) + 1;
       return true;
     },
+    claim_due_marketing_automation_executions: ({
+      p_limit = 50,
+      p_stale_seconds = 300,
+      p_organization_id = null,
+    }: {
+      p_limit?: number;
+      p_stale_seconds?: number;
+      p_organization_id?: string | null;
+    } = {}) => {
+      const now = Date.now();
+      const staleCutoff = new Date(now - p_stale_seconds * 1000).toISOString();
+      const nowIso = new Date(now).toISOString();
+
+      const eligible = (store.marketing_automation_executions || []).filter((exec) => {
+        const orgMatch = !p_organization_id || exec.organization_id === p_organization_id;
+        if (!orgMatch) return false;
+
+        const isLegacy = !exec.engine || exec.engine === 'legacy';
+        if (!isLegacy) return false;
+
+        const isPendingDue = exec.status === 'pending' && exec.scheduled_for <= nowIso;
+        const isStaleProcessing =
+          exec.status === 'processing' &&
+          exec.updated_at <= staleCutoff &&
+          (exec.retry_count || 0) < (exec.max_retries || 3);
+
+        return isPendingDue || isStaleProcessing;
+      });
+
+      eligible.sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime());
+
+      const claimed = eligible.slice(0, p_limit);
+      const claimedResults = [];
+
+      for (const item of claimed) {
+        if (item.status === 'processing') {
+          item.retry_count = (item.retry_count || 0) + 1;
+        }
+        item.status = 'processing';
+        item.updated_at = nowIso;
+        claimedResults.push({ ...item });
+      }
+
+      return claimedResults;
+    },
   };
 
   const client = {
@@ -866,6 +913,24 @@ export function createMockSupabaseClient(initialData?: {
               return Object.entries(val).every(([k, v]) => field[k] === v);
             }
             return false;
+          });
+          return queryBuilder;
+        },
+        or: (clause: string) => {
+          const parts = clause.split(',');
+          filteredData = filteredData.filter((r) => {
+            return parts.some((part) => {
+              const trimmed = part.trim();
+              if (trimmed.endsWith('.is.null')) {
+                const col = trimmed.replace('.is.null', '');
+                return r[col] === null || r[col] === undefined;
+              }
+              if (trimmed.includes('.eq.')) {
+                const [col, val] = trimmed.split('.eq.');
+                return r[col] === val;
+              }
+              return true;
+            });
           });
           return queryBuilder;
         },

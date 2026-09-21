@@ -6,6 +6,8 @@ import {
   PaymentInitialization,
   PaymentVerification,
   PaymentWebhookVerification,
+  PaymentRefundInput,
+  PaymentRefundResult,
 } from './provider.interface';
 
 const FLUTTERWAVE_BASE_URL = 'https://api.flutterwave.com/v3';
@@ -194,5 +196,70 @@ export class FlutterwavePaymentProvider implements PaymentProvider {
     } catch {
       return { isValid: false };
     }
+  }
+
+  /**
+   * Initiates a refund for a transaction with Flutterwave.
+   */
+  async refundTransaction(input: PaymentRefundInput): Promise<PaymentRefundResult> {
+    if (!this.secretKey) {
+      throw new Error('FLUTTERWAVE_SECRET_KEY is not configured');
+    }
+
+    const payload: Record<string, unknown> = {};
+    if (input.amount !== undefined && input.amount > 0) {
+      payload.amount = input.amount;
+    }
+    if (input.merchantNote || input.customerNote) {
+      payload.comments = input.customerNote || input.merchantNote;
+    }
+
+    const response = await this.fetchFn(
+      `${FLUTTERWAVE_BASE_URL}/transactions/${encodeURIComponent(input.transaction)}/refund`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.secretKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const json = (await response.json()) as {
+      status: string;
+      message: string;
+      data?: {
+        id: number;
+        status: string;
+        amount_refunded?: number;
+        flw_ref?: string;
+        tx_ref?: string;
+        [key: string]: unknown;
+      };
+    };
+
+    if (!response.ok || json.status !== 'success' || !json.data) {
+      throw new Error(
+        `Flutterwave refund failed: ${json.message || response.statusText || 'Unknown error'}`
+      );
+    }
+
+    const data = json.data;
+    const normalizedStatus: 'processed' | 'pending' | 'failed' =
+      data.status === 'completed' || data.status === 'success'
+        ? 'processed'
+        : data.status === 'pending'
+        ? 'pending'
+        : 'failed';
+
+    return {
+      status: normalizedStatus,
+      refundId: String(data.id),
+      amount: data.amount_refunded || input.amount || 0,
+      currency: 'NGN',
+      transactionReference: data.flw_ref || data.tx_ref || input.transaction,
+      rawResponse: data as Record<string, unknown>,
+    };
   }
 }

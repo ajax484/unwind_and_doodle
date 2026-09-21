@@ -10,6 +10,7 @@ import {
   resolveEventCustomer,
 } from '@/services/marketing-executor.service';
 import { POST as processDueRoute } from '@/app/api/admin/marketing/automations/process-due/route';
+import { POST as dispatchScheduledRoute } from '@/app/api/admin/marketing/campaigns/dispatch-scheduled/route';
 import { GET as getExecutionsRoute } from '@/app/api/admin/marketing/automations/[id]/executions/route';
 import { setMarketingEmailProvider } from '@/services/marketing-provider/nodemailer-marketing.provider';
 import { MarketingEmailProvider, SendEmailOptions, SendEmailResult } from '@/services/marketing-provider/types';
@@ -242,6 +243,9 @@ describe('Step 2B: Marketing Automation Execution', () => {
       expect(executions.length).toBe(1);
       expect(executions[0].status).toBe('completed');
       expect(executions[0].customer_email).toBe('alice@example.com');
+      expect(executions[0].engine).toBe('legacy');
+      expect(executions[0].config_snapshot).toBeDefined();
+      expect(executions[0].config_snapshot.action.campaignId).toBe(campaignIdAlpha);
 
       // Verify email was dispatched via provider with personalization
       expect(sentEmails.length).toBe(1);
@@ -571,15 +575,168 @@ describe('Step 2B: Marketing Automation Execution', () => {
       const summary = await processDueMarketingAutomations(mockSupabase as any);
 
       expect(summary.processed).toBe(2);
-      expect(summary.failed).toBe(1);
+      expect(summary.retried).toBe(1); // Transient error retried
       expect(summary.completed).toBe(1);
+    });
+
+    it('bounds execution batch to limit and calculates remaining items', async () => {
+      const pastTime = new Date(Date.now() - 5000).toISOString();
+      for (let i = 1; i <= 5; i++) {
+        (mockSupabase as any)._store.marketing_automation_executions.push({
+          id: `exec-batch-${i}`,
+          organization_id: orgAlpha,
+          automation_id: 'auto-welcome',
+          domain_event_id: `evt-batch-${i}`,
+          campaign_id: campaignIdAlpha,
+          customer_id: customerOptedInId,
+          customer_email: `user${i}@example.com`,
+          status: 'pending',
+          scheduled_for: pastTime,
+          created_at: pastTime,
+          updated_at: pastTime,
+        });
+      }
+
+      const summary = await processDueMarketingAutomations(mockSupabase as any, {
+        limit: 2,
+      });
+
+      expect(summary.processed).toBe(2);
+      expect(summary.completed).toBe(2);
+      expect(summary.remaining).toBe(3);
+    });
+
+    it('retries transient failures up to max_retries with exponential delay', async () => {
+      mockEmailProvider.sendEmail = vi.fn(async () => ({
+        success: false,
+        error: 'SMTP Connection Timeout',
+      }));
+
+      const pastTime = new Date(Date.now() - 5000).toISOString();
+      const executionId = 'exec-retry-flow';
+      (mockSupabase as any)._store.marketing_automation_executions.push({
+        id: executionId,
+        organization_id: orgAlpha,
+        automation_id: 'auto-welcome',
+        domain_event_id: 'evt-retry',
+        campaign_id: campaignIdAlpha,
+        customer_id: customerOptedInId,
+        customer_email: 'alice@example.com',
+        status: 'pending',
+        retry_count: 0,
+        max_retries: 3,
+        scheduled_for: pastTime,
+        created_at: pastTime,
+        updated_at: pastTime,
+      });
+
+      // Run 1: attempt 1 fails, should be retried (status pending, retry_count = 1)
+      const res1 = await executeSingleAutomation(mockSupabase as any, executionId);
+      expect(res1.status).toBe('pending');
+      expect(res1.reason).toContain('retried:');
+
+      const storeExec1 = (mockSupabase as any)._store.marketing_automation_executions.find(
+        (e: any) => e.id === executionId
+      );
+      expect(storeExec1.status).toBe('pending');
+      expect(storeExec1.retry_count).toBe(1);
+      expect(new Date(storeExec1.scheduled_for).getTime()).toBeGreaterThan(Date.now());
+
+      // Run 2: simulate second attempt
+      storeExec1.scheduled_for = new Date(Date.now() - 1000).toISOString();
+      const res2 = await executeSingleAutomation(mockSupabase as any, executionId);
+      expect(res2.status).toBe('pending');
+      expect(storeExec1.retry_count).toBe(2);
+
+      // Run 3: simulate third attempt
+      storeExec1.scheduled_for = new Date(Date.now() - 1000).toISOString();
+      const res3 = await executeSingleAutomation(mockSupabase as any, executionId);
+      expect(res3.status).toBe('pending');
+      expect(storeExec1.retry_count).toBe(3);
+
+      // Run 4: max retries reached -> fails permanently
+      storeExec1.scheduled_for = new Date(Date.now() - 1000).toISOString();
+      const res4 = await executeSingleAutomation(mockSupabase as any, executionId);
+      expect(res4.status).toBe('failed');
+      expect(res4.reason).toContain('Max retries exhausted');
+      expect(storeExec1.status).toBe('failed');
+    });
+
+    it('recovers stale processing jobs without duplicate email dispatch', async () => {
+      const tenMinutesAgo = new Date(Date.now() - 600000).toISOString();
+      const executionId = 'exec-stale-recovered';
+
+      (mockSupabase as any)._store.marketing_automation_executions.push({
+        id: executionId,
+        organization_id: orgAlpha,
+        automation_id: 'auto-welcome',
+        domain_event_id: 'evt-stale',
+        campaign_id: campaignIdAlpha,
+        customer_id: customerOptedInId,
+        customer_email: 'alice@example.com',
+        status: 'processing', // Stuck in processing
+        retry_count: 0,
+        max_retries: 3,
+        scheduled_for: tenMinutesAgo,
+        created_at: tenMinutesAgo,
+        updated_at: tenMinutesAgo,
+      });
+
+      // Email was already sent by the crashed worker before dying
+      (mockSupabase as any)._store.marketing_campaign_recipients.push({
+        id: 'rec-stale',
+        campaign_id: campaignIdAlpha,
+        customer_id: customerOptedInId,
+        email: 'alice@example.com',
+        status: 'sent',
+        sent_at: tenMinutesAgo,
+      });
+
+      const summary = await processDueMarketingAutomations(mockSupabase as any, {
+        staleSeconds: 300,
+      });
+
+      expect(summary.processed).toBe(1);
+      expect(summary.completed).toBe(1);
+
+      // Provider was NOT called again (prevent duplicate send)
+      expect(sentEmails.length).toBe(0);
+
+      const storeExec = (mockSupabase as any)._store.marketing_automation_executions.find(
+        (e: any) => e.id === executionId
+      );
+      expect(storeExec.status).toBe('completed');
+    });
+
+    it('enforces multi-tenant isolation and rejects foreign organization campaign/customer', async () => {
+      const pastTime = new Date(Date.now() - 5000).toISOString();
+      const executionId = 'exec-tenant-mismatch';
+
+      (mockSupabase as any)._store.marketing_automation_executions.push({
+        id: executionId,
+        organization_id: orgBeta, // Beta org execution
+        automation_id: 'auto-welcome', // Alpha org automation
+        domain_event_id: 'evt-mismatch',
+        campaign_id: campaignIdAlpha, // Alpha org campaign
+        customer_id: customerOptedInId, // Alpha customer
+        customer_email: 'alice@example.com',
+        status: 'pending',
+        scheduled_for: pastTime,
+        created_at: pastTime,
+        updated_at: pastTime,
+      });
+
+      const res = await executeSingleAutomation(mockSupabase as any, executionId);
+      expect(res.status).toBe('skipped');
+      expect(res.reason).toBe('organization_mismatch');
+      expect(sentEmails.length).toBe(0);
     });
   });
 
   // ============================================================================
-  // 7. API ROUTES
+  // 7. API ROUTES & SCHEDULED CAMPAIGNS
   // ============================================================================
-  describe('Execution API Routes', () => {
+  describe('Execution & Campaign Dispatch API Routes', () => {
     it('POST /api/admin/marketing/automations/process-due with CRON_SECRET executes due jobs', async () => {
       const pastTime = new Date(Date.now() - 5000).toISOString();
       (mockSupabase as any)._store.marketing_automation_executions.push({
@@ -610,6 +767,29 @@ describe('Step 2B: Marketing Automation Execution', () => {
       expect(sentEmails.length).toBe(1);
     });
 
+    it('POST /api/admin/marketing/automations/process-due rejects unauthorized requests', async () => {
+      const req = createAdminRequest('/api/admin/marketing/automations/process-due', {
+        method: 'POST',
+        unauthenticated: true,
+      });
+
+      const res = await processDueRoute(req);
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.success).toBe(false);
+    });
+
+    it('POST /api/admin/marketing/automations/process-due rejects invalid cron secret', async () => {
+      const req = createAdminRequest('/api/admin/marketing/automations/process-due', {
+        method: 'POST',
+        cronSecret: 'wrong-secret-xyz',
+        unauthenticated: true,
+      });
+
+      const res = await processDueRoute(req);
+      expect(res.status).toBe(403);
+    });
+
     it('GET /api/admin/marketing/automations/[id]/executions returns execution records', async () => {
       (mockSupabase as any)._store.marketing_automation_executions.push({
         id: 'exec-get-test',
@@ -636,6 +816,71 @@ describe('Step 2B: Marketing Automation Execution', () => {
       expect(json.success).toBe(true);
       expect(json.data.length).toBe(1);
       expect(json.data[0].customer_email).toBe('alice@example.com');
+    });
+
+    it('POST /api/admin/marketing/campaigns/dispatch-scheduled rejects unauthorized calls', async () => {
+      const req = createAdminRequest('/api/admin/marketing/campaigns/dispatch-scheduled', {
+        method: 'POST',
+        unauthenticated: true,
+      });
+
+      const res = await dispatchScheduledRoute(req);
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.success).toBe(false);
+    });
+
+    it('POST /api/admin/marketing/campaigns/dispatch-scheduled with CRON_SECRET dispatches due campaigns', async () => {
+      // Setup a segment and a scheduled campaign
+      const segmentId = 'seg-all-alpha';
+      (mockSupabase as any)._store.marketing_segments = [
+        {
+          id: segmentId,
+          organization_id: orgAlpha,
+          name: 'All Consenting',
+          rules: {
+            match: 'all',
+            conditions: [{ field: 'email', operator: 'is_not_null' }],
+          },
+          active: true,
+        },
+      ];
+
+      const pastTime = new Date(Date.now() - 60000).toISOString();
+      const scheduledCampaignId = 'camp-scheduled-alpha';
+      (mockSupabase as any)._store.marketing_campaigns.push({
+        id: scheduledCampaignId,
+        organization_id: orgAlpha,
+        name: 'Weekly Newsletter',
+        type: 'email',
+        status: 'scheduled',
+        scheduled_at: pastTime,
+        segment_id: segmentId,
+        subject: 'Weekly Deals for {{first_name}}',
+        sender_name: 'Unwind & Doodle',
+        sender_email: 'deals@unwindanddoodle.com',
+        content: { html: '<p>Here are your weekly deals!</p>' },
+      });
+
+      const req = createAdminRequest('/api/admin/marketing/campaigns/dispatch-scheduled', {
+        method: 'POST',
+        cronSecret: 'test-cron-secret-123',
+      });
+
+      const res = await dispatchScheduledRoute(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.dispatched).toBe(1);
+      expect(sentEmails.length).toBe(1);
+      expect(sentEmails[0].to).toBe('alice@example.com');
+
+      // Campaign status updated to sent
+      const camp = (mockSupabase as any)._store.marketing_campaigns.find(
+        (c: any) => c.id === scheduledCampaignId
+      );
+      expect(camp.status).toBe('sent');
     });
   });
 });

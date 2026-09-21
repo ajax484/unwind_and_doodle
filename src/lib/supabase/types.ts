@@ -1839,6 +1839,63 @@ export type Database = {
         };
         Relationships: [];
       };
+      payment_events: {
+        Row: {
+          id: string;
+          organization_id: string;
+          payment_id: string | null;
+          order_id: string | null;
+          provider: string;
+          provider_event_id: string;
+          event_type: string;
+          payload: Json | null;
+          status: string;
+          processed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id?: string;
+          payment_id?: string | null;
+          order_id?: string | null;
+          provider: string;
+          provider_event_id: string;
+          event_type: string;
+          payload?: Json | null;
+          status?: string;
+          processed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          payment_id?: string | null;
+          order_id?: string | null;
+          provider?: string;
+          provider_event_id?: string;
+          event_type?: string;
+          payload?: Json | null;
+          status?: string;
+          processed_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "payment_events_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payment_events_payment_id_fkey";
+            columns: ["payment_id"];
+            isOneToOne: false;
+            referencedRelation: "payments";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       payments: {
         Row: {
           amount: number;

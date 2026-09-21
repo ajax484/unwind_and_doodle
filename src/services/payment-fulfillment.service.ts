@@ -3,6 +3,7 @@ import { Database } from '../lib/supabase/types';
 import { commitOrderReservations } from './inventory.service';
 import { incrementDiscountUsageAtomic } from './discount.service';
 import { publishDomainEvent } from './events.service';
+import { transitionPaymentStatus } from './payment/payment-state-machine';
 import {
   ORDER_STATUS,
   PAYMENT_STATUS,
@@ -44,7 +45,7 @@ export interface FulfillPaymentResult {
  * Authoritative, idempotent payment fulfillment orchestrator.
  * Handles the complete post-payment lifecycle:
  * 1. Checks idempotency (bails if payment is already successful)
- * 2. Updates payment record with success status & gateway metadata
+ * 2. Atomically transitions payment record to successful status & stores gateway metadata
  * 3. Commits physical and virtual inventory reservations
  * 4. Updates manual order payment requests if applicable
  * 5. Atomically increments discount coupon usage count
@@ -94,31 +95,34 @@ export async function fulfillSuccessfulPayment(
   }
 
   const effectivePaidAt = verifiedDetails.paidAt || new Date().toISOString();
-  const existingMetadata =
-    payment.metadata && typeof payment.metadata === 'object' && !Array.isArray(payment.metadata)
-      ? (payment.metadata as Record<string, unknown>)
-      : {};
 
-  // 2. Update payment status to successful
-  const updatedMetadata: Record<string, unknown> = {
-    ...existingMetadata,
-    ...(verifiedDetails.rawMetadata || {}),
-    channel: verifiedDetails.channel || existingMetadata.channel,
-    provider_transaction_ref: verifiedDetails.providerReference || reference,
-    paid_at: effectivePaidAt,
-    verified_via: source,
-  };
+  // 2. Atomically transition payment status to successful using CAS
+  const transitionRes = await transitionPaymentStatus({
+    supabase,
+    paymentId: payment.id,
+    toStatus: PAYMENT_STATUS.SUCCESSFUL,
+    expectedCurrentStatus: [PAYMENT_STATUS.PENDING, 'processing', 'created'],
+    paidAt: effectivePaidAt,
+    metadataUpdates: {
+      ...(verifiedDetails.rawMetadata || {}),
+      channel: verifiedDetails.channel,
+      provider_transaction_ref: verifiedDetails.providerReference || reference,
+      verified_via: source,
+    },
+    reason: `Payment verified via ${provider} (${source})`,
+    actorId,
+  });
 
-  const { error: updatePayError } = await supabase
-    .from('payments')
-    .update({
-      status: PAYMENT_STATUS.SUCCESSFUL,
-      metadata: updatedMetadata as unknown as Database['public']['Tables']['payments']['Update']['metadata'],
-    } as unknown as Database['public']['Tables']['payments']['Update'])
-    .eq('id', payment.id);
-
-  if (updatePayError) {
-    throw new Error(`Failed to update payment status: ${updatePayError.message}`);
+  // If already transitioned by concurrent execution (e.g. webhook vs callback race), bail cleanly
+  if (transitionRes.alreadyInTargetStatus) {
+    return {
+      alreadyProcessed: true,
+      orderId: order.id,
+      orderNumber: order.order_number,
+      orderStatus: order.status,
+      paymentId: payment.id,
+      paymentStatus: PAYMENT_STATUS.SUCCESSFUL,
+    };
   }
 
   // 3. Commit inventory reservations
@@ -178,11 +182,20 @@ export async function fulfillSuccessfulPayment(
     order_id: order.id,
     from_status: order.status,
     to_status: targetStatus,
+    status: targetStatus,
     note: `Payment confirmed via ${provider} reference ${reference} (${source})`,
   } as Database['public']['Tables']['order_status_history']['Insert']);
 
   // 8. Record audit log
   const orgId = order.organization_id || DEFAULT_ORGANIZATION_ID;
+  const auditPayload = {
+    status: PAYMENT_STATUS.SUCCESSFUL,
+    operation: 'payment.verified',
+    provider,
+    amount: payment.amount,
+    reference,
+    source,
+  };
   await supabase.from('audit_logs').insert({
     organization_id: orgId,
     actor_id: actorId,
@@ -190,14 +203,8 @@ export async function fulfillSuccessfulPayment(
     entity_type: 'payment',
     entity_id: payment.id,
     before_data: { status: payment.status },
-    after_data: {
-      status: PAYMENT_STATUS.SUCCESSFUL,
-      operation: 'payment.verified',
-      provider,
-      amount: payment.amount,
-      reference,
-      source,
-    },
+    after_data: auditPayload,
+    new_values: auditPayload,
   } as Database['public']['Tables']['audit_logs']['Insert']);
 
   // 9. Emit domain event (payment.completed)

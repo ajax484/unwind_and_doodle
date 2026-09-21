@@ -10,6 +10,7 @@ import {
   MarketingAutomationType,
   MarketingAutomationConfig,
   MarketingAutomationDelay,
+  MarketingJourneyStep,
   AutomationTriggerEventType,
   AutomationTypeMetadata,
   PaginationParams,
@@ -187,7 +188,42 @@ export async function validateAutomationConfig(
       type: 'email',
       campaignId,
     },
+    ...(raw.steps && Array.isArray(raw.steps) ? { steps: raw.steps } : {}),
+    ...(typeof raw.version === 'number' ? { version: raw.version } : {}),
   };
+}
+
+/**
+ * Normalizes any MarketingAutomationConfig (legacy single-step or modern multi-step)
+ * into a canonical sequence of MarketingJourneySteps.
+ */
+export function normalizeAutomationSteps(config: MarketingAutomationConfig): MarketingJourneyStep[] {
+  if (config.steps && Array.isArray(config.steps) && config.steps.length > 0) {
+    return config.steps;
+  }
+
+  const steps: MarketingJourneyStep[] = [];
+
+  // If delay configured and > 0, create delay step
+  if (config.delay && typeof config.delay.amount === 'number' && config.delay.amount > 0) {
+    steps.push({
+      id: 'step-delay-1',
+      type: 'delay',
+      amount: config.delay.amount,
+      unit: config.delay.unit,
+    });
+  }
+
+  // If action configured, create send email step
+  if (config.action && config.action.type === 'email' && config.action.campaignId) {
+    steps.push({
+      id: 'step-send-1',
+      type: 'send_email',
+      campaignId: config.action.campaignId,
+    });
+  }
+
+  return steps;
 }
 
 /**
@@ -220,8 +256,12 @@ export function matchesAutomationTrigger(
     return false;
   }
 
+  // Map incoming commerce event to canonical marketing trigger event type
+  const canonicalTriggerType: string =
+    event.event_type === 'payment.completed' ? 'order.paid' : event.event_type;
+
   const meta = AUTOMATION_TYPE_METADATA[automation.type];
-  if (!meta || !meta.compatibleEventTypes.includes(event.event_type as AutomationTriggerEventType)) {
+  if (!meta || !meta.compatibleEventTypes.includes(canonicalTriggerType as AutomationTriggerEventType)) {
     return false;
   }
 
@@ -230,7 +270,11 @@ export function matchesAutomationTrigger(
     return false;
   }
 
-  if (config.trigger.type !== event.event_type) {
+  const isTypeMatched =
+    config.trigger.type === event.event_type ||
+    (config.trigger.type === 'order.paid' && event.event_type === 'payment.completed');
+
+  if (!isTypeMatched) {
     return false;
   }
 
@@ -241,7 +285,11 @@ export function matchesAutomationTrigger(
   ) as Record<string, unknown>;
 
   // Validate required payload context per event type
-  if (event.event_type === 'order.paid' || event.event_type === 'order.created') {
+  if (
+    event.event_type === 'order.paid' ||
+    event.event_type === 'order.created' ||
+    event.event_type === 'payment.completed'
+  ) {
     const hasOrder = Boolean(payload.orderId || payload.order_id || payload.orderNumber || payload.id);
     const hasCustomer = Boolean(payload.customerId || payload.customer_id || payload.customerEmail || payload.email);
     if (!hasOrder || !hasCustomer) {

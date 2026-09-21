@@ -2,6 +2,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../lib/supabase/types';
 import { CustomerInfo, ShippingAddress } from '../types/checkout';
 import { DEFAULT_ORGANIZATION_ID } from '../lib/constants';
+import { publishDomainEvent } from './events.service';
 
 export interface CustomerResolutionResult {
   customerId: string;
@@ -80,6 +81,23 @@ export async function resolveOrCreateCustomer(
     }
 
     customerId = newCust.id;
+
+    // Emit domain event for new customer creation
+    await publishDomainEvent(supabase, {
+      eventType: 'customer.created',
+      aggregateType: 'customer',
+      aggregateId: newCust.id,
+      organizationId: DEFAULT_ORGANIZATION_ID,
+      payload: {
+        customerId: newCust.id,
+        email,
+        firstName: customerInfo.firstName,
+        lastName: customerInfo.lastName,
+        phone: customerInfo.phone || null,
+        userId: customerInfo.userId || null,
+        marketingConsent: customerInfo.marketingConsent ?? false,
+      },
+    });
   }
 
   // 2. Create or find address record

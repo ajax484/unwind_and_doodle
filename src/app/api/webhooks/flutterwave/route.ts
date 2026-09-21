@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processPaymentWebhook } from '@/services/webhook.service';
-import { FlutterwavePaymentProvider } from '@/services/payment/flutterwave.provider';
+import { getPaymentProvider } from '@/services/payment';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
 import { captureError, recordBreadcrumb } from '@/lib/observability/error-monitoring';
 
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     const headers = req.headers;
 
     const supabase = getServiceSupabaseClient();
-    const flutterwaveProvider = new FlutterwavePaymentProvider();
+    const flutterwaveProvider = getPaymentProvider('flutterwave');
 
     const result = await processPaymentWebhook({
       supabase,

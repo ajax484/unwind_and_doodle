@@ -49,8 +49,14 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-16 Admin Audit Log Viewer (`/admin/audit-logs`)](./admin/2026-09-16-admin-audit-log-viewer.md)
 - [2026-09-16 Marketing Step 2B: Marketing Automation Execution](./admin/2026-09-16-marketing-automation-execution.md)
 - [2026-09-16 Step 2A: Marketing Automation Foundation](./admin/2026-09-16-marketing-automation-foundation.md)
-- [2026-09-16 Rich Text Product and Bundle Descriptions (TipTap & HTML Sanitization)](./admin/2026-09-16-rich-text-description.md)
 - [2026-09-16 Order Status History, Audit Trail Logging & Timeline Display Fix](./admin/2026-09-16-order-status-history-and-audit-trail-fix.md)
+- [2026-09-16 Rich Text Product and Bundle Descriptions (TipTap & HTML Sanitization)](./admin/2026-09-16-rich-text-description.md)
+- [2026-09-20 Step 11: Productionize Marketing Automation Background Processing](./admin/2026-09-20-marketing-automation-background-processing.md)
+- [2026-09-20 Step 12: Introduce Inngest Durable Workflow Infrastructure](./admin/2026-09-20-inngest-durable-workflows.md)
+- [2026-09-20 Step 13: Migrate Delayed Marketing Automations to Inngest Durable Scheduling](./admin/2026-09-20-inngest-durable-scheduling.md)
+- [2026-09-20 Step 14: Event Cancellation & Multi-Step Marketing Journeys](./admin/2026-09-20-marketing-automation-multi-step-journeys.md)
+- [2026-09-20 Marketing Automation Trigger Pipeline Audit & Repair](./admin/2026-09-20-marketing-automation-trigger-repair.md)
+- [2026-09-21 Marketing Automation Idempotency & Inngest Dispatch Fix](./admin/2026-09-21-marketing-automation-idempotency-and-inngest-dispatch-fix.md)
 
 ---
 
@@ -80,6 +86,7 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-13 Inventory RLS & Service Key Hardening](./commerce/2026-09-13-inventory-rls-and-service-key-hardening.md)
 - [2026-09-13 2026-09-13 Manual Orders: Voluntary Address for Admins & Compulsory Address for Customers](./commerce/2026-09-13-manual-order-voluntary-address-compulsory-customer.md)
 - [2026-09-14 Unified Product Media Architecture](./commerce/2026-09-14-unified-product-media-architecture.md)
+- [2026-09-21 2-Tier Cascading Delivery Location Picker Across Storefront and Admin](./commerce/2026-09-21-cascading-delivery-location-picker.md)
 
 ---
 
@@ -92,6 +99,15 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-08-30 Payment Revalidation Subsystem & Admin Order Details Integration](./payments/2026-08-30-pending-payment-revalidation.md)
 - [2026-08-30 Replace Flutterwave with Paystack Integration](./payments/2026-08-30-replace-flutterwave-with-paystack.md)
 - [2026-09-04 Clean Code Phase 2: Payment Fulfillment Pipeline Unification](./payments/2026-09-04-clean-code-phase-2-payment-fulfillment-unification.md)
+- [2026-09-20 Admin Manual Orders: Offline Payment & Admin-Controlled Payment Method (Step 10)](./payments/2026-09-20-admin-manual-orders-offline-payment.md)
+- [2026-09-20 Checkout Payment Method Selection & Dynamic Payment Initialization (Step 3)](./payments/2026-09-20-checkout-payment-method-selection.md)
+- [2026-09-20 Failed Payment Recovery & Retry (Step 7)](./payments/2026-09-20-failed-payment-recovery-and-retry.md)
+- [2026-09-20 Manual / Bank Transfer Payment Lifecycle + Admin Verification (Step 4)](./payments/2026-09-20-manual-bank-transfer-payment-lifecycle.md)
+- [2026-09-20 Payment History, Provider-Aware Refunds & Admin Payment Management (Step 5)](./payments/2026-09-20-payment-history-and-refund-management.md)
+- [2026-09-20 Payment Production Hardening & End-to-End Audit (Step 9)](./payments/2026-09-20-payment-production-hardening-and-audit.md)
+- [2026-09-20 Payment Provider Architecture Refactor & Centralized Factory](./payments/2026-09-20-payment-provider-architecture-refactor.md)
+- [2026-09-20 Payment Settings & Multi-Provider Method Configuration (Step 2)](./payments/2026-09-20-payment-settings-configuration.md)
+- [2026-09-20 Payment Webhook Hardening, Reconciliation & State Transitions (Step 6)](./payments/2026-09-20-payment-webhook-hardening-and-idempotency.md)
 
 ---
 
@@ -233,6 +249,6 @@ This directory maintains categorized, per-feature change records following the r
 ---
 
 ## 📊 Summary
-- **Total Changelogs**: 173 across 8 domain modules
+- **Total Changelogs**: 188 across 8 domain modules
 - **Template Scaffold**: [`docs/changes/_template.md`](./_template.md)
-- **Status**: 100% indexed (173 of 173 files registered)
+- **Status**: 100% indexed (188 of 188 files registered)

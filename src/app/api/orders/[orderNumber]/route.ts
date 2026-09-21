@@ -78,7 +78,11 @@ export async function GET(
     ] = await Promise.all([
       supabase.from('customers').select('first_name, email, phone').eq('id', order.customer_id || '').maybeSingle(),
       supabase.from('order_items').select('*').eq('order_id', order.id),
-      supabase.from('payments').select('provider, provider_reference, amount, currency, status, created_at').eq('order_id', order.id),
+      supabase
+        .from('payments')
+        .select('id, provider, provider_reference, amount, currency, status, created_at, metadata')
+        .eq('order_id', order.id)
+        .order('created_at', { ascending: false }),
       supabase.from('order_status_history').select('to_status, from_status, note, created_at').eq('order_id', order.id).order('created_at', { ascending: true }),
     ]);
 
@@ -269,7 +273,33 @@ export async function GET(
       };
     });
 
-    const payment = payments?.[0] || null;
+    // Prioritize successful payment attempt, otherwise use latest attempt
+    const successfulPayment = (payments || []).find((p) => p.status === 'successful');
+    const activePayment = successfulPayment || payments?.[0] || null;
+
+    const paymentAttempts = (payments || []).map((p) => {
+      const meta =
+        p.metadata && typeof p.metadata === 'object' && !Array.isArray(p.metadata)
+          ? (p.metadata as Record<string, unknown>)
+          : {};
+      return {
+        id: p.id,
+        provider: p.provider,
+        status: p.status,
+        reference: p.provider_reference,
+        amount: p.amount,
+        currency: p.currency,
+        createdAt: p.created_at,
+        bankDetails: meta.bank_details || null,
+      };
+    });
+
+    const activeMeta =
+      activePayment?.metadata &&
+      typeof activePayment.metadata === 'object' &&
+      !Array.isArray(activePayment.metadata)
+        ? (activePayment.metadata as Record<string, unknown>)
+        : {};
 
     // Mask customer email for guest privacy (e.g. j***@example.com)
     const rawEmail = order.email || customer?.email || '';
@@ -296,13 +326,18 @@ export async function GET(
             email: maskedEmail,
           },
           items: formattedItems,
-          payment: payment
+          payment: activePayment
             ? {
-                provider: payment.provider,
-                status: payment.status,
-                reference: payment.provider_reference,
+                id: activePayment.id,
+                provider: activePayment.provider,
+                status: activePayment.status,
+                reference: activePayment.provider_reference,
+                amount: activePayment.amount,
+                currency: activePayment.currency,
+                bankDetails: activeMeta.bank_details || null,
               }
             : null,
+          paymentAttempts,
           statusHistory: (statusHistory || []).map((h) => ({
             status: h.to_status,
             previousStatus: h.from_status,

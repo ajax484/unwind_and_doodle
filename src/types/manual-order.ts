@@ -64,6 +64,9 @@ export const CreateManualOrderSchema = z
     shippingAddress: ManualOrderShippingAddressSchema.optional().default({}),
     items: z.array(ManualOrderItemSchema).min(1, { message: 'At least one product item is required' }),
     manualOrderChannel: z.enum(['instagram', 'whatsapp', 'phone', 'in_person', 'other']).default('instagram'),
+    paymentMethod: z.enum(['paystack', 'flutterwave', 'manual']).default('paystack'),
+    alreadyPaid: z.boolean().default(false),
+    paymentNote: z.string().optional(),
     discountCode: z.string().optional(),
     manualDiscount: ManualDiscountSchema.optional(),
     shippingFee: z.number().min(0).default(0),
@@ -107,6 +110,14 @@ export interface PaymentRequestDetail {
   currency: string;
   status: 'pending' | 'paid' | 'cancelled' | 'expired';
   expiresAt: string | null;
+  paymentMethod?: 'paystack' | 'flutterwave' | 'manual';
+  paymentStatus?: string;
+  bankDetails?: {
+    bankName?: string | null;
+    accountName?: string | null;
+    accountNumber?: string | null;
+    instructions?: string | null;
+  } | null;
   customer: {
     name: string;
     firstName?: string | null;
@@ -162,4 +173,7 @@ export interface PaymentLinkResponse {
   discountTotal?: number;
   shippingFee?: number;
   total?: number;
+  paymentMethod?: 'paystack' | 'flutterwave' | 'manual';
+  paymentStatus?: string;
+  alreadyPaid?: boolean;
 }

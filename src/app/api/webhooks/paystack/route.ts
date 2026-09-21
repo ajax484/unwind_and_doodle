@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processPaymentWebhook } from '@/services/webhook.service';
-import { PaystackPaymentProvider } from '@/services/paystack.service';
+import { getPaymentProvider } from '@/services/payment';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
 import { captureError, recordBreadcrumb } from '@/lib/observability/error-monitoring';
 
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     const headers = req.headers;
 
     const supabase = getServiceSupabaseClient();
-    const paystackProvider = new PaystackPaymentProvider();
+    const paystackProvider = getPaymentProvider('paystack');
 
     const result = await processPaymentWebhook({
       supabase,

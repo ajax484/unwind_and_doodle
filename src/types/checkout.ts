@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { PaymentProviderName } from '@/services/payment/provider.types';
+import { BankTransferConfig } from '@/types/payment-settings';
 
 export const CheckoutItemAddonSchema = z.object({
   addonProductId: z.string().uuid('Invalid addon product ID'),
@@ -49,6 +51,7 @@ export const CheckoutRequestSchema = z.object({
   discountCode: z.string().optional(),
   notes: z.string().optional(),
   callbackUrl: z.string().url().optional(),
+  paymentMethod: z.enum(['paystack', 'flutterwave', 'manual'] as const).optional(),
 });
 
 export type CheckoutItemAddon = z.infer<typeof CheckoutItemAddonSchema>;
@@ -90,7 +93,10 @@ export interface CheckoutResult {
   orderNumber: string;
   paymentId: string;
   paymentReference: string;
-  authorizationUrl: string;
+  provider: PaymentProviderName;
+  paymentType: 'redirect' | 'manual';
+  authorizationUrl?: string | null;
+  bankDetails?: BankTransferConfig | null;
   warehouseId: string;
   pricing: PriceBreakdown;
   expiresAt: string;

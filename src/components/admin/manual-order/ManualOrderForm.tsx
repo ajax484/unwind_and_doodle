@@ -21,6 +21,7 @@ import Button from "@/components/Button";
 import AlertBanner from "@/components/AlertBanner";
 import Badge from "@/components/Badge";
 import Spinner from "@/components/Spinner";
+import DeliveryLocationPicker from "@/components/DeliveryLocationPicker";
 
 interface CustomerSearchResult {
   id: string;
@@ -135,13 +136,21 @@ export function ManualOrderForm() {
   const [formError, setFormError] = useState<string | null>(null);
   const [successData, setSuccessData] = useState<ManualOrderSuccessData | null>(null);
 
-  // Fetch Warehouses & Delivery Locations
+  // Payment Method Selection State
+  const [paymentMethods, setPaymentMethods] = useState<Array<{ provider: string; enabled: boolean; displayTitle?: string | null }>>([]);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'paystack' | 'flutterwave' | 'manual'>('paystack');
+  const [alreadyPaid, setAlreadyPaid] = useState<boolean>(false);
+  const [paymentNote, setPaymentNote] = useState<string>('');
+  const [isFreeShippingPickup, setIsFreeShippingPickup] = useState<boolean>(false);
+
+  // Fetch Warehouses, Locations & Payment Methods
   useEffect(() => {
     async function fetchOptions() {
       try {
-        const [whRes, locRes] = await Promise.all([
+        const [whRes, locRes, pmRes] = await Promise.all([
           fetch("/api/admin/inventory/warehouses"),
           fetch("/api/locations"),
+          fetch("/api/admin/settings/payment-methods"),
         ]);
 
         if (whRes.ok) {
@@ -159,6 +168,18 @@ export function ManualOrderForm() {
             setLocations(locJson.data);
             if (locJson.data.length > 0) {
               setSelectedLocationId(locJson.data[0].id);
+            }
+          }
+        }
+
+        if (pmRes.ok) {
+          const pmJson = await pmRes.json();
+          if (pmJson.success && Array.isArray(pmJson.data)) {
+            setPaymentMethods(pmJson.data);
+            const enabledList = pmJson.data.filter((m: { enabled: boolean }) => m.enabled);
+            if (enabledList.length > 0) {
+              const hasPaystack = enabledList.some((m: { provider: string }) => m.provider === 'paystack');
+              setSelectedPaymentMethod(hasPaystack ? 'paystack' : (enabledList[0].provider as 'paystack' | 'flutterwave' | 'manual'));
             }
           }
         }
@@ -383,6 +404,13 @@ export function ManualOrderForm() {
       return;
     }
 
+    if (selectedPaymentMethod === 'manual' && alreadyPaid && !selectedLocationId && !isFreeShippingPickup) {
+      setFormError(
+        "When marking an order as Already Paid without an online payment link, please select a delivery location to calculate shipping fees, or check 'Free Shipping / Store Pickup'."
+      );
+      return;
+    }
+
     try {
       setSubmitting(true);
 
@@ -415,6 +443,9 @@ export function ManualOrderForm() {
         warehouseId: selectedWarehouseId || undefined,
         locationId: selectedLocationId || undefined,
         manualOrderChannel,
+        paymentMethod: selectedPaymentMethod,
+        alreadyPaid: selectedPaymentMethod === 'manual' ? alreadyPaid : false,
+        paymentNote: selectedPaymentMethod === 'manual' && alreadyPaid && paymentNote.trim() ? paymentNote.trim() : undefined,
         notes: notes.trim() || undefined,
         idempotencyKey,
       };
@@ -952,22 +983,21 @@ export function ManualOrderForm() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
-                  <Select
-                    label="Delivery Location (Optional for Admin)"
-                    value={selectedLocationId}
-                    onChange={(e) => setSelectedLocationId(e.target.value)}
-                    size="sm"
-                    options={[
-                      { value: "", label: "Leave blank — Customer selects during checkout" },
-                      ...locations.map((loc) => ({
-                        value: loc.id,
-                        label: `${loc.name} ${loc.state ? `(${loc.state})` : ""}`,
-                      })),
-                    ]}
-                  />
-                </div>
+              <div className="space-y-4">
+                <DeliveryLocationPicker
+                  locations={locations as any}
+                  selectedLocationId={selectedLocationId}
+                  allowBlank={true}
+                  blankLabel="Leave blank — Customer selects via payment link"
+                  onChange={(payload) => {
+                    setSelectedLocationId(payload.locationId);
+                    if (payload.state) setState(payload.state);
+                    if (payload.city) setCity(payload.city);
+                  }}
+                  size="sm"
+                />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
 
                 <div className="sm:col-span-2">
                   <TextInput
@@ -1033,6 +1063,145 @@ export function ManualOrderForm() {
                   />
                 </div>
               </div>
+            </div>
+          </div>
+
+            {/* 5. Payment Method & Status */}
+            <div className="p-6 rounded-3xl bg-bg-surface border border-border-default shadow-xs space-y-4">
+              <div className="border-b border-border-default pb-3">
+                <h3 className="text-base font-heading font-bold text-text-primary">
+                  Payment Method
+                </h3>
+                <p className="text-xs text-text-secondary">
+                  Select how this manual order will be paid or mark it as already received.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Paystack */}
+                {(!paymentMethods.length || paymentMethods.some((m) => m.provider === "paystack" && m.enabled)) && (
+                  <label
+                    className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between gap-2 ${
+                      selectedPaymentMethod === "paystack"
+                        ? "border-action-primary bg-action-primary/5 ring-1 ring-action-primary"
+                        : "border-border-default bg-bg-subtle hover:bg-bg-subtle/80"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-heading font-bold text-xs text-text-primary">Paystack</span>
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="paystack"
+                        checked={selectedPaymentMethod === "paystack"}
+                        onChange={() => setSelectedPaymentMethod("paystack")}
+                        className="text-action-primary focus:ring-action-primary cursor-pointer"
+                      />
+                    </div>
+                    <p className="text-[11px] text-text-secondary">Card, USSD, Bank via Paystack payment link</p>
+                  </label>
+                )}
+
+                {/* Flutterwave */}
+                {paymentMethods.some((m) => m.provider === "flutterwave" && m.enabled) && (
+                  <label
+                    className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between gap-2 ${
+                      selectedPaymentMethod === "flutterwave"
+                        ? "border-action-primary bg-action-primary/5 ring-1 ring-action-primary"
+                        : "border-border-default bg-bg-subtle hover:bg-bg-subtle/80"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-heading font-bold text-xs text-text-primary">Flutterwave</span>
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="flutterwave"
+                        checked={selectedPaymentMethod === "flutterwave"}
+                        onChange={() => setSelectedPaymentMethod("flutterwave")}
+                        className="text-action-primary focus:ring-action-primary cursor-pointer"
+                      />
+                    </div>
+                    <p className="text-[11px] text-text-secondary">Card, Mobile Money via Flutterwave link</p>
+                  </label>
+                )}
+
+                {/* Direct Bank Transfer */}
+                {(!paymentMethods.length || paymentMethods.some((m) => m.provider === "manual" && m.enabled)) && (
+                  <label
+                    className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between gap-2 ${
+                      selectedPaymentMethod === "manual"
+                        ? "border-action-primary bg-action-primary/5 ring-1 ring-action-primary"
+                        : "border-border-default bg-bg-subtle hover:bg-bg-subtle/80"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-heading font-bold text-xs text-text-primary">Direct Bank Transfer</span>
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="manual"
+                        checked={selectedPaymentMethod === "manual"}
+                        onChange={() => setSelectedPaymentMethod("manual")}
+                        className="text-action-primary focus:ring-action-primary cursor-pointer"
+                      />
+                    </div>
+                    <p className="text-[11px] text-text-secondary">Direct bank transfer / offline payment</p>
+                  </label>
+                )}
+              </div>
+
+              {/* Offline / Bank Transfer specific options */}
+              {selectedPaymentMethod === "manual" && (
+                <div className="p-4 rounded-2xl bg-bg-subtle border border-border-default space-y-3 animate-fadeIn">
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      id="alreadyPaid"
+                      checked={alreadyPaid}
+                      onChange={(e) => setAlreadyPaid(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-border-default text-action-primary focus:ring-action-primary cursor-pointer"
+                    />
+                    <label htmlFor="alreadyPaid" className="cursor-pointer space-y-0.5">
+                      <span className="font-heading font-bold text-xs text-text-primary block">
+                        Payment already received (Mark as paid immediately)
+                      </span>
+                      <span className="text-[11px] text-text-secondary block">
+                        Check this if the customer has already transferred funds or paid offline. The order will be confirmed and fulfilled immediately.
+                      </span>
+                    </label>
+                  </div>
+
+                  {alreadyPaid && (
+                    <div className="pt-2 border-t border-border-default space-y-3 animate-fadeIn">
+                      <TextInput
+                        label="Payment Reference / Transfer Note"
+                        value={paymentNote}
+                        onChange={(e) => setPaymentNote(e.target.value)}
+                        placeholder="e.g. Paid ₦25,000 via GTB wire / POS Slip #12345"
+                        size="sm"
+                      />
+
+                      {!selectedLocationId && (
+                        <div className="p-3 bg-status-amber-bg/50 border border-status-amber-accent/30 rounded-xl space-y-1.5 text-xs text-status-amber-text">
+                          <p className="text-[11px] leading-relaxed">
+                            ⚠️ <strong>No delivery location selected:</strong> Delivery fee is currently ₦0. If customer requires delivery, select their location above.
+                          </p>
+                          <label className="flex items-center gap-2 cursor-pointer font-semibold pt-0.5">
+                            <input
+                              type="checkbox"
+                              checked={isFreeShippingPickup}
+                              onChange={(e) => setIsFreeShippingPickup(e.target.checked)}
+                              className="h-3.5 w-3.5 rounded border-border-default text-action-primary focus:ring-action-primary cursor-pointer"
+                            />
+                            <span>Confirm Free Shipping / Store Self-Pickup (₦0)</span>
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

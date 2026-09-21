@@ -12,11 +12,12 @@ import { resolveOrCreateCustomer } from './customer.service';
 import { findCapableWarehouse, RequiredProductItem, resolveRequiredPhysicalItems } from './warehouse.service';
 import { reserveOrderInventory, releaseOrderReservations } from './inventory.service';
 import { resolveDeliveryFee, calculateOrderPricing } from './pricing.service';
-import { PaystackPaymentProvider } from './payment/paystack.provider';
+import { getPaymentProvider, PaymentProvider } from './payment';
 import { publishDomainEvent } from './events.service';
 import { validateThemeCustomization, persistThemeCustomizationSnapshot } from './theme.service';
+import { getPaymentMethods } from './payment-settings.service';
+import { confirmManualPayment } from './manual-payment.service';
 import { ORDER_STATUS, PAYMENT_STATUS, DOMAIN_EVENT_TYPES, CURRENCY } from '../lib/constants';
-import { PaymentProvider } from './payment/provider.interface';
 
 /**
  * Resolves a manual order customer email.
@@ -55,6 +56,19 @@ export async function createAdminManualOrder(
 ): Promise<PaymentLinkResponse> {
   // 1. Validate schema
   const validated = CreateManualOrderSchema.parse(input);
+
+  const selectedPaymentMethod = validated.paymentMethod || 'paystack';
+
+  // Server-side payment method validation: verify provider is enabled for organization
+  const orgPaymentMethods = await getPaymentMethods(supabase, organizationId);
+  const chosenMethodConfig = orgPaymentMethods.find((m) => m.provider === selectedPaymentMethod);
+  if (!chosenMethodConfig || !chosenMethodConfig.enabled) {
+    throw new Error(`Payment method '${selectedPaymentMethod}' is not enabled for this organization.`);
+  }
+
+  if (validated.alreadyPaid && selectedPaymentMethod !== 'manual') {
+    throw new Error(`'Payment already received' is only supported for Direct Bank Transfer / Manual payment.`);
+  }
 
   const resolvedEmail = resolveManualOrderCustomerEmail(
     validated.customer.email,
@@ -99,8 +113,8 @@ export async function createAdminManualOrder(
         .select('*')
         .eq('active', true);
 
-      if (whErr || !activeWarehouses || activeWarehouses.length === 0) {
-        throw new Error('No active warehouses available.');
+      if (!activeWarehouses || activeWarehouses.length === 0) {
+        throw new Error('No active warehouse configured in the system.');
       }
 
       if (requiredItems.length > 0) {
@@ -135,7 +149,7 @@ export async function createAdminManualOrder(
     }
   }
 
-  // Pre-validate theme customizations if present
+  // Validate theme customizations
   const validatedThemeCustomizations = await Promise.all(
     validated.items.map(async (item) => {
       const customPayload = item.customization;
@@ -237,13 +251,29 @@ export async function createAdminManualOrder(
   }
 
   try {
-    // 5. Create payment record
-    const paystackProvider = new PaystackPaymentProvider();
-    const paymentRef = paystackProvider.generateReference();
+    // 5. Create payment record based on selected paymentMethod
+    const payProvider = getPaymentProvider(selectedPaymentMethod);
+    const paymentRef = payProvider.generateReference();
 
-    const { error: payErr } = await supabase.from('payments').insert({
+    let bankDetailsSnapshot: {
+      bankName: string;
+      accountName: string;
+      accountNumber: string;
+      instructions: string | null;
+    } | undefined = undefined;
+
+    if (selectedPaymentMethod === 'manual') {
+      bankDetailsSnapshot = {
+        bankName: chosenMethodConfig.bankName || 'Guaranty Trust Bank',
+        accountName: chosenMethodConfig.accountName || 'Unwind & Doodle Ltd',
+        accountNumber: chosenMethodConfig.accountNumber || '0123456789',
+        instructions: chosenMethodConfig.instructions || null,
+      };
+    }
+
+    const { data: insertedPayment, error: payErr } = await supabase.from('payments').insert({
       order_id: orderId,
-      provider: 'paystack',
+      provider: selectedPaymentMethod,
       provider_reference: paymentRef,
       amount: totalAmount,
       currency: CURRENCY.NGN,
@@ -253,11 +283,28 @@ export async function createAdminManualOrder(
         order_number: result.order_number,
         payment_request_token: token,
         created_via: 'admin_manual_order',
+        ...(bankDetailsSnapshot ? { bank_details: bankDetailsSnapshot } : {}),
       },
-    } as unknown as Database['public']['Tables']['payments']['Insert']);
+    } as unknown as Database['public']['Tables']['payments']['Insert']).select().single();
 
-    if (payErr) {
-      throw new Error(`Failed to create payment record: ${payErr.message}`);
+    if (payErr || !insertedPayment) {
+      throw new Error(`Failed to create payment record: ${payErr?.message || 'Database error'}`);
+    }
+
+    // 6. Handle "Already paid" flow if selected
+    if (validated.alreadyPaid && selectedPaymentMethod === 'manual') {
+      await confirmManualPayment({
+        supabase,
+        paymentId: insertedPayment.id,
+        orderId,
+        adminContext: {
+          userId,
+          organizationId,
+          role: 'admin',
+          userEmail: adminEmail || undefined,
+        },
+        note: validated.paymentNote || 'Payment recorded as already received during order creation',
+      });
     }
 
     // 7. Audit log & domain event
@@ -272,6 +319,8 @@ export async function createAdminManualOrder(
         order_number: result.order_number,
         order_source: 'manual',
         channel: validated.manualOrderChannel,
+        payment_method: selectedPaymentMethod,
+        already_paid: Boolean(validated.alreadyPaid),
         customer_email: resolvedEmail,
         total: totalAmount,
       },
@@ -287,6 +336,8 @@ export async function createAdminManualOrder(
         customerId,
         customerEmail: resolvedEmail,
         orderSource: 'manual',
+        paymentMethod: selectedPaymentMethod,
+        alreadyPaid: Boolean(validated.alreadyPaid),
         totalAmount,
         currency: CURRENCY.NGN,
         createdBy: userId,
@@ -313,6 +364,9 @@ export async function createAdminManualOrder(
       discountTotal: finalDiscountTotal,
       shippingFee: finalShippingFee,
       total: finalTotal,
+      paymentMethod: selectedPaymentMethod,
+      paymentStatus: validated.alreadyPaid ? PAYMENT_STATUS.SUCCESSFUL : PAYMENT_STATUS.PENDING,
+      alreadyPaid: Boolean(validated.alreadyPaid),
     };
   } catch (err) {
     // Cleanup order & inventory if failed after RPC insertion
@@ -371,21 +425,21 @@ export async function getPaymentRequestByToken(
     .eq('id', order.organization_id)
     .maybeSingle();
 
-  // Fetch Payment Reference if paid
-  let paymentReference: string | null = null;
-  if (status === 'paid') {
-    const { data: payment } = await supabase
-      .from('payments')
-      .select('provider_reference')
-      .eq('order_id', order.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+  // Fetch latest Payment record to provide provider and bank details
+  const { data: latestPayment } = await supabase
+    .from('payments')
+    .select('provider, status, provider_reference, metadata')
+    .eq('order_id', order.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-    if (payment) {
-      paymentReference = payment.provider_reference;
-    }
-  }
+  const isPaid = status === 'paid' || latestPayment?.status === 'successful' || order.status === ORDER_STATUS.CONFIRMED || order.status === ORDER_STATUS.SHIPPED || order.status === ORDER_STATUS.RECEIVED;
+  const effectiveStatus = isPaid ? 'paid' : status;
+  const paymentReference = latestPayment?.provider_reference || null;
+
+  const paymentMeta = (latestPayment?.metadata as Record<string, unknown>) || {};
+  const bankDetails = (paymentMeta.bank_details as PaymentRequestDetail['bankDetails']) || null;
 
   // Fetch Order Items
   const { data: orderItems } = await supabase
@@ -444,13 +498,16 @@ export async function getPaymentRequestByToken(
     orderNumber: order.order_number,
     amount: Number(order.total),
     currency: reqRecord.currency || 'NGN',
-    status,
+    status: effectiveStatus,
     expiresAt: reqRecord.expires_at,
+    paymentMethod: latestPayment?.provider as 'paystack' | 'flutterwave' | 'manual' | undefined,
+    paymentStatus: latestPayment?.status,
+    bankDetails,
     customer: {
       name: customerName,
       firstName: order.first_name,
       lastName: order.last_name,
-      email: order.email,
+      email: order.email || '',
       phone: order.phone,
       locationId: order.location_id,
       shippingAddress: (order.shipping_address as Record<string, unknown>) || {},
@@ -516,7 +573,7 @@ export async function initializePaymentRequestTransaction(
     .limit(1)
     .maybeSingle();
 
-  const provider = paymentProvider || new PaystackPaymentProvider();
+  const provider = paymentProvider || getPaymentProvider((existingPayment?.provider as string) || 'paystack');
   const paymentRef = existingPayment?.provider_reference || provider.generateReference();
 
   if (!existingPayment) {
@@ -787,4 +844,119 @@ export async function updateCustomerOrderDetails(
 
   // 6. Return updated detail using getPaymentRequestByToken
   return getPaymentRequestByToken(supabase, validated.token);
+}
+
+/**
+ * Creates a new manual bank-transfer payment attempt on an existing unpaid order
+ * without mutating historical payment records.
+ */
+export async function createManualPaymentAttemptForOrder(
+  supabase: SupabaseClient<Database>,
+  orderId: string,
+  adminContext: { userId: string; organizationId: string; role?: string; userEmail?: string },
+  options?: { note?: string; alreadyPaid?: boolean }
+) {
+  // 1. Fetch order
+  const { data: order, error: ordErr } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('id', orderId)
+    .single();
+
+  if (ordErr || !order) {
+    throw new Error(`Order not found: ${orderId}`);
+  }
+
+  if (adminContext.organizationId && order.organization_id !== adminContext.organizationId) {
+    throw new Error('Forbidden: Order does not belong to your organization');
+  }
+
+  if (
+    order.status === ORDER_STATUS.CONFIRMED ||
+    order.status === ORDER_STATUS.SHIPPED ||
+    order.status === ORDER_STATUS.RECEIVED
+  ) {
+    throw new Error(`Cannot create manual payment attempt for order in status '${order.status}'`);
+  }
+
+  // 2. Verify manual payment method is enabled
+  const orgPaymentMethods = await getPaymentMethods(supabase, order.organization_id);
+  const manualConfig = orgPaymentMethods.find((m) => m.provider === 'manual');
+  if (!manualConfig || !manualConfig.enabled) {
+    throw new Error('Direct Bank Transfer is not enabled for this organization.');
+  }
+
+  // 3. Snapshot bank details
+  const bankDetails = {
+    bankName: manualConfig.bankName || 'Guaranty Trust Bank',
+    accountName: manualConfig.accountName || 'Unwind & Doodle Ltd',
+    accountNumber: manualConfig.accountNumber || '0123456789',
+    instructions: manualConfig.instructions || null,
+  };
+
+  const payProvider = getPaymentProvider('manual');
+  const paymentRef = payProvider.generateReference();
+
+  // 4. Insert new manual payment record (preserves historical payments)
+  const { data: newPayment, error: payErr } = await supabase
+    .from('payments')
+    .insert({
+      order_id: order.id,
+      provider: 'manual',
+      provider_reference: paymentRef,
+      amount: Number(order.total),
+      currency: CURRENCY.NGN,
+      status: PAYMENT_STATUS.PENDING,
+      metadata: {
+        order_id: order.id,
+        order_number: order.order_number,
+        created_via: 'admin_manual_payment_attempt',
+        bank_details: bankDetails,
+        note: options?.note || null,
+      },
+    } as unknown as Database['public']['Tables']['payments']['Insert'])
+    .select()
+    .single();
+
+  if (payErr || !newPayment) {
+    throw new Error(`Failed to create manual payment attempt: ${payErr?.message || 'Unknown database error'}`);
+  }
+
+  // 5. Audit log
+  await supabase.from('audit_logs').insert({
+    organization_id: order.organization_id,
+    actor_id: adminContext.userId,
+    action: 'create',
+    entity_type: 'payment',
+    entity_id: newPayment.id,
+    after_data: {
+      operation: 'payment.manual_attempt_created',
+      order_id: order.id,
+      order_number: order.order_number,
+      amount: order.total,
+      provider: 'manual',
+      reference: paymentRef,
+    },
+  } as unknown as Database['public']['Tables']['audit_logs']['Insert']);
+
+  // 6. If alreadyPaid: true, immediately confirm
+  if (options?.alreadyPaid) {
+    const confirmRes = await confirmManualPayment({
+      supabase,
+      paymentId: newPayment.id,
+      orderId: order.id,
+      adminContext,
+      note: options?.note || 'Payment recorded as already received',
+    });
+    return {
+      payment: newPayment,
+      confirmed: true,
+      fulfillmentResult: confirmRes,
+    };
+  }
+
+  return {
+    payment: newPayment,
+    confirmed: false,
+  };
 }

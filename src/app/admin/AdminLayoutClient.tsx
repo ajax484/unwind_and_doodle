@@ -96,6 +96,7 @@ export default function AdminLayoutClient({
       title: "Orders & Customers",
       items: [
         { label: "Orders", href: "/admin/orders", icon: "📦" },
+        { label: "Payments", href: "/admin/payments", icon: "💳" },
         { label: "Customers", href: "/admin/customers", icon: "👥" },
         { label: "Reviews", href: "/admin/reviews", icon: "⭐" },
       ],
@@ -126,6 +127,13 @@ export default function AdminLayoutClient({
       label: "Store Settings",
       href: "/admin/settings",
       icon: "⚙️",
+      permission: "organization.manage",
+      exact: true,
+    },
+    {
+      label: "Payment Methods",
+      href: "/admin/settings/payments",
+      icon: "💳",
       permission: "organization.manage",
     },
     {

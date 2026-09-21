@@ -34,6 +34,20 @@ export default function AdminOrderDetailPage({
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [revalidating, setRevalidating] = useState(false);
 
+  // Manual payment confirmation state
+  const [manualPaymentToConfirm, setManualPaymentToConfirm] = useState<{
+    id: string;
+    amount: number;
+    providerReference?: string | null;
+    bankDetails?: {
+      bankName?: string;
+      accountName?: string;
+      accountNumber?: string;
+    } | null;
+  } | null>(null);
+  const [confirmingManualPayment, setConfirmingManualPayment] = useState(false);
+  const [manualPaymentNote, setManualPaymentNote] = useState("");
+
   // Modal form inputs
   const [trackingNumber, setTrackingNumber] = useState("");
   const [carrier, setCarrier] = useState("GIG Logistics");
@@ -101,6 +115,44 @@ export default function AdminOrderDetailPage({
       );
     } finally {
       setRevalidating(false);
+    }
+  };
+
+  const handleConfirmManualPayment = async () => {
+    if (!manualPaymentToConfirm) return;
+
+    try {
+      setConfirmingManualPayment(true);
+      setError(null);
+      setActionSuccess(null);
+
+      const res = await fetch("/api/admin/payments/manual/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentId: manualPaymentToConfirm.id,
+          orderId: orderId,
+          note: manualPaymentNote.trim() || undefined,
+        }),
+      });
+
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setActionSuccess(
+          json.data?.alreadyProcessed
+            ? "Payment was already confirmed previously."
+            : "✓ Bank transfer payment confirmed successfully! Order fulfilled and moved to processing."
+        );
+        setManualPaymentToConfirm(null);
+        setManualPaymentNote("");
+        await fetchOrderDetail();
+      } else {
+        throw new Error(json.error || "Failed to confirm bank transfer");
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error confirming bank transfer");
+    } finally {
+      setConfirmingManualPayment(false);
     }
   };
 
@@ -767,17 +819,17 @@ export default function AdminOrderDetailPage({
 
                           {item.newValues && typeof item.newValues === "object" && (
                             <div className="text-xs text-text-secondary bg-bg-subtle p-2.5 rounded-xl border border-border-default space-y-1">
-                              {item.newValues.note && (
+                              {Boolean(item.newValues.note) && (
                                 <p className="font-medium text-text-primary">
                                   {String(item.newValues.note)}
                                 </p>
                               )}
-                              {item.oldValues?.status && item.newValues?.status && (
+                              {Boolean(item.oldValues?.status && item.newValues?.status) && (
                                 <p className="text-[11px] text-text-secondary">
-                                  Status: <span className="font-medium text-text-primary">{String(item.oldValues.status)}</span> &rarr; <span className="font-medium text-text-primary">{String(item.newValues.status)}</span>
+                                  Status: <span className="font-medium text-text-primary">{String(item.oldValues?.status)}</span> &rarr; <span className="font-medium text-text-primary">{String(item.newValues?.status)}</span>
                                 </p>
                               )}
-                              {item.newValues.provider && (
+                              {Boolean(item.newValues.provider) && (
                                 <p className="text-[11px] text-text-secondary">
                                   Provider: <span className="font-medium text-text-primary">{String(item.newValues.provider)}</span> ({String(item.newValues.reference || "")})
                                 </p>
@@ -886,44 +938,92 @@ export default function AdminOrderDetailPage({
               </div>
             ) : (
               <div className="space-y-2 text-xs">
-                {order.payments.map((p) => (
-                  <div
-                    key={p.id}
-                    className="space-y-1.5 p-3 rounded-xl bg-bg-subtle border border-border-default"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold uppercase tracking-wider text-[10px] text-text-secondary">
-                        {p.provider}
-                      </span>
-                      <OrderStatusBadge status={p.status} type="payment" size="sm" />
-                    </div>
-                    <div className="font-heading font-bold text-text-primary text-sm">
-                      {formatCurrency(p.amount)}
-                    </div>
-                    {p.providerReference && (
-                      <div className="font-mono text-[10px] text-text-tertiary break-all">
-                        Ref: {p.providerReference}
+                {order.payments.map((p) => {
+                  const meta =
+                    p.metadata && typeof p.metadata === "object" && !Array.isArray(p.metadata)
+                      ? (p.metadata as Record<string, unknown>)
+                      : {};
+                  const bankDetails = meta.bank_details as
+                    | { bankName?: string; accountName?: string; accountNumber?: string }
+                    | undefined;
+                  const isManual = p.provider === "manual";
+
+                  return (
+                    <div
+                      key={p.id}
+                      className="space-y-1.5 p-3 rounded-xl bg-bg-subtle border border-border-default"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold uppercase tracking-wider text-[10px] text-text-secondary">
+                          {isManual ? "Bank Transfer (Manual)" : p.provider}
+                        </span>
+                        <OrderStatusBadge status={p.status} type="payment" size="sm" />
                       </div>
-                    )}
-                    {p.paidAt && (
-                      <div className="text-[11px] text-text-tertiary">
-                        Paid on: {formatDate(p.paidAt)}
+                      <div className="font-heading font-bold text-text-primary text-sm">
+                        {formatCurrency(p.amount)}
                       </div>
-                    )}
-                    {p.status === "pending" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRevalidatePayment(p.id)}
-                        disabled={revalidating || actionLoading}
-                        loading={revalidating}
-                        className="w-full mt-2 border-status-warning-accent/40 bg-status-warning-bg text-status-warning-text hover:bg-status-warning-bg/80"
-                      >
-                        <span>🔄</span> Revalidate with Gateway
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                      {p.providerReference && (
+                        <div className="font-mono text-[10px] text-text-tertiary break-all">
+                          Ref: {p.providerReference}
+                        </div>
+                      )}
+                      {p.paidAt && (
+                        <div className="text-[11px] text-text-tertiary">
+                          Paid on: {formatDate(p.paidAt)}
+                        </div>
+                      )}
+
+                      {/* Snapshotted bank details for manual payments */}
+                      {isManual && bankDetails && (
+                        <div className="mt-2 p-2 bg-bg-surface border border-border-default rounded-lg text-[11px] space-y-0.5">
+                          <div className="font-semibold text-text-primary">
+                            {bankDetails.bankName || "Bank Transfer"}
+                          </div>
+                          <div className="text-text-secondary">
+                            {bankDetails.accountName}
+                          </div>
+                          <div className="font-mono text-text-tertiary">
+                            {bankDetails.accountNumber}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action buttons based on payment method */}
+                      {p.status === "pending" && (
+                        isManual ? (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => {
+                              setManualPaymentToConfirm({
+                                id: p.id,
+                                amount: p.amount,
+                                providerReference: p.providerReference,
+                                bankDetails: bankDetails || null,
+                              });
+                              setManualPaymentNote("");
+                            }}
+                            disabled={confirmingManualPayment || actionLoading}
+                            className="w-full mt-2 bg-action-primary text-text-inverse hover:bg-action-primary/90"
+                          >
+                            <span>✅</span> Confirm Bank Transfer
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRevalidatePayment(p.id)}
+                            disabled={revalidating || actionLoading}
+                            loading={revalidating}
+                            className="w-full mt-2 border-status-warning-accent/40 bg-status-warning-bg text-status-warning-text hover:bg-status-warning-bg/80"
+                          >
+                            <span>🔄</span> Revalidate with Gateway
+                          </Button>
+                        )
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1132,6 +1232,93 @@ export default function AdminOrderDetailPage({
             value={refundReason}
             onChange={(e) => setRefundReason(e.target.value)}
             placeholder="e.g. Defective print, Customer returned item"
+            size="sm"
+          />
+        </div>
+      </Modal>
+
+      {/* 7. Confirm Bank Transfer Modal */}
+      <Modal
+        isOpen={Boolean(manualPaymentToConfirm)}
+        onClose={() => {
+          if (!confirmingManualPayment) {
+            setManualPaymentToConfirm(null);
+          }
+        }}
+        size="md"
+        title="Confirm Bank Transfer?"
+        description={`You are confirming that ${manualPaymentToConfirm ? formatCurrency(manualPaymentToConfirm.amount) : ""} has been received for order ${order.orderNumber}. This will mark the payment as successful and begin order processing.`}
+        footer={
+          <div className="flex items-center justify-end gap-3 pt-2 w-full">
+            <Button
+              variant="outline"
+              size="md"
+              type="button"
+              onClick={() => setManualPaymentToConfirm(null)}
+              disabled={confirmingManualPayment}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              type="button"
+              onClick={handleConfirmManualPayment}
+              loading={confirmingManualPayment}
+              disabled={confirmingManualPayment}
+              className="bg-action-primary text-text-inverse hover:bg-action-primary/90"
+            >
+              Yes, Confirm Payment
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 text-xs">
+          <div className="w-12 h-12 rounded-2xl bg-status-success-bg text-status-success-text flex items-center justify-center text-2xl mx-auto">
+            🏦
+          </div>
+
+          <div className="p-3.5 bg-bg-subtle border border-border-default rounded-xl space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-text-tertiary">Order Number</span>
+              <span className="font-semibold text-text-primary font-mono">{order.orderNumber}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-text-tertiary">Amount Expected</span>
+              <span className="font-bold text-text-primary text-sm">
+                {manualPaymentToConfirm ? formatCurrency(manualPaymentToConfirm.amount) : ""}
+              </span>
+            </div>
+            {manualPaymentToConfirm?.providerReference && (
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-text-tertiary">Payment Reference</span>
+                <span className="font-mono text-text-secondary text-[11px]">
+                  {manualPaymentToConfirm.providerReference}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {manualPaymentToConfirm?.bankDetails && (
+            <div className="p-3 bg-bg-surface border border-border-default rounded-xl space-y-1">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">
+                Snapshotted Bank Details
+              </div>
+              <div className="text-text-primary font-semibold">
+                {manualPaymentToConfirm.bankDetails.bankName}
+              </div>
+              <div className="text-text-secondary">
+                {manualPaymentToConfirm.bankDetails.accountName} &bull;{" "}
+                <span className="font-mono">{manualPaymentToConfirm.bankDetails.accountNumber}</span>
+              </div>
+            </div>
+          )}
+
+          <TextInput
+            label="Internal Audit Note (Optional)"
+            value={manualPaymentNote}
+            onChange={(e) => setManualPaymentNote(e.target.value)}
+            placeholder="e.g. Verified transfer via Zenith corporate bank account"
             size="sm"
           />
         </div>

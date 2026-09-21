@@ -422,17 +422,28 @@ export async function dispatchCampaign(
 
 /**
  * Finds all due scheduled campaigns across organizations and dispatches them.
+ * Supports bounded batching and protects against concurrent dispatcher execution.
  */
 export async function dispatchDueScheduledCampaigns(
-  supabase: SupabaseClient<Database>
+  supabase: SupabaseClient<Database>,
+  options?: { limit?: number; organizationId?: string }
 ): Promise<CampaignDispatchSummary[]> {
   const now = new Date().toISOString();
+  const limit = options?.limit || 10;
 
-  const { data: dueCampaigns, error } = await supabase
+  let query = supabase
     .from('marketing_campaigns')
     .select('id, organization_id')
     .eq('status', 'scheduled')
-    .lte('scheduled_at', now);
+    .lte('scheduled_at', now)
+    .order('scheduled_at', { ascending: true })
+    .limit(limit);
+
+  if (options?.organizationId) {
+    query = query.eq('organization_id', options.organizationId);
+  }
+
+  const { data: dueCampaigns, error } = await query;
 
   if (error || !dueCampaigns || dueCampaigns.length === 0) {
     return [];
@@ -445,6 +456,13 @@ export async function dispatchDueScheduledCampaigns(
       const summary = await dispatchCampaign(supabase, camp.organization_id, camp.id);
       results.push(summary);
     } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Execution failed';
+      // If another concurrent worker claimed and changed status, don't count as failure
+      if (errorMsg.includes('not in a sendable state')) {
+        console.info(`[dispatch_due_campaign.concurrent_skip] id=${camp.id}`);
+        continue;
+      }
+
       console.error(`[dispatch_due_campaign.error] id=${camp.id}`, err);
       results.push({
         success: false,
@@ -452,7 +470,7 @@ export async function dispatchDueScheduledCampaigns(
         processed: 0,
         sent: 0,
         failed: 0,
-        message: err instanceof Error ? err.message : 'Execution failed',
+        message: errorMsg,
       });
     }
   }

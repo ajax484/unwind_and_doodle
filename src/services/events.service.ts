@@ -3,6 +3,7 @@ import { Database, Json } from '../lib/supabase/types';
 import { DEFAULT_ORGANIZATION_ID } from '../lib/constants';
 import { handleMarketingAutomationEvent } from './marketing-executor.service';
 import { captureError, recordBreadcrumb } from '../lib/observability/error-monitoring';
+import { inngest } from '../inngest/client';
 
 export type DomainEventHandler = (event: {
   id: string;
@@ -118,10 +119,54 @@ export async function publishDomainEvent(
       console.warn(`Domain event publication warning: ${error.message}`);
     }
 
+    // Forward domain event to Inngest for durable orchestration asynchronously (outside tests)
+    if (process.env.NODE_ENV !== 'test') {
+      sendInngestDomainEvent({
+        id: eventId,
+        event_type: params.eventType,
+        aggregate_type: params.aggregateType,
+        aggregate_id: params.aggregateId,
+        organization_id: orgId,
+        payload: params.payload,
+        created_at: new Date().toISOString(),
+      }).catch((inngestErr) => {
+        console.warn(`[inngest.send_failed] event_id=${eventId}`, inngestErr);
+      });
+    }
+
     return eventId;
   } catch (err) {
     console.warn(`Domain event publication exception:`, err);
     return `event_${Date.now()}`;
+  }
+}
+
+/**
+ * Safely forwards a commerce domain event to Inngest with error boundary protection.
+ */
+export async function sendInngestDomainEvent(event: {
+  id: string;
+  event_type: string;
+  aggregate_type?: string;
+  aggregate_id?: string;
+  organization_id?: string | null;
+  payload?: Json;
+  created_at?: string;
+}): Promise<void> {
+  try {
+    await inngest.send({
+      name: 'commerce/domain.event',
+      data: {
+        domainEvent: event,
+      },
+    });
+  } catch (err: unknown) {
+    console.warn(`[inngest.send_warning] event_id=${event.id}`, err);
+    captureError(err, {
+      level: 'warning',
+      tags: { operation: 'inngest.send_domain_event', eventType: event.event_type },
+      extra: { eventId: event.id },
+    });
   }
 }
 

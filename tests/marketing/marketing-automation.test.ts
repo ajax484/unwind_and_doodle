@@ -142,7 +142,7 @@ describe('Step 2A: Marketing Automation Foundation', () => {
       expect(result.trigger.type).toBe('customer.created');
       expect(result.delay?.amount).toBe(2);
       expect(result.delay?.unit).toBe('hours');
-      expect(result.action.campaignId).toBe(validCampaignId);
+      expect(result.action?.campaignId).toBe(validCampaignId);
     });
 
     it('rejects non-object configuration', async () => {

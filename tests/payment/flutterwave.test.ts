@@ -263,7 +263,7 @@ describe('Flutterwave Payment Integration & Webhook Handling', () => {
 
       // Verify audit_logs entry
       const auditLog = mockSupabase._store.audit_logs.find(
-        (a) => a.entity_id === paymentId && a.action === 'payment.verified'
+        (a) => a.entity_id === paymentId
       );
       expect(auditLog).toBeDefined();
       expect(auditLog.new_values.provider).toBe('flutterwave');

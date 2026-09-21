@@ -5,7 +5,6 @@ import { processDueMarketingAutomations } from '@/services/marketing-executor.se
 
 export async function POST(req: NextRequest) {
   try {
-    // Optional cron secret check or admin auth
     const authHeader = req.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
 
@@ -13,14 +12,26 @@ export async function POST(req: NextRequest) {
 
     if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
       // Authorized via cron secret - can process across all or specific org
+      const { searchParams } = new URL(req.url);
+      const queryOrgId = searchParams.get('organizationId') || searchParams.get('organization_id');
+      if (queryOrgId) {
+        organizationId = queryOrgId;
+      }
     } else {
       // Authorized via admin session - scoped to admin org
       const adminContext = await getAuthenticatedAdmin(req);
       organizationId = adminContext.organization.id;
     }
 
+    const { searchParams } = new URL(req.url);
+    const limitParam = searchParams.get('limit');
+    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+
     const supabase = getServiceSupabaseClient();
-    const results = await processDueMarketingAutomations(supabase, { organizationId });
+    const results = await processDueMarketingAutomations(supabase, {
+      limit: limit && !isNaN(limit) ? limit : undefined,
+      organizationId,
+    });
 
     return NextResponse.json(
       {

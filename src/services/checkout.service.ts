@@ -5,8 +5,8 @@ import { resolveOrCreateCustomer } from './customer.service';
 import { findCapableWarehouse, resolveRequiredPhysicalItems } from './warehouse.service';
 import { calculateOrderPricing } from './pricing.service';
 import { reserveOrderInventory, releaseOrderReservations } from './inventory.service';
-import { PaymentProvider } from './payment/provider.interface';
-import { PaystackPaymentProvider } from './payment/paystack.provider';
+import { getPaymentProvider, PaymentProvider } from './payment';
+import { getEnabledPaymentMethods, getBankTransferSettings } from './payment-settings.service';
 import { publishDomainEvent } from './events.service';
 import { validateThemeCustomization, persistThemeCustomizationSnapshot } from './theme.service';
 import { ORDER_STATUS, PAYMENT_STATUS, DOMAIN_EVENT_TYPES, CURRENCY, DEFAULT_ORGANIZATION_ID } from '../lib/constants';
@@ -23,18 +23,18 @@ export interface ProcessCheckoutOptions {
  * 2. Resolves required physical component items (expanding bundle products into component items)
  * 3. Finds single warehouse satisfying all physical stock requirements
  * 4. Calculates authoritative prices, discounts, and delivery rates
- * 5. Creates order and line items with historical prices
- * 6. Atomically reserves inventory for physical component items for 45 minutes
- * 7. Creates pending payment record and publishes domain event
- * 8. Initializes payment transaction via the configured PaymentProvider (Paystack)
- * 9. Returns payment checkout authorization URL
+ * 5. Validates requested payment method against active merchant organization configuration
+ * 6. Creates order and line items with historical prices
+ * 7. Atomically reserves inventory for physical component items for 45 minutes
+ * 8. Creates pending payment record and publishes domain event
+ * 9. Dynamically resolves payment provider and initializes transaction
+ * 10. Returns checkout authorization URL or direct bank transfer details
  */
 export async function processCheckout(options: ProcessCheckoutOptions): Promise<CheckoutResult> {
   const { supabase, request } = options;
-  const paymentProvider = options.paymentProvider || new PaystackPaymentProvider();
 
   // 1. Resolve or create customer & address
-  const { customerId, customerAddressId } = await resolveOrCreateCustomer(
+  const { customerId } = await resolveOrCreateCustomer(
     supabase,
     request.customer,
     request.shippingAddress,
@@ -79,6 +79,27 @@ export async function processCheckout(options: ProcessCheckoutOptions): Promise<
   } catch {
     // fallback to default
   }
+
+  // 5.1. Authoritative Server-side Payment Method Validation
+  const requestedPaymentMethod = request.paymentMethod || 'paystack';
+  const enabledMethods = await getEnabledPaymentMethods(supabase, orgId);
+
+  if (!enabledMethods.includes(requestedPaymentMethod)) {
+    throw new Error(
+      `Payment method '${requestedPaymentMethod}' is not currently available for this store.`
+    );
+  }
+
+  // Resolve Bank details if manual transfer requested
+  const bankDetails =
+    requestedPaymentMethod === 'manual' ? await getBankTransferSettings(supabase, orgId) : null;
+
+  if (requestedPaymentMethod === 'manual' && !bankDetails) {
+    throw new Error('Store bank details are not configured for direct bank transfer.');
+  }
+
+  // 5.2. Dynamic Provider Resolution
+  const paymentProvider = options.paymentProvider || getPaymentProvider(requestedPaymentMethod);
 
   // 5.5. Server-side validation of theme customization requirements
   const validatedThemeCusts = new Map<number, Awaited<ReturnType<typeof validateThemeCustomization>>>();
@@ -231,27 +252,31 @@ export async function processCheckout(options: ProcessCheckoutOptions): Promise<
       order_id: order.id,
       from_status: null,
       to_status: ORDER_STATUS.CREATED,
-      note: 'Order initiated at checkout',
+      status: ORDER_STATUS.CREATED,
+      note: `Order initiated at checkout via ${paymentProvider.name}`,
     } as Database['public']['Tables']['order_status_history']['Insert']);
 
     // 10. Generate payment reference via provider & create payment record
     const paymentReference = paymentProvider.generateReference();
+    const paymentPayload = {
+      order_id: order.id,
+      provider: paymentProvider.name,
+      provider_reference: paymentReference,
+      amount: pricing.total,
+      currency: CURRENCY.NGN,
+      status: PAYMENT_STATUS.PENDING,
+      metadata: {
+        order_id: order.id,
+        order_number: order.order_number,
+        warehouse_id: warehouseId,
+        customer_email: request.customer.email,
+        ...(bankDetails ? { bank_details: bankDetails } : {}),
+      } as unknown as Database['public']['Tables']['payments']['Insert']['metadata'],
+    };
+
     const { data: paymentRecord, error: payError } = await supabase
       .from('payments')
-      .insert({
-        order_id: order.id,
-        provider: paymentProvider.name,
-        provider_reference: paymentReference,
-        amount: pricing.total,
-        currency: CURRENCY.NGN,
-        status: PAYMENT_STATUS.PENDING,
-        metadata: {
-          order_id: order.id,
-          order_number: order.order_number,
-          warehouse_id: warehouseId,
-          customer_email: request.customer.email,
-        },
-      })
+      .insert(paymentPayload as Database['public']['Tables']['payments']['Insert'])
       .select('id')
       .single();
 
@@ -273,6 +298,8 @@ export async function processCheckout(options: ProcessCheckoutOptions): Promise<
         locationId: request.locationId,
         totalAmount: pricing.total,
         currency: CURRENCY.NGN,
+        provider: paymentProvider.name,
+        paymentType: requestedPaymentMethod === 'manual' ? 'manual' : 'redirect',
         itemCount: request.items.length,
         items: pricing.itemBreakdowns.map((ib) => ({
           productId: ib.productId,
@@ -309,7 +336,10 @@ export async function processCheckout(options: ProcessCheckoutOptions): Promise<
       orderNumber: order.order_number,
       paymentId: paymentRecord.id,
       paymentReference,
-      authorizationUrl: paymentData.authorizationUrl,
+      provider: requestedPaymentMethod,
+      paymentType: requestedPaymentMethod === 'manual' ? 'manual' : 'redirect',
+      authorizationUrl: paymentData.authorizationUrl || null,
+      bankDetails,
       warehouseId,
       pricing,
       expiresAt: reservationResult.expiresAt,

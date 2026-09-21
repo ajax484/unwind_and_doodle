@@ -4,7 +4,10 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { CartResponse, CartItemDetail } from '@/types/cart';
-import { getCartHeaders, setClientCartSessionId } from '@/lib/cart-client';
+import { PublicPaymentMethod } from '@/types/payment-settings';
+import { PaymentProviderName } from '@/services/payment/provider.types';
+import { getCartHeaders, setClientCartSessionId, dispatchCartUpdated } from '@/lib/cart-client';
+import DeliveryLocationPicker from '@/components/DeliveryLocationPicker';
 import { toast } from 'sonner';
 
 interface DeliveryLocation {
@@ -16,14 +19,31 @@ interface DeliveryLocation {
   estimatedDays: string;
 }
 
+interface ManualOrderPlacedState {
+  orderNumber: string;
+  totalAmount: number;
+  bankDetails: {
+    bankName: string;
+    accountName: string;
+    accountNumber: string;
+    instructions?: string | null;
+  };
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
 
   const [cart, setCart] = useState<CartResponse | null>(null);
   const [locations, setLocations] = useState<DeliveryLocation[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PublicPaymentMethod[]>([]);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentProviderName>('paystack');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Manual Bank Transfer Confirmation state
+  const [manualOrderPlaced, setManualOrderPlaced] = useState<ManualOrderPlacedState | null>(null);
+  const [copiedAccount, setCopiedAccount] = useState(false);
 
   // Form Fields
   const [firstName, setFirstName] = useState('');
@@ -48,10 +68,11 @@ export default function CheckoutPage() {
     async function initCheckout() {
       try {
         setLoading(true);
-        // Fetch cart & delivery locations in parallel
-        const [cartRes, locRes] = await Promise.all([
+        // Fetch cart, delivery locations, and enabled payment methods in parallel
+        const [cartRes, locRes, payRes] = await Promise.all([
           fetch('/api/cart', { headers: getCartHeaders() }),
           fetch('/api/locations'),
+          fetch('/api/payment-methods'),
         ]);
 
         if (!cartRes.ok) throw new Error('Failed to load cart');
@@ -69,6 +90,19 @@ export default function CheckoutPage() {
               setSelectedLocationId(locJson.data[0].id);
               setState(locJson.data[0].state);
               setCity(locJson.data[0].name);
+            }
+          }
+        }
+
+        if (payRes.ok) {
+          const payJson = await payRes.json();
+          if (payJson.success && Array.isArray(payJson.data) && payJson.data.length > 0) {
+            const enabled = payJson.data.filter((p: PublicPaymentMethod) => p.enabled);
+            setPaymentMethods(enabled);
+            // Default selection: pick first enabled method or paystack if enabled
+            if (enabled.length > 0) {
+              const hasPaystack = enabled.some((p: PublicPaymentMethod) => p.provider === 'paystack');
+              setSelectedPaymentMethod(hasPaystack ? 'paystack' : enabled[0].provider);
             }
           }
         }
@@ -95,6 +129,24 @@ export default function CheckoutPage() {
   const discountTotal = appliedDiscount ? appliedDiscount.discountAmount : 0;
   const deliveryFee = selectedLocation ? selectedLocation.deliveryFee : 0;
   const totalAmount = Math.max(0, subtotal - discountTotal + deliveryFee);
+
+  const formattedSubtotal = new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    maximumFractionDigits: 0,
+  }).format(subtotal);
+
+  const formattedDelivery = new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    maximumFractionDigits: 0,
+  }).format(deliveryFee);
+
+  const formattedTotal = new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    maximumFractionDigits: 0,
+  }).format(totalAmount);
 
   const handleApplyDiscount = async () => {
     if (!discountCode.trim()) {
@@ -186,6 +238,13 @@ export default function CheckoutPage() {
     return Object.keys(errors).length === 0;
   };
 
+  const handleCopyAccountNumber = (accNumber: string) => {
+    navigator.clipboard.writeText(accNumber);
+    setCopiedAccount(true);
+    toast.success('Account number copied to clipboard!');
+    setTimeout(() => setCopiedAccount(false), 3000);
+  };
+
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cart || cart.items.length === 0) {
@@ -226,8 +285,9 @@ export default function CheckoutPage() {
       setSubmitting(true);
       setErrorMessage(null);
 
-      // Build checkout payload
+      // Build checkout payload with explicit paymentMethod
       const payload = {
+        paymentMethod: selectedPaymentMethod,
         customer: {
           email: email.trim(),
           firstName: firstName.trim(),
@@ -280,7 +340,36 @@ export default function CheckoutPage() {
         throw new Error(json.error || 'Checkout failed. Please try again.');
       }
 
-      // Redirect to Paystack authorization URL
+      // Handle Manual / Direct Bank Transfer order
+      if (json.data?.paymentType === 'manual' || selectedPaymentMethod === 'manual') {
+        // Clear cart session upon successful order placement
+        try {
+          await fetch('/api/cart?clear=true', {
+            method: 'DELETE',
+            headers: getCartHeaders(),
+          });
+          dispatchCartUpdated(undefined, false);
+        } catch {
+          // non-blocking
+        }
+
+        const bankDetails = json.data?.bankDetails || paymentMethods.find((p) => p.provider === 'manual')?.bankDetails;
+        if (bankDetails) {
+          setManualOrderPlaced({
+            orderNumber: json.data.orderNumber,
+            totalAmount: json.data.pricing?.total || totalAmount,
+            bankDetails,
+          });
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        } else {
+          // Fallback to order tracking page
+          router.replace(`/order/${json.data.orderNumber}`);
+          return;
+        }
+      }
+
+      // Handle Gateway Redirect (Paystack / Flutterwave)
       if (json.data?.authorizationUrl) {
         window.location.href = json.data.authorizationUrl;
       } else {
@@ -293,6 +382,112 @@ export default function CheckoutPage() {
       setSubmitting(false);
     }
   };
+
+  // ─────────────────────────────────────────────────────────────
+  // SUCCESS SCREEN: DIRECT BANK TRANSFER CONFIRMATION
+  // ─────────────────────────────────────────────────────────────
+  if (manualOrderPlaced) {
+    const formattedTransferAmount = new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      maximumFractionDigits: 0,
+    }).format(manualOrderPlaced.totalAmount);
+
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 sm:py-20 space-y-8 animate-in fade-in duration-300">
+        <div className="card-soft p-8 sm:p-10 text-center space-y-4 bg-white border border-border-default shadow-md">
+          <div className="w-16 h-16 rounded-3xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center text-3xl mx-auto">
+            🏦
+          </div>
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
+              Order Initiated • Bank Transfer
+            </span>
+            <h1 className="font-heading font-black text-2xl sm:text-3xl text-slate-900 mt-2">
+              Please Complete Your Bank Transfer
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-md mx-auto">
+              Your items are reserved for 45 minutes. Transfer exactly <strong className="text-slate-900">{formattedTransferAmount}</strong> to our verified store account below.
+            </p>
+          </div>
+
+          {/* Bank Account Details Card */}
+          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 text-left space-y-3.5 mt-6">
+            <div className="flex justify-between items-center pb-2.5 border-b border-slate-200/60">
+              <span className="text-xs text-slate-500 font-medium">Bank Name</span>
+              <span className="text-xs font-bold text-slate-900 font-heading">
+                {manualOrderPlaced.bankDetails.bankName}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center pb-2.5 border-b border-slate-200/60">
+              <span className="text-xs text-slate-500 font-medium">Account Name</span>
+              <span className="text-xs font-bold text-slate-900 font-heading">
+                {manualOrderPlaced.bankDetails.accountName}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center pb-2.5 border-b border-slate-200/60">
+              <span className="text-xs text-slate-500 font-medium">Account Number</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-mono font-bold text-indigo-600 tracking-wider">
+                  {manualOrderPlaced.bankDetails.accountNumber}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleCopyAccountNumber(manualOrderPlaced.bankDetails.accountNumber)}
+                  className="px-2 py-1 text-[10px] font-bold rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-all cursor-pointer"
+                >
+                  {copiedAccount ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pb-2.5 border-b border-slate-200/60">
+              <span className="text-xs text-slate-500 font-medium">Payment Reference</span>
+              <span className="text-xs font-mono font-bold text-slate-800">
+                {manualOrderPlaced.orderNumber}
+              </span>
+            </div>
+
+            {manualOrderPlaced.bankDetails.instructions && (
+              <div className="pt-1">
+                <span className="text-[11px] text-slate-500 block mb-0.5 font-medium">
+                  Additional Instructions:
+                </span>
+                <p className="text-xs text-slate-700 italic bg-white p-2.5 rounded-xl border border-slate-200">
+                  {manualOrderPlaced.bankDetails.instructions}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200/80 text-left text-xs text-amber-900 flex items-start gap-2.5">
+            <span className="text-base">⏳</span>
+            <div>
+              <strong>Important:</strong> After transferring, your order status will remain <em>pending</em> until payment verification is confirmed by our operations team.
+            </div>
+          </div>
+
+          {/* Next Steps CTA */}
+          <div className="pt-4 flex flex-col sm:flex-row items-center gap-3 justify-center">
+            <Link
+              href={`/order/${manualOrderPlaced.orderNumber}`}
+              className="btn-rose w-full sm:w-auto text-xs sm:text-sm !py-3 !px-6 text-center font-bold"
+            >
+              Track Order Status ({manualOrderPlaced.orderNumber}) →
+            </Link>
+            <Link
+              href="/"
+              className="btn-outline w-full sm:w-auto text-xs sm:text-sm !py-3 !px-6 text-center font-bold"
+            >
+              Return to Store
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -308,17 +503,13 @@ export default function CheckoutPage() {
   if (!cart || cart.items.length === 0) {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center space-y-6">
-        <div className="w-20 h-20 bg-bg-accent text-brand-rose rounded-full flex items-center justify-center text-4xl mx-auto shadow-xs">
-          🛒
-        </div>
-        <div className="space-y-1">
-          <h2 className="text-2xl font-bold font-heading text-text-primary">Your cart is empty</h2>
-          <p className="text-xs sm:text-sm text-text-secondary">
-            Please add items to your cart before proceeding to checkout.
-          </p>
-        </div>
-        <Link href="/products" className="btn-rose text-xs sm:text-sm !px-6 inline-block font-heading font-bold">
-          ← Return to Shop
+        <span className="text-5xl">🛍️</span>
+        <h2 className="text-2xl font-bold font-heading text-text-primary">Your Cart is Empty</h2>
+        <p className="text-text-secondary text-sm">
+          Add some mindfulness tools and creative stationery to your cart before proceeding to checkout.
+        </p>
+        <Link href="/products" className="btn-rose text-xs !px-6 inline-block">
+          Explore Products →
         </Link>
       </div>
     );
@@ -327,24 +518,6 @@ export default function CheckoutPage() {
   const hasIncompleteCustomization = cart.items.some(
     (item) => item.requiresCustomization && (!item.customization || item.customization.assets.length === 0)
   );
-
-  const formattedSubtotal = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    maximumFractionDigits: 0,
-  }).format(subtotal);
-
-  const formattedDelivery = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    maximumFractionDigits: 0,
-  }).format(deliveryFee);
-
-  const formattedTotal = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    maximumFractionDigits: 0,
-  }).format(totalAmount);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 space-y-8">
@@ -388,7 +561,7 @@ export default function CheckoutPage() {
       )}
 
       <form onSubmit={handlePlaceOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-12 items-start">
-        {/* Left Column: Customer & Delivery Forms (7 cols) */}
+        {/* Left Column: Customer, Delivery, and Payment Forms (7 cols) */}
         <div className="lg:col-span-7 space-y-8">
           {/* 1. Contact Information */}
           <div className="card-soft p-6 sm:p-8 space-y-5 bg-white border border-border-default">
@@ -458,7 +631,7 @@ export default function CheckoutPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-heading font-semibold text-text-primary mb-1">
-                  Phone Number *
+                  Phone Number (Call/SMS) *
                 </label>
                 <input
                   type="tel"
@@ -490,28 +663,27 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          {/* 2. Delivery Address */}
+          {/* 2. Delivery Address & Location Selection */}
           <div className="card-soft p-6 sm:p-8 space-y-5 bg-white border border-border-default">
             <h2 className="font-heading font-bold text-lg text-text-primary flex items-center gap-2">
-              <span>📍</span> Delivery Address
+              <span>📍</span> Delivery Details
             </h2>
 
-            <div>
-              <label className="block text-xs font-heading font-semibold text-text-primary mb-1">
-                Delivery Location / State Hub *
-              </label>
-              <select
-                value={selectedLocationId}
-                onChange={handleLocationChange}
-                className="form-input text-xs bg-white cursor-pointer"
-              >
-                {locations.map((loc) => (
-                  <option key={loc.id} value={loc.id}>
-                    {loc.state} → {loc.name} (+₦{loc.deliveryFee.toLocaleString()} • {loc.estimatedDays})
-                  </option>
-                ))}
-              </select>
-            </div>
+            <DeliveryLocationPicker
+              locations={locations}
+              selectedLocationId={selectedLocationId}
+              onChange={(payload) => {
+                setSelectedLocationId(payload.locationId);
+                if (payload.state) setState(payload.state);
+                if (payload.city) setCity(payload.city);
+                if (payload.lga) setLga(payload.lga);
+                if (fieldErrors.location) {
+                  setFieldErrors((prev) => ({ ...prev, location: '' }));
+                }
+              }}
+              hubError={fieldErrors.location}
+              size="sm"
+            />
 
             <div>
               <label className="block text-xs font-heading font-semibold text-text-primary mb-1">
@@ -580,7 +752,108 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          {/* 3. Marketing Preferences */}
+          {/* 3. Payment Method Selection (Dynamic from Merchant Settings) */}
+          <div className="card-soft p-6 sm:p-8 space-y-5 bg-white border border-border-default">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading font-bold text-lg text-text-primary flex items-center gap-2">
+                <span>💳</span> Payment Method
+              </h2>
+              <span className="text-[11px] font-bold text-slate-500">
+                Choose how you want to pay
+              </span>
+            </div>
+
+            {paymentMethods.length === 0 ? (
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-600">
+                Loading available payment options...
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {paymentMethods.map((method) => {
+                  const isSelected = selectedPaymentMethod === method.provider;
+
+                  // Friendly customer-facing titles and icons
+                  const icon =
+                    method.provider === 'paystack'
+                      ? '💳'
+                      : method.provider === 'flutterwave'
+                      ? '⚡'
+                      : '🏦';
+
+                  const defaultTitle =
+                    method.provider === 'paystack'
+                      ? 'Pay with Card / Bank (Paystack)'
+                      : method.provider === 'flutterwave'
+                      ? 'Pay with Flutterwave'
+                      : 'Direct Bank Transfer';
+
+                  const defaultDesc =
+                    method.provider === 'paystack'
+                      ? 'Pay securely using Card, Bank Transfer, USSD, or Apple Pay.'
+                      : method.provider === 'flutterwave'
+                      ? 'Fast checkout with international & local card or mobile money.'
+                      : 'Transfer directly to our store bank account. Order confirmed upon verification.';
+
+                  return (
+                    <label
+                      key={method.provider}
+                      className={`relative flex items-start gap-4 p-4 rounded-2xl border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-action-primary bg-action-primary/5 shadow-xs ring-1 ring-action-primary/20'
+                          : 'border-border-default bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="pt-0.5">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value={method.provider}
+                          checked={isSelected}
+                          onChange={() => setSelectedPaymentMethod(method.provider)}
+                          className="sr-only"
+                        />
+                        <div
+                          className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                            isSelected
+                              ? 'border-action-primary bg-action-primary'
+                              : 'border-slate-300 bg-white'
+                          }`}
+                        >
+                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                      </div>
+
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{icon}</span>
+                          <span className="font-heading font-bold text-xs sm:text-sm text-text-primary">
+                            {method.displayTitle || defaultTitle}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-text-secondary mt-1">
+                          {method.displayDescription || defaultDesc}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Bank Transfer Notice when Selected */}
+            {selectedPaymentMethod === 'manual' && (
+              <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100 text-xs text-indigo-900 space-y-1 animate-in fade-in">
+                <div className="font-bold flex items-center gap-1.5">
+                  <span>ℹ️</span> Bank Transfer Process:
+                </div>
+                <p className="text-[11px] text-indigo-800">
+                  When you place your order, you will receive our verified account details to transfer. Your order will be processed as soon as our team confirms your transfer.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* 4. Marketing Preferences */}
           <div className="card-soft p-5 sm:p-6 space-y-3 bg-bg-default border border-border-default">
             <label className="flex items-center gap-3 cursor-pointer text-xs text-text-secondary">
               <input
@@ -786,12 +1059,20 @@ export default function CheckoutPage() {
           <button
             type="submit"
             disabled={submitting || hasIncompleteCustomization}
-            className="btn-rose w-full text-sm sm:text-base !py-4 shadow-md font-heading font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-rose w-full text-sm sm:text-base !py-4 shadow-md font-heading font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {submitting ? (
-              <span>Connecting to Paystack...</span>
+              <span>
+                {selectedPaymentMethod === 'manual'
+                  ? 'Placing Order...'
+                  : selectedPaymentMethod === 'flutterwave'
+                  ? 'Connecting to Flutterwave...'
+                  : 'Connecting to Paystack...'}
+              </span>
             ) : hasIncompleteCustomization ? (
               <span>Customization Required</span>
+            ) : selectedPaymentMethod === 'manual' ? (
+              <span>Place Order via Bank Transfer →</span>
             ) : (
               <span>Pay {formattedTotal} →</span>
             )}
@@ -799,10 +1080,16 @@ export default function CheckoutPage() {
 
           <div className="text-center space-y-1">
             <p className="text-[11px] text-text-tertiary">
-              🔒 Payments securely processed by Paystack
+              {selectedPaymentMethod === 'manual'
+                ? '🔒 Direct Bank Transfer with 45-minute inventory hold'
+                : selectedPaymentMethod === 'flutterwave'
+                ? '🔒 Payments securely processed by Flutterwave'
+                : '🔒 Payments securely processed by Paystack'}
             </p>
             <p className="text-[10px] text-text-tertiary">
-              Mastercard • Visa • Bank Transfer • USSD
+              {selectedPaymentMethod === 'manual'
+                ? 'GTBank • Zenith • FirstBank • Access • Kuda • OPay'
+                : 'Mastercard • Visa • Verve • Bank Transfer • USSD'}
             </p>
           </div>
         </div>

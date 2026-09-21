@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, use } from 'react';
 import { PaymentRequestDetail } from '@/types/manual-order';
+import DeliveryLocationPicker from '@/components/DeliveryLocationPicker';
 import { toast } from 'sonner';
 
 interface LocationOption {
@@ -476,24 +477,21 @@ export default function CustomerPaymentPage({
               </div>
 
               <div className="sm:col-span-2">
-                <label className="text-[11px] text-slate-400 font-medium mb-1 block">
-                  Delivery Location <span className="text-rose-400">*</span>
-                </label>
-                <select
+                <DeliveryLocationPicker
+                  locations={locations as any}
+                  selectedLocationId={selectedLocationId}
                   disabled={!isPending}
-                  value={selectedLocationId}
-                  onChange={(e) => setSelectedLocationId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 focus:outline-hidden focus:border-rose-500 disabled:opacity-50 transition-all"
-                >
-                  <option value="">Select Delivery Location</option>
-                  {locations.map((loc) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.name} {loc.state ? `(${loc.state})` : ''}
-                    </option>
-                  ))}
-                </select>
+                  allowBlank={true}
+                  blankLabel="Select Delivery Location"
+                  onChange={(payload) => {
+                    setSelectedLocationId(payload.locationId);
+                    if (payload.state) setState(payload.state);
+                    if (payload.city) setCity(payload.city);
+                  }}
+                  size="sm"
+                />
                 <span className="text-[10px] text-slate-400 block mt-1">
-                  Changing delivery location automatically recalculates your delivery fee and order total.
+                  Changing delivery location automatically recalculates your delivery fee and order total upon saving or paying.
                 </span>
               </div>
 
@@ -633,35 +631,81 @@ export default function CustomerPaymentPage({
             </div>
           </div>
 
+          {/* Direct Bank Transfer Details for Manual Payments */}
+          {detail.paymentMethod === 'manual' && isPending && detail.bankDetails && (
+            <div className="bg-slate-900 border border-slate-700/80 rounded-2xl p-4 space-y-2 text-xs">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <span className="font-heading font-bold text-white flex items-center gap-1.5">
+                  <span>🏦</span> Direct Bank Transfer Instructions
+                </span>
+                <span className="text-[10px] uppercase font-bold text-amber-400 bg-amber-950/40 border border-amber-800/50 px-2 py-0.5 rounded-full">
+                  Awaiting Transfer
+                </span>
+              </div>
+              <div className="space-y-1.5 text-slate-300">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Bank Name:</span>
+                  <strong className="text-white">{detail.bankDetails.bankName || 'Guaranty Trust Bank'}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Account Name:</span>
+                  <strong className="text-white">{detail.bankDetails.accountName || 'Unwind & Doodle'}</strong>
+                </div>
+                <div className="flex justify-between items-center py-1 bg-slate-950/60 px-2.5 rounded-xl border border-slate-800">
+                  <span className="text-slate-400">Account Number:</span>
+                  <span className="font-mono text-sm text-rose-400 font-bold tracking-wider">
+                    {detail.bankDetails.accountNumber}
+                  </span>
+                </div>
+                {detail.paymentReference && (
+                  <div className="flex justify-between text-[11px] text-slate-400 pt-0.5">
+                    <span>Payment Reference:</span>
+                    <span className="font-mono text-slate-200">{detail.paymentReference}</span>
+                  </div>
+                )}
+                {detail.bankDetails.instructions && (
+                  <p className="text-[11px] text-slate-400 italic pt-1">{detail.bankDetails.instructions}</p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Payment Action CTA */}
           <div className="space-y-3 pt-1">
-            <button
-              type="button"
-              onClick={handlePayNow}
-              disabled={!isPending || payLoading || saving}
-              className={`w-full py-4 rounded-2xl text-sm font-heading font-extrabold transition-all flex items-center justify-center gap-2 shadow-xl ${
-                !isPending
-                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed shadow-none border border-slate-700/50'
-                  : payLoading || saving
-                  ? 'bg-rose-700 text-white cursor-wait opacity-80'
-                  : 'bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white active:scale-[0.99] cursor-pointer'
-              }`}
-            >
-              {payLoading || saving ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>{saving ? 'Saving changes...' : 'Connecting to Paystack...'}</span>
-                </>
-              ) : isPaid ? (
-                <span>✓ Payment Completed</span>
-              ) : isExpired ? (
-                <span>⏰ Link Expired</span>
-              ) : isCancelled ? (
-                <span>🚫 Link Cancelled</span>
-              ) : (
-                <span>🔒 Pay {formatCurrency(detail.pricing.total)}</span>
-              )}
-            </button>
+            {detail.paymentMethod === 'manual' && isPending ? (
+              <div className="p-4 rounded-2xl bg-slate-900 border border-amber-500/30 text-amber-300 text-center text-xs font-semibold space-y-1">
+                <p>Please transfer {formatCurrency(detail.pricing.total)} to the account above.</p>
+                <p className="text-[11px] text-slate-400">Your order will be confirmed and processed once your payment is received.</p>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handlePayNow}
+                disabled={!isPending || payLoading || saving}
+                className={`w-full py-4 rounded-2xl text-sm font-heading font-extrabold transition-all flex items-center justify-center gap-2 shadow-xl ${
+                  !isPending
+                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed shadow-none border border-slate-700/50'
+                    : payLoading || saving
+                    ? 'bg-rose-700 text-white cursor-wait opacity-80'
+                    : 'bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white active:scale-[0.99] cursor-pointer'
+                }`}
+              >
+                {payLoading || saving ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>{saving ? 'Saving changes...' : `Connecting to ${detail.paymentMethod === 'flutterwave' ? 'Flutterwave' : 'Paystack'}...`}</span>
+                  </>
+                ) : isPaid ? (
+                  <span>✓ Payment Completed</span>
+                ) : isExpired ? (
+                  <span>⏰ Link Expired</span>
+                ) : isCancelled ? (
+                  <span>🚫 Link Cancelled</span>
+                ) : (
+                  <span>🔒 Pay {formatCurrency(detail.pricing.total)}</span>
+                )}
+              </button>
+            )}
 
             {isPending && detail.expiresAt && (
               <p className="text-[11px] text-slate-400 text-center font-medium">

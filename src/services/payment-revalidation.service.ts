@@ -1,8 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../lib/supabase/types';
-import { PaystackPaymentProvider } from './payment/paystack.provider';
-import { FlutterwavePaymentProvider } from './payment/flutterwave.provider';
-import { PaymentProvider, PaymentVerification } from './payment/provider.interface';
+import { getPaymentProvider, PaymentProvider, PaymentVerification, transitionPaymentStatus } from './payment';
 import { releaseOrderReservations } from './inventory.service';
 import { fulfillSuccessfulPayment } from './payment-fulfillment.service';
 import { ORDER_STATUS, PAYMENT_STATUS, CURRENCY } from '../lib/constants';
@@ -38,17 +36,6 @@ export interface SweepResults {
   stillPending: number;
   errors: number;
   results: RevalidationResult[];
-}
-
-function getProviderInstance(providerName: string): PaymentProvider {
-  switch (providerName.toLowerCase()) {
-    case 'flutterwave':
-    case 'flw':
-      return new FlutterwavePaymentProvider();
-    case 'paystack':
-    default:
-      return new PaystackPaymentProvider();
-  }
 }
 
 /**
@@ -144,7 +131,7 @@ export async function revalidatePayment(
   }
 
   // 4. Verify transaction with live gateway API
-  const provider = getProviderInstance(payment.provider);
+  const provider = getPaymentProvider(payment.provider);
   let verifiedTx: PaymentVerification;
 
   try {
@@ -207,20 +194,39 @@ export async function revalidatePayment(
 
   // 6. Handle Explicit Failed Payment
   if (verifiedTx.status === 'failed') {
-    await supabase
-      .from('payments')
-      .update({
-        status: PAYMENT_STATUS.FAILED,
-        metadata: {
-          ...(payment.metadata && typeof payment.metadata === 'object'
-            ? (payment.metadata as Record<string, unknown>)
-            : {}),
+    try {
+      await transitionPaymentStatus({
+        supabase,
+        paymentId: payment.id,
+        toStatus: PAYMENT_STATUS.FAILED,
+        expectedCurrentStatus: [PAYMENT_STATUS.PENDING, 'processing', 'created'],
+        metadataUpdates: {
           revalidated_at: new Date().toISOString(),
           revalidated_by: triggeredBy,
           gateway_failure_reason: ((verifiedTx.rawResponse?.gateway_response as string) || 'Payment failed at gateway'),
-        } as unknown as Database['public']['Tables']['payments']['Update']['metadata'],
-      } as unknown as Database['public']['Tables']['payments']['Update'])
-      .eq('id', payment.id);
+        },
+        reason: `Revalidation detected failure from ${payment.provider} (${triggeredBy})`,
+        actorId: options.actorId || null,
+      });
+    } catch {
+      // If payment was already updated concurrently (e.g. to successful by webhook), do not regress
+      const { data: checkPay } = await supabase.from('payments').select('status').eq('id', payment.id).maybeSingle();
+      if (checkPay?.status === PAYMENT_STATUS.SUCCESSFUL) {
+        return {
+          success: true,
+          verified: true,
+          status: 'already_successful',
+          paymentId: payment.id,
+          orderId: order.id,
+          orderNumber: order.order_number,
+          amount: payment.amount,
+          currency: payment.currency,
+          provider: payment.provider,
+          reference,
+          message: 'Payment has already been verified and processed',
+        };
+      }
+    }
 
     // Release reservations if still held in created state and update order payment_status if present
     if (order.status === ORDER_STATUS.CREATED) {

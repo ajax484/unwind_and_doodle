@@ -9,7 +9,7 @@ import {
   AdminDashboardMetricsResponse,
 } from '../types/admin-order';
 import { transitionOrderStatus } from './order-state-machine.service';
-import { PaystackPaymentProvider } from './payment/paystack.provider';
+import { getPaymentProvider, PaymentProvider } from './payment';
 import { ORDER_STATUS } from '../lib/constants';
 
 /**
@@ -212,7 +212,13 @@ export async function listAdminOrders(
         : 'Guest';
 
     const addr = (o.shipping_address as Record<string, unknown>) || {};
-    const street = String(addr.address_line1 || addr.addressLine1 || '').trim();
+    const street = String(
+      addr.streetAddress ||
+      addr.address_line_1 ||
+      addr.address_line1 ||
+      addr.addressLine1 ||
+      ''
+    ).trim();
     const isAddressPending =
       !street ||
       street.toLowerCase().includes('to be provided') ||
@@ -604,7 +610,7 @@ export async function getAdminOrderDetail(
 
   const shippingAddrObj =
     order.shipping_address && typeof order.shipping_address === 'object' && !Array.isArray(order.shipping_address)
-      ? (order.shipping_address as { streetAddress?: string; address_line_1?: string; city?: string; state?: string; postalCode?: string })
+      ? (order.shipping_address as Record<string, unknown>)
       : {};
 
   const successfulPayment = (payments || []).find((p) => p.status === 'successful' || (p.status as string) === 'paid');
@@ -638,10 +644,16 @@ export async function getAdminOrderDetail(
       marketingConsent: customer?.email_marketing_consent || false,
     },
     shippingAddress: {
-      streetAddress: shippingAddrObj.streetAddress || shippingAddrObj.address_line_1 || '',
-      city: shippingAddrObj.city || '',
-      state: shippingAddrObj.state || '',
-      postalCode: shippingAddrObj.postalCode || null,
+      streetAddress: String(
+        shippingAddrObj.streetAddress ||
+        shippingAddrObj.address_line_1 ||
+        shippingAddrObj.address_line1 ||
+        shippingAddrObj.addressLine1 ||
+        ''
+      ),
+      city: String(shippingAddrObj.city || ''),
+      state: String(shippingAddrObj.state || ''),
+      postalCode: (shippingAddrObj.postalCode || shippingAddrObj.postal_code || null) as string | null,
     },
     warehouse: {
       id: order.warehouse_id || '',
@@ -706,17 +718,18 @@ export interface RefundAdminOrderParams {
   organizationId?: string | null;
   reason?: string;
   customerNote?: string;
-  paystackProvider?: PaystackPaymentProvider;
+  paymentProvider?: PaymentProvider;
+  paystackProvider?: PaymentProvider; // backwards compatibility alias
 }
 
 /**
- * Idempotently executes a full refund via Paystack, updates payment record status,
+ * Idempotently executes a full refund via the payment provider, updates payment record status,
  * transitions order status to 'refunded', records status history, audit logs, and emits domain event.
  */
 export async function refundAdminOrder(
   params: RefundAdminOrderParams
 ) {
-  const { supabase, orderId, userId, organizationId, reason, customerNote, paystackProvider } = params;
+  const { supabase, orderId, userId, organizationId, reason, customerNote, paymentProvider, paystackProvider } = params;
 
   // 1. Fetch order
   let orderQuery = supabase.from('orders').select('*').eq('id', orderId);
@@ -755,8 +768,9 @@ export async function refundAdminOrder(
 
   const transactionRef = successfulPayment.provider_reference || (successfulPayment as Record<string, unknown>).reference as string || successfulPayment.id;
 
-  // 3. Execute Paystack provider refund if provider is paystack
-  const provider = paystackProvider || new PaystackPaymentProvider();
+  // 3. Execute provider refund according to payment record's provider
+  const activeProviderName = (successfulPayment.provider as string) || 'paystack';
+  const provider = paymentProvider || paystackProvider || getPaymentProvider(activeProviderName);
   try {
     if (provider.refundTransaction && process.env.NODE_ENV !== 'test') {
       await provider.refundTransaction({

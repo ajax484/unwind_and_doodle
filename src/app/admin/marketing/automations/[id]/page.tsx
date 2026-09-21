@@ -89,8 +89,8 @@ export default function AutomationDetailPage({
     }
   };
 
-  const getExecutionStatusBadge = (status: MarketingAutomationExecution['status']) => {
-    switch (status) {
+  const getExecutionStatusBadge = (execution: MarketingAutomationExecution) => {
+    switch (execution.status) {
       case 'completed':
         return <Badge variant="status" statusType="success" size="sm">Sent</Badge>;
       case 'skipped':
@@ -100,6 +100,13 @@ export default function AutomationDetailPage({
       case 'failed':
         return <Badge variant="status" statusType="danger" size="sm">Failed</Badge>;
       default:
+        if (execution.retry_count && execution.retry_count > 0) {
+          return (
+            <Badge variant="status" statusType="warning" size="sm">
+              Retrying ({execution.retry_count}/{execution.max_retries || 3})
+            </Badge>
+          );
+        }
         return <Badge variant="status" statusType="neutral" size="sm">Pending</Badge>;
     }
   };
@@ -226,7 +233,14 @@ export default function AutomationDetailPage({
                       {ex.customer_email}
                     </td>
                     <td className="py-3 px-3">
-                      {getExecutionStatusBadge(ex.status)}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {getExecutionStatusBadge(ex)}
+                        {ex.step_states && ex.step_states.length > 0 && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-bg-muted text-text-secondary font-mono">
+                            {ex.step_states.filter((s) => s.status === 'completed').length}/{ex.step_states.length} steps
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-3 text-text-secondary">
                       {new Date(ex.scheduled_for).toLocaleString(undefined, {

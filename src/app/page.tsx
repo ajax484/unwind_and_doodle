@@ -21,7 +21,7 @@ export default function HomePage() {
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch('/api/products?limit=4');
+        const res = await fetch('/api/products?sort=price-desc&limit=4');
         if (!res.ok) throw new Error('Unable to load featured products');
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {

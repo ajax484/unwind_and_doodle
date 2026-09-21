@@ -1,12 +1,12 @@
 import crypto from 'crypto';
 import { getConfig } from '../lib/config';
-import { PaystackPaymentProvider } from './payment/paystack.provider';
+import { getPaymentProvider, PaystackPaymentProvider } from './payment';
 
 export { PaystackPaymentProvider };
 
 // Standalone helper for test and utility usage
 export function generatePaystackReference(prefix = 'UAD'): string {
-  return new PaystackPaymentProvider().generateReference(prefix);
+  return getPaymentProvider('paystack').generateReference(prefix);
 }
 
 export function verifyPaystackSignature(

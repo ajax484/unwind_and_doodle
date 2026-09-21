@@ -203,6 +203,34 @@ export interface MarketingAutomationDelay {
   unit: MarketingAutomationDelayUnit;
 }
 
+export type MarketingJourneyStepType = 'send_email' | 'delay' | 'wait_for_event';
+
+export interface MarketingJourneySendEmailStep {
+  id: string;
+  type: 'send_email';
+  campaignId: string;
+}
+
+export interface MarketingJourneyDelayStep {
+  id: string;
+  type: 'delay';
+  amount: number;
+  unit: MarketingAutomationDelayUnit;
+}
+
+export interface MarketingJourneyWaitForEventStep {
+  id: string;
+  type: 'wait_for_event';
+  event: string;
+  timeout: number;
+  unit: MarketingAutomationDelayUnit;
+}
+
+export type MarketingJourneyStep =
+  | MarketingJourneySendEmailStep
+  | MarketingJourneyDelayStep
+  | MarketingJourneyWaitForEventStep;
+
 export interface MarketingAutomationAction {
   type: 'email';
   campaignId: string;
@@ -211,7 +239,9 @@ export interface MarketingAutomationAction {
 export interface MarketingAutomationConfig {
   trigger: MarketingAutomationTrigger;
   delay?: MarketingAutomationDelay;
-  action: MarketingAutomationAction;
+  action?: MarketingAutomationAction;
+  steps?: MarketingJourneyStep[];
+  version?: number;
 }
 
 export type MarketingAutomationWithParsedConfig = Omit<MarketingAutomation, 'config'> & {
@@ -253,6 +283,16 @@ export type MarketingAutomationExecutionStatus =
   | 'skipped'
   | 'failed';
 
+export interface MarketingJourneyStepState {
+  step_id: string;
+  type: MarketingJourneyStepType;
+  status: 'pending' | 'processing' | 'completed' | 'skipped' | 'failed';
+  executed_at?: string | null;
+  skip_reason?: string | null;
+  error_message?: string | null;
+  provider_message_id?: string | null;
+}
+
 export interface MarketingAutomationExecution {
   id: string;
   organization_id: string;
@@ -262,11 +302,17 @@ export interface MarketingAutomationExecution {
   customer_id: string | null;
   customer_email: string;
   status: MarketingAutomationExecutionStatus;
+  engine?: 'inngest' | 'legacy';
+  current_step_id?: string | null;
+  step_states?: MarketingJourneyStepState[];
+  config_snapshot?: MarketingAutomationConfig | Json | null;
   scheduled_for: string;
   executed_at: string | null;
   skip_reason: string | null;
   error_message: string | null;
   provider_message_id: string | null;
+  retry_count: number;
+  max_retries: number;
   created_at: string;
   updated_at: string;
 }

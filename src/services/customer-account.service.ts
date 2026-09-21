@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../lib/supabase/types';
 import { DEFAULT_ORGANIZATION_ID } from '../lib/constants';
+import { publishDomainEvent } from './events.service';
 
 export interface CustomerProfile {
   id: string;
@@ -199,6 +200,23 @@ export async function linkOrCreateCustomerAccount(
 
     throw new Error(`Failed to create customer profile: ${createError?.message}`);
   }
+
+  // Emit domain event for new customer creation
+  await publishDomainEvent(supabase, {
+    eventType: 'customer.created',
+    aggregateType: 'customer',
+    aggregateId: newCustomer.id,
+    organizationId: newCustomer.organization_id || orgId,
+    payload: {
+      customerId: newCustomer.id,
+      email: newCustomer.email,
+      firstName: newCustomer.first_name,
+      lastName: newCustomer.last_name,
+      phone: newCustomer.phone || null,
+      userId: newCustomer.user_id || null,
+      marketingConsent: newCustomer.email_marketing_consent ?? false,
+    },
+  });
 
   return formatCustomerProfile(newCustomer);
 }

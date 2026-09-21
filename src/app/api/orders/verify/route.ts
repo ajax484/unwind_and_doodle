@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
-import { PaystackPaymentProvider } from '@/services/payment/paystack.provider';
+import { getPaymentProvider } from '@/services/payment';
 import { fulfillSuccessfulPayment } from '@/services/payment-fulfillment.service';
 import { PAYMENT_STATUS, CURRENCY } from '@/lib/constants';
 
@@ -63,8 +63,8 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 4. Verify transaction with Paystack API directly
-    const provider = new PaystackPaymentProvider();
+    // 4. Verify transaction with the historical payment's provider API directly
+    const provider = getPaymentProvider(payment.provider);
     const verifiedTx = await provider.verifyTransaction(txRef);
 
     if (

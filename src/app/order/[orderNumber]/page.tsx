@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { OrderStatus } from '@/lib/supabase/types';
 import OrderStatusTimeline from '@/components/OrderStatusTimeline';
 import { formatPrice, formatDate } from '@/lib/format-utils';
+import { getPaymentProviderLabel } from '@/services/payment/provider.types';
+import { BankTransferConfig } from '@/types/payment-settings';
 
 interface ShippingAddress {
   addressLine1?: string;
@@ -64,10 +66,23 @@ interface OrderDetailResponse {
     }[];
   }[];
   payment: {
+    id?: string;
     provider: string;
     status: string;
     reference: string | null;
+    amount?: number;
+    currency?: string;
+    bankDetails?: BankTransferConfig | null;
   } | null;
+  paymentAttempts?: Array<{
+    id: string;
+    provider: string;
+    status: string;
+    reference: string | null;
+    amount: number;
+    createdAt: string;
+    bankDetails?: BankTransferConfig | null;
+  }>;
   statusHistory: {
     status: OrderStatus;
     note: string | null;
@@ -89,6 +104,11 @@ export default function OrderStatusPage() {
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Retry state
+  const [selectedRetryMethod, setSelectedRetryMethod] = useState<'paystack' | 'flutterwave' | 'manual'>('paystack');
+  const [retryingPayment, setRetryingPayment] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
 
   async function loadOrder() {
     if (!orderNumber) return;
@@ -114,6 +134,9 @@ export default function OrderStatusPage() {
       }
 
       setOrder(json.data);
+      if (json.data.payment?.provider) {
+        setSelectedRetryMethod(json.data.payment.provider as any);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error fetching order');
     } finally {
@@ -124,6 +147,47 @@ export default function OrderStatusPage() {
   useEffect(() => {
     loadOrder();
   }, [orderNumber, token]);
+
+  const handleRetryPayment = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!orderNumber) return;
+
+    try {
+      setRetryingPayment(true);
+      setRetryError(null);
+
+      const res = await fetch(`/api/orders/${orderNumber}/retry`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'x-order-token': token } : {}),
+        },
+        body: JSON.stringify({
+          paymentMethod: selectedRetryMethod,
+          token,
+          callbackUrl: `${window.location.origin}/order/callback`,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success || !json.data) {
+        throw new Error(json.error || 'Failed to initialize payment retry');
+      }
+
+      const data = json.data;
+      if (data.authorizationUrl) {
+        // Redirect to gateway checkout
+        window.location.href = data.authorizationUrl;
+      } else {
+        // Resumed or created manual bank transfer
+        await loadOrder();
+      }
+    } catch (err: unknown) {
+      setRetryError(err instanceof Error ? err.message : 'Error retrying payment');
+    } finally {
+      setRetryingPayment(false);
+    }
+  };
 
   const handleVerifyEmail = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -440,18 +504,120 @@ export default function OrderStatusPage() {
             </p>
           </div>
 
-          <div className="space-y-2 pt-4 border-t border-border-default">
+          <div className="space-y-4 pt-4 border-t border-border-default">
             <h4 className="font-heading font-bold text-base text-text-primary flex items-center gap-2">
               <span>💳</span> Payment Status
             </h4>
             <div className="flex items-center gap-2">
-              <span className="badge-stock badge-in-stock capitalize text-xs">
-                {order.payment?.status || 'Paid'}
+              <span
+                className={`text-xs px-2.5 py-1 rounded-full font-bold capitalize ${
+                  order.payment?.status === 'successful'
+                    ? 'bg-status-success-bg text-status-success-text'
+                    : order.payment?.status === 'failed'
+                    ? 'bg-status-danger-bg text-status-danger-text'
+                    : 'bg-status-warning-bg text-status-warning-text'
+                }`}
+              >
+                {order.payment?.status === 'successful'
+                  ? 'Payment Successful'
+                  : order.payment?.status === 'failed'
+                  ? 'Payment Unsuccessful'
+                  : 'Awaiting Payment'}
               </span>
               <span className="text-[11px] text-text-tertiary">
-                via {order.payment?.provider === 'paystack' ? 'Paystack' : (order.payment?.provider || 'Paystack')}
+                via {getPaymentProviderLabel(order.payment?.provider || 'paystack')}
               </span>
             </div>
+
+            {/* Bank Transfer Instructions Snapshot */}
+            {order.payment?.provider === 'manual' && order.payment?.bankDetails && order.payment.status === 'pending' && (
+              <div className="p-3.5 bg-bg-subtle border border-border-default rounded-xl space-y-2 text-xs">
+                <div className="font-heading font-bold text-xs text-text-primary flex items-center gap-1.5">
+                  <span>🏦</span> Direct Bank Transfer Details
+                </div>
+                <div className="space-y-1 text-text-secondary text-[11px]">
+                  <div>
+                    <span className="font-semibold text-text-primary">Bank:</span> {order.payment.bankDetails.bankName}
+                  </div>
+                  <div>
+                    <span className="font-semibold text-text-primary">Account Name:</span> {order.payment.bankDetails.accountName}
+                  </div>
+                  <div className="flex items-center justify-between bg-white px-2 py-1 rounded-lg border border-border-default">
+                    <span className="font-mono font-bold text-text-primary">{order.payment.bankDetails.accountNumber}</span>
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard.writeText(order.payment?.bankDetails?.accountNumber || '')}
+                      className="text-[10px] text-action-primary hover:underline font-bold"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <div className="text-[10px] text-text-tertiary pt-1">
+                    Please use <span className="font-mono font-bold text-text-primary">{order.orderNumber}</span> as transfer reference.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Payment Recovery / Retry Section when payment is failed or order created */}
+            {order.payment?.status === 'failed' && (
+              <div className="p-3.5 bg-red-50/70 border border-red-200/80 rounded-xl space-y-3">
+                <div className="space-y-1">
+                  <h5 className="font-heading font-bold text-xs text-red-900 flex items-center gap-1.5">
+                    <span>⚠️</span> Retry or Switch Payment Method
+                  </h5>
+                  <p className="text-[11px] text-red-700 leading-snug">
+                    Your previous payment attempt was not completed. Choose a payment method to complete your order.
+                  </p>
+                </div>
+
+                {retryError && (
+                  <div className="p-2 text-[11px] bg-red-100 text-red-800 rounded-lg">
+                    {retryError}
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">
+                    Select Payment Method
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5 text-xs">
+                    {(['paystack', 'flutterwave', 'manual'] as const).map((method) => (
+                      <button
+                        key={method}
+                        type="button"
+                        onClick={() => setSelectedRetryMethod(method)}
+                        className={`px-2 py-1.5 rounded-lg border text-center font-semibold text-[11px] transition-all ${
+                          selectedRetryMethod === method
+                            ? 'border-brand-rose bg-white text-brand-rose shadow-2xs'
+                            : 'border-border-default bg-white/60 text-text-secondary hover:bg-white'
+                        }`}
+                      >
+                        {getPaymentProviderLabel(method)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleRetryPayment}
+                  disabled={retryingPayment}
+                  className="btn-rose w-full text-center text-xs !py-2.5 flex items-center justify-center gap-2 font-bold shadow-xs"
+                >
+                  {retryingPayment ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Initializing...</span>
+                    </>
+                  ) : (
+                    <span>
+                      Pay {formatPrice(order.totalAmount)} via {getPaymentProviderLabel(selectedRetryMethod)} →
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="pt-6 border-t border-border-default space-y-3">
