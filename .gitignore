@@ -40,3 +40,6 @@ pnpm-debug.log*
 storybook-static
 
 /.gemini/*
+
+# Sentry Config File
+.env.sentry-build-plugin

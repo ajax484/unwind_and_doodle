@@ -1,40 +1,19 @@
-import * as Sentry from '@sentry/nextjs';
-import { sanitizeData, sanitizeHeaders } from './src/lib/observability/error-monitoring';
+// This file configures the initialization of Sentry on the server.
+// The config you add here will be used whenever the server handles a request.
+// https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
-const SENTRY_DSN = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN;
+import * as Sentry from "@sentry/nextjs";
 
-if (SENTRY_DSN) {
-  Sentry.init({
-    dsn: SENTRY_DSN,
-    environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV,
-    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+Sentry.init({
+  dsn: "https://c876e571901e937cfef93729b40b5ca6@o4512126037327872.ingest.us.sentry.io/4512126042963968",
 
-    // Redact sensitive details from server-side events
-    beforeSend(event) {
-      if (event.request) {
-        if (event.request.headers) {
-          event.request.headers = sanitizeHeaders(event.request.headers);
-        }
-        if (event.request.data) {
-          event.request.data = sanitizeData(event.request.data);
-        }
-        if (event.request.cookies) {
-          event.request.cookies = {};
-        }
-      }
+  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
+  tracesSampleRate: 1,
 
-      if (event.breadcrumbs) {
-        event.breadcrumbs = event.breadcrumbs.map((bc) => ({
-          ...bc,
-          data: bc.data ? sanitizeData(bc.data) : undefined,
-        }));
-      }
-
-      if (event.extra) {
-        event.extra = sanitizeData(event.extra);
-      }
-
-      return event;
-    },
-  });
-}
+  dataCollection: {
+    // To disable sending user data and HTTP bodies, uncomment the lines below. For more info visit:
+    // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#dataCollection
+    // userInfo: false,
+    // httpBodies: [],
+  },
+});

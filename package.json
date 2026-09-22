@@ -16,7 +16,7 @@
     "inngest:dev": "npx inngest-cli@latest dev -u http://localhost:3000/api/inngest"
   },
   "dependencies": {
-    "@sentry/nextjs": "^10.74.0",
+    "@sentry/nextjs": "^10.75.1",
     "@supabase/supabase-js": "^2.49.1",
     "@tiptap/extension-link": "^3.31.3",
     "@tiptap/pm": "^3.31.3",
