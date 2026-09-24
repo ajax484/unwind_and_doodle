@@ -3,6 +3,7 @@ import { getServiceSupabaseClient } from '@/lib/supabase/client';
 import { getPaymentProvider } from '@/services/payment';
 import { fulfillSuccessfulPayment } from '@/services/payment-fulfillment.service';
 import { PAYMENT_STATUS, CURRENCY } from '@/lib/constants';
+import { generateOrderAccessToken } from '@/lib/order-token';
 import '@/services/notification.service';
 
 export async function GET(req: NextRequest) {
@@ -50,6 +51,17 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    let customerEmail = 'guest@order.internal';
+    if (order.customer_id) {
+      const { data: cust } = await supabase
+        .from('customers')
+        .select('email')
+        .eq('id', order.customer_id)
+        .maybeSingle();
+      if (cust?.email) customerEmail = cust.email;
+    }
+    const orderToken = generateOrderAccessToken(order.order_number, customerEmail);
+
     // 3. If payment is already marked successful, return immediately
     if (payment.status === PAYMENT_STATUS.SUCCESSFUL) {
       return NextResponse.json(
@@ -58,6 +70,9 @@ export async function GET(req: NextRequest) {
           orderNumber: order.order_number,
           orderStatus: order.status,
           paymentStatus: payment.status,
+          totalAmount: order.total || payment.amount,
+          currency: payment.currency || CURRENCY.NGN,
+          token: orderToken,
           verified: true,
         },
         { status: 200 }
@@ -97,6 +112,9 @@ export async function GET(req: NextRequest) {
           orderNumber: fulfillment.orderNumber,
           orderStatus: fulfillment.orderStatus,
           paymentStatus: fulfillment.paymentStatus,
+          totalAmount: order.total || payment.amount,
+          currency: payment.currency || CURRENCY.NGN,
+          token: orderToken,
           verified: true,
         },
         { status: 200 }
@@ -109,6 +127,9 @@ export async function GET(req: NextRequest) {
         orderNumber: order.order_number,
         orderStatus: order.status,
         paymentStatus: payment.status,
+        totalAmount: order.total || payment.amount,
+        currency: payment.currency || CURRENCY.NGN,
+        token: orderToken,
         verified: false,
       },
       { status: 200 }
