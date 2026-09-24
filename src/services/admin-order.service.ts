@@ -220,10 +220,10 @@ export async function listAdminOrders(
       ''
     ).trim();
     const isAddressPending =
-      !street ||
-      street.toLowerCase().includes('to be provided') ||
-      street.toLowerCase().includes('pending customer') ||
-      street.toLowerCase().includes('address on file') ||
+      (!street ||
+        street.toLowerCase().includes('to be provided') ||
+        street.toLowerCase().includes('pending customer') ||
+        street.toLowerCase().includes('address on file')) &&
       !o.location_id;
 
     return {
@@ -243,8 +243,12 @@ export async function listAdminOrders(
       },
       location: {
         id: o.location_id || '',
-        name: loc?.name || o.location_id || '',
-        state: loc?.state || '',
+        name:
+          loc?.name ||
+          (addr.city ? String(addr.city) : '') ||
+          (addr.state ? String(addr.state) : '') ||
+          (o.location_id ? String(o.location_id) : 'Direct Delivery'),
+        state: loc?.state || (addr.state ? String(addr.state) : ''),
       },
       itemCount: itemCountMap.get(o.id) || 0,
       totalAmount: o.total,
@@ -663,8 +667,12 @@ export async function getAdminOrderDetail(
     },
     location: {
       id: order.location_id || '',
-      name: location?.name || order.location_id || '',
-      state: location?.state || '',
+      name:
+        location?.name ||
+        (shippingAddrObj.city ? String(shippingAddrObj.city) : '') ||
+        (shippingAddrObj.state ? String(shippingAddrObj.state) : '') ||
+        (order.location_id ? String(order.location_id) : 'Direct Delivery'),
+      state: location?.state || String(shippingAddrObj.state || ''),
       country: 'Nigeria',
     },
     items: detailedItems,

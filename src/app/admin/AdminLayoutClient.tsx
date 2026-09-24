@@ -117,6 +117,7 @@ export default function AdminLayoutClient({
         { label: "Campaigns", href: "/admin/marketing/campaigns", icon: "✉️" },
         { label: "Segments", href: "/admin/marketing/segments", icon: "🎯" },
         { label: "Automations", href: "/admin/marketing/automations", icon: "⚡" },
+        { label: "Historical Import", href: "/admin/marketing/import", icon: "📥" },
         { label: "Discounts", href: "/admin/discounts", icon: "🏷️" },
       ],
     },

@@ -3,6 +3,7 @@ import { Database } from '../lib/supabase/types';
 import { getPaymentProvider, PaymentProvider } from './payment';
 import { fulfillSuccessfulPayment } from './payment-fulfillment.service';
 import { PAYMENT_STATUS, CURRENCY } from '../lib/constants';
+import './notification.service';
 
 export interface ProcessWebhookOptions {
   supabase: SupabaseClient<Database>;

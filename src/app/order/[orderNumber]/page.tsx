@@ -8,6 +8,7 @@ import OrderStatusTimeline from '@/components/OrderStatusTimeline';
 import { formatPrice, formatDate } from '@/lib/format-utils';
 import { getPaymentProviderLabel } from '@/services/payment/provider.types';
 import { BankTransferConfig } from '@/types/payment-settings';
+import { trackPurchase } from '@/lib/meta-pixel';
 
 interface ShippingAddress {
   addressLine1?: string;
@@ -136,6 +137,25 @@ export default function OrderStatusPage() {
       setOrder(json.data);
       if (json.data.payment?.provider) {
         setSelectedRetryMethod(json.data.payment.provider as any);
+      }
+
+      // Track Purchase event with deduplication event_id
+      if (
+        (json.data.payment?.status === 'successful' || json.data.status !== 'created') &&
+        typeof window !== 'undefined' &&
+        !sessionStorage.getItem(`pixel_purchase_${json.data.orderNumber}`)
+      ) {
+        sessionStorage.setItem(`pixel_purchase_${json.data.orderNumber}`, '1');
+        trackPurchase(
+          {
+            value: json.data.totalAmount,
+            currency: json.data.currency || 'NGN',
+            order_id: json.data.orderNumber,
+            num_items: json.data.items?.length,
+            content_ids: json.data.items?.map((item: { id: string; slug: string }) => item.slug || item.id),
+          },
+          json.data.orderNumber // Deduplication eventID
+        );
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error fetching order');

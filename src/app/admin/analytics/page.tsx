@@ -272,11 +272,20 @@ export default function AdminAnalyticsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <HorizontalBarChart
               title="Top Delivery Locations"
-              items={(overviewData?.topLocations || []).map((loc) => ({
-                label: `${loc.locationName} (${loc.state})`,
-                value: loc.orders,
-                secondary: formatCurrency(loc.revenue),
-              }))}
+              items={(overviewData?.topLocations || []).map((loc) => {
+                const isSameOrNA =
+                  !loc.state ||
+                  loc.state === 'N/A' ||
+                  loc.locationName.trim().toLowerCase() === loc.state.trim().toLowerCase();
+                const label = isSameOrNA
+                  ? loc.locationName
+                  : `${loc.locationName} (${loc.state})`;
+                return {
+                  label,
+                  value: loc.orders,
+                  secondary: formatCurrency(loc.revenue),
+                };
+              })}
               emptyMessage="No location data recorded in this period"
             />
 

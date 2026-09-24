@@ -9,6 +9,7 @@ import { PaymentProviderName } from '@/services/payment/provider.types';
 import { getCartHeaders, setClientCartSessionId, dispatchCartUpdated } from '@/lib/cart-client';
 import DeliveryLocationPicker from '@/components/DeliveryLocationPicker';
 import { toast } from 'sonner';
+import { trackInitiateCheckout } from '@/lib/meta-pixel';
 
 interface DeliveryLocation {
   id: string;
@@ -80,6 +81,13 @@ export default function CheckoutPage() {
         if (cartJson.success && cartJson.data) {
           if (cartJson.data.sessionId) setClientCartSessionId(cartJson.data.sessionId);
           setCart(cartJson.data);
+
+          trackInitiateCheckout({
+            num_items: cartJson.data.itemCount || cartJson.data.items?.length,
+            value: cartJson.data.subtotal,
+            currency: 'NGN',
+            content_ids: cartJson.data.items?.map((item: CartItemDetail) => item.productId),
+          });
         }
 
         if (locRes.ok) {

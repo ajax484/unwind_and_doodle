@@ -259,12 +259,12 @@ describe('Step 2A: Marketing Automation Foundation', () => {
     const activeAutomation: MarketingAutomation = {
       id: 'auto-1',
       organization_id: orgAlpha,
-      name: 'Order Paid Automation',
+      name: 'Order Received Automation',
       type: 'post_purchase',
       status: 'active',
       config: {
-        trigger: { type: 'order.paid' },
-        delay: { amount: 1, unit: 'days' },
+        trigger: { type: 'order.received' },
+        delay: { amount: 2, unit: 'days' },
         action: { type: 'email', campaignId: validCampaignId },
       },
       created_by: adminId,
@@ -274,7 +274,7 @@ describe('Step 2A: Marketing Automation Foundation', () => {
 
     it('matches when active automation matches event type, organization, and valid payload', () => {
       const match = matchesAutomationTrigger(activeAutomation, {
-        event_type: 'order.paid',
+        event_type: 'order.received',
         organization_id: orgAlpha,
         payload: {
           orderId: 'ord-123',
@@ -448,7 +448,7 @@ describe('Step 2A: Marketing Automation Foundation', () => {
         name: 'Post Purchase',
         type: 'post_purchase',
         config: {
-          trigger: { type: 'order.paid' },
+          trigger: { type: 'order.received' },
           action: { type: 'email', campaignId: validCampaignId },
         },
       });

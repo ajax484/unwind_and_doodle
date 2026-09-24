@@ -38,9 +38,9 @@ export const AUTOMATION_TYPE_METADATA: Record<MarketingAutomationType, Automatio
   post_purchase: {
     type: 'post_purchase',
     label: 'Post-Purchase Follow-up',
-    description: 'Engage customers with instructions, care tips, or cross-sells after purchase.',
-    compatibleEventTypes: ['order.paid', 'order.created'],
-    defaultDelay: { amount: 1, unit: 'days' },
+    description: 'Engage customers with reviews, recommendations, and care tips after delivery.',
+    compatibleEventTypes: ['order.received'],
+    defaultDelay: { amount: 2, unit: 'days' },
   },
   win_back: {
     type: 'win_back',
@@ -71,6 +71,8 @@ export function getAutomationTriggerTypes(): AutomationTriggerEventType[] {
     'checkout.abandoned',
     'order.created',
     'order.paid',
+    'order.received',
+    'order.delivery_estimated',
     'customer.inactive',
   ];
 }
@@ -227,6 +229,27 @@ export function normalizeAutomationSteps(config: MarketingAutomationConfig): Mar
 }
 
 /**
+ * Creates the canonical 3-step post-delivery retention journey:
+ * 1. Delivery + 2 days: Lightweight engagement / review invitation
+ * 2. Delivery + 10 days (+8d after step 1): Product discovery / cross-sell with personalized recommendations
+ * 3. Delivery + 21 days (+11d after step 2): Continued engagement / nurture
+ */
+export function createCanonicalPostDeliveryJourney(campaignIds: {
+  reviewCampaignId: string;
+  crossSellCampaignId: string;
+  nurtureCampaignId: string;
+}): MarketingJourneyStep[] {
+  return [
+    { id: 'step-delay-2d', type: 'delay', amount: 2, unit: 'days' },
+    { id: 'step-send-review', type: 'send_email', campaignId: campaignIds.reviewCampaignId },
+    { id: 'step-delay-8d', type: 'delay', amount: 8, unit: 'days' },
+    { id: 'step-send-cross-sell', type: 'send_email', campaignId: campaignIds.crossSellCampaignId },
+    { id: 'step-delay-11d', type: 'delay', amount: 11, unit: 'days' },
+    { id: 'step-send-nurture', type: 'send_email', campaignId: campaignIds.nurtureCampaignId },
+  ];
+}
+
+/**
  * Checks if a domain event matches an automation's trigger configuration.
  *
  * Ground rules:
@@ -258,7 +281,11 @@ export function matchesAutomationTrigger(
 
   // Map incoming commerce event to canonical marketing trigger event type
   const canonicalTriggerType: string =
-    event.event_type === 'payment.completed' ? 'order.paid' : event.event_type;
+    event.event_type === 'payment.completed'
+      ? 'order.paid'
+      : event.event_type === 'order.delivery_estimated'
+      ? 'order.received'
+      : event.event_type;
 
   const meta = AUTOMATION_TYPE_METADATA[automation.type];
   if (!meta || !meta.compatibleEventTypes.includes(canonicalTriggerType as AutomationTriggerEventType)) {
@@ -272,7 +299,8 @@ export function matchesAutomationTrigger(
 
   const isTypeMatched =
     config.trigger.type === event.event_type ||
-    (config.trigger.type === 'order.paid' && event.event_type === 'payment.completed');
+    (config.trigger.type === 'order.paid' && event.event_type === 'payment.completed') ||
+    (config.trigger.type === 'order.received' && event.event_type === 'order.delivery_estimated');
 
   if (!isTypeMatched) {
     return false;
@@ -288,7 +316,9 @@ export function matchesAutomationTrigger(
   if (
     event.event_type === 'order.paid' ||
     event.event_type === 'order.created' ||
-    event.event_type === 'payment.completed'
+    event.event_type === 'payment.completed' ||
+    event.event_type === 'order.received' ||
+    event.event_type === 'order.delivery_estimated'
   ) {
     const hasOrder = Boolean(payload.orderId || payload.order_id || payload.orderNumber || payload.id);
     const hasCustomer = Boolean(payload.customerId || payload.customer_id || payload.customerEmail || payload.email);

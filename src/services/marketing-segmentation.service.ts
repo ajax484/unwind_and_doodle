@@ -10,11 +10,18 @@ import {
   SegmentCustomerPreviewResult,
   SegmentRuleValidationError,
 } from '@/types/marketing';
+import { ORDER_STATUS } from '@/lib/constants';
 import { getSegmentById } from './marketing-segment.service';
 
 // ============================================================================
 // 1. VALIDATION LAYER
 // ============================================================================
+
+export const QUALIFYING_PURCHASE_ORDER_STATUSES: readonly string[] = [
+  ORDER_STATUS.CONFIRMED,
+  ORDER_STATUS.SHIPPED,
+  ORDER_STATUS.RECEIVED,
+];
 
 const SUPPORTED_CUSTOMER_FIELDS: readonly SegmentField[] = [
   'email',
@@ -29,6 +36,18 @@ const SUPPORTED_PURCHASE_FIELDS: readonly SegmentField[] = [
   'last_order_at',
   'order_count',
   'total_spent',
+];
+
+const SUPPORTED_PRODUCT_FIELDS: readonly SegmentField[] = [
+  'purchased_product',
+  'not_purchased_product',
+  'purchased_any_product',
+  'purchased_all_products',
+];
+
+const SUPPORTED_LOCATION_FIELDS: readonly SegmentField[] = [
+  'shipping_state',
+  'shipping_city',
 ];
 
 const STRING_OPERATORS: readonly SegmentOperator[] = [
@@ -60,6 +79,17 @@ const NUMERIC_OPERATORS: readonly SegmentOperator[] = [
   'greater_than_or_equal',
   'less_than_or_equal',
   'between',
+];
+
+const LOCATION_OPERATORS: readonly SegmentOperator[] = [
+  'equals',
+  'not_equals',
+  'contains',
+  'starts_with',
+  'ends_with',
+  'is_null',
+  'is_not_null',
+  'in',
 ];
 
 function isValidDateString(val: unknown): boolean {
@@ -102,8 +132,10 @@ export function validateSegmentRules(rules: unknown): SegmentRules {
 
     const isCustomerField = SUPPORTED_CUSTOMER_FIELDS.includes(field);
     const isPurchaseField = SUPPORTED_PURCHASE_FIELDS.includes(field);
+    const isProductField = SUPPORTED_PRODUCT_FIELDS.includes(field);
+    const isLocationField = SUPPORTED_LOCATION_FIELDS.includes(field);
 
-    if (!isCustomerField && !isPurchaseField) {
+    if (!isCustomerField && !isPurchaseField && !isProductField && !isLocationField) {
       throw new SegmentRuleValidationError(
         `Condition at index ${i} has unsupported field "${String(field)}"`
       );
@@ -177,6 +209,55 @@ export function validateSegmentRules(rules: unknown): SegmentRules {
           `Field "${field}" with operator "${operator}" requires a finite number value`
         );
       }
+    } else if (['purchased_product', 'not_purchased_product'].includes(field)) {
+      if (operator !== 'equals') {
+        throw new SegmentRuleValidationError(
+          `Field "${field}" does not support operator "${operator}". Supported: equals`
+        );
+      }
+      if (typeof value !== 'string' || !value.trim()) {
+        throw new SegmentRuleValidationError(
+          `Field "${field}" requires a non-empty product ID string`
+        );
+      }
+    } else if (['purchased_any_product', 'purchased_all_products'].includes(field)) {
+      if (operator !== 'in') {
+        throw new SegmentRuleValidationError(
+          `Field "${field}" does not support operator "${operator}". Supported: in`
+        );
+      }
+      if (
+        !Array.isArray(value) ||
+        value.length === 0 ||
+        !value.every((v) => typeof v === 'string' && v.trim().length > 0)
+      ) {
+        throw new SegmentRuleValidationError(
+          `Field "${field}" requires a non-empty array of product ID strings`
+        );
+      }
+    } else if (['shipping_state', 'shipping_city'].includes(field)) {
+      if (!LOCATION_OPERATORS.includes(operator)) {
+        throw new SegmentRuleValidationError(
+          `Field "${field}" does not support operator "${operator}". Supported: ${LOCATION_OPERATORS.join(', ')}`
+        );
+      }
+      if (operator === 'in') {
+        if (
+          !Array.isArray(value) ||
+          value.length === 0 ||
+          !value.every((v) => typeof v === 'string' && v.trim().length > 0)
+        ) {
+          throw new SegmentRuleValidationError(
+            `Field "${field}" with operator "in" requires a non-empty array of location strings`
+          );
+        }
+      } else if (operator !== 'is_null' && operator !== 'is_not_null') {
+        if (typeof value !== 'string' || !value.trim()) {
+          throw new SegmentRuleValidationError(
+            `Field "${field}" with operator "${operator}" requires a non-empty string value`
+          );
+        }
+      }
     }
 
     conditions.push({ field, operator, value });
@@ -203,11 +284,103 @@ interface CustomerCohortData {
   order_count: number;
   total_spent: number;
   last_order_at: string | null;
+  shipping_state: string | null;
+  shipping_city: string | null;
+  purchasedProductIds: Set<string>;
 }
 
-function evaluateCondition(customer: CustomerCohortData, condition: SegmentCondition): boolean {
+function normalizeLocation(val: unknown): string {
+  return typeof val === 'string' ? val.trim().toLowerCase() : '';
+}
+
+function evaluateCondition(
+  customer: CustomerCohortData,
+  condition: SegmentCondition,
+  validTenantProductIds: Set<string>
+): boolean {
   const { field, operator, value } = condition;
-  const fieldValue = customer[field];
+
+  // 1. Product predicates
+  if (SUPPORTED_PRODUCT_FIELDS.includes(field)) {
+    switch (field) {
+      case 'purchased_product': {
+        const targetId = typeof value === 'string' ? value.trim() : '';
+        if (!targetId || !validTenantProductIds.has(targetId)) {
+          return false;
+        }
+        return customer.purchasedProductIds.has(targetId);
+      }
+
+      case 'not_purchased_product': {
+        const targetId = typeof value === 'string' ? value.trim() : '';
+        // Fail-safe: if referenced product is not in tenant's catalog, do NOT match anyone
+        if (!targetId || !validTenantProductIds.has(targetId)) {
+          return false;
+        }
+        return !customer.purchasedProductIds.has(targetId);
+      }
+
+      case 'purchased_any_product': {
+        if (!Array.isArray(value) || value.length === 0) return false;
+        return value.some((pid) => {
+          const id = typeof pid === 'string' ? pid.trim() : '';
+          return id && validTenantProductIds.has(id) && customer.purchasedProductIds.has(id);
+        });
+      }
+
+      case 'purchased_all_products': {
+        if (!Array.isArray(value) || value.length === 0) return false;
+        return value.every((pid) => {
+          const id = typeof pid === 'string' ? pid.trim() : '';
+          return id && validTenantProductIds.has(id) && customer.purchasedProductIds.has(id);
+        });
+      }
+
+      default:
+        return false;
+    }
+  }
+
+  // 2. Location predicates
+  if (SUPPORTED_LOCATION_FIELDS.includes(field)) {
+    const rawVal = field === 'shipping_state' ? customer.shipping_state : customer.shipping_city;
+    const locVal = normalizeLocation(rawVal);
+
+    if (operator === 'is_null') {
+      return !locVal;
+    }
+    if (operator === 'is_not_null') {
+      return Boolean(locVal);
+    }
+    if (!locVal) return false;
+
+    if (operator === 'in') {
+      if (!Array.isArray(value)) return false;
+      const targets = value.map((v) => normalizeLocation(v)).filter(Boolean);
+      return targets.includes(locVal);
+    }
+
+    const target = normalizeLocation(value);
+    if (!target) return false;
+
+    switch (operator) {
+      case 'equals':
+        return locVal === target;
+      case 'not_equals':
+        return locVal !== target;
+      case 'contains':
+        return locVal.includes(target);
+      case 'starts_with':
+        return locVal.startsWith(target);
+      case 'ends_with':
+        return locVal.endsWith(target);
+      default:
+        return false;
+    }
+  }
+
+  // 3. Customer & Purchase scalar fields
+  const fieldValue = customer[field as keyof Omit<CustomerCohortData, 'shipping_state' | 'shipping_city' | 'purchasedProductIds'>];
 
   switch (operator) {
     case 'is_null':
@@ -226,7 +399,6 @@ function evaluateCondition(customer: CustomerCohortData, condition: SegmentCondi
       if (typeof fieldValue === 'string') {
         if (field === 'created_at' || field === 'last_order_at') {
           if (!isValidDateString(value)) return false;
-          // Compare day or exact time
           return new Date(fieldValue).getTime() === new Date(value as string).getTime();
         }
         return fieldValue.toLowerCase() === String(value).toLowerCase();
@@ -297,6 +469,11 @@ function evaluateCondition(customer: CustomerCohortData, condition: SegmentCondi
       if (typeof fieldValue !== 'number') return false;
       return fieldValue <= Number(value);
 
+    case 'in': {
+      if (!Array.isArray(value)) return false;
+      return value.map((v) => String(v).toLowerCase()).includes(String(fieldValue).toLowerCase());
+    }
+
     default:
       return false;
   }
@@ -331,19 +508,19 @@ export async function resolveCohortRules(
     return [];
   }
 
-  // 2. Fetch valid orders for the organization (excluding cancelled and refunded)
+  // 2. Fetch valid orders for the organization (qualifying paid/completed orders)
   const { data: rawOrders, error: orderErr } = await supabase
     .from('orders')
-    .select('id, customer_id, total, status, created_at')
+    .select('id, customer_id, total, status, shipping_address, created_at')
     .eq('organization_id', organizationId);
 
   if (orderErr) {
     throw new Error(`Failed to fetch orders for segmentation: ${orderErr.message}`);
   }
 
-  // Filter out cancelled and refunded orders
+  // Filter qualifying paid/completed orders (confirmed, shipped, received)
   const validOrders = (rawOrders || []).filter(
-    (o) => o.customer_id && o.status !== 'cancelled' && o.status !== 'refunded'
+    (o) => o.customer_id && QUALIFYING_PURCHASE_ORDER_STATUSES.includes(o.status)
   );
 
   // Aggregate purchase history per customer
@@ -370,7 +547,133 @@ export async function resolveCohortRules(
     customerOrderMap.set(custId, cur);
   }
 
-  // 3. Evaluate conditions against each customer
+  // 3. Resolve shipping location (latest qualifying order shipping address)
+  const customerLatestLocationMap = new Map<
+    string,
+    { state: string | null; city: string | null }
+  >();
+
+  const sortedValidOrders = [...validOrders].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  for (const o of sortedValidOrders) {
+    const custId = o.customer_id!;
+    if (!customerLatestLocationMap.has(custId)) {
+      let state: string | null = null;
+      let city: string | null = null;
+
+      if (o.shipping_address && typeof o.shipping_address === 'object') {
+        const addr = o.shipping_address as Record<string, unknown>;
+        if (typeof addr.state === 'string' && addr.state.trim()) {
+          state = addr.state.trim();
+        }
+        if (typeof addr.city === 'string' && addr.city.trim()) {
+          city = addr.city.trim();
+        }
+      }
+
+      customerLatestLocationMap.set(custId, { state, city });
+    }
+  }
+
+  // Fallback to customer_addresses for customers who haven't placed an order yet
+  const hasLocationConditions = rules.conditions.some((c) =>
+    SUPPORTED_LOCATION_FIELDS.includes(c.field)
+  );
+
+  if (hasLocationConditions) {
+    const missingLocationCustomerIds = customers
+      .filter((c) => !customerLatestLocationMap.has(c.id))
+      .map((c) => c.id);
+
+    if (missingLocationCustomerIds.length > 0) {
+      const { data: rawAddresses } = await supabase
+        .from('customer_addresses')
+        .select('customer_id, state, lga, is_default')
+        .in('customer_id', missingLocationCustomerIds);
+
+      if (rawAddresses && rawAddresses.length > 0) {
+        for (const addr of rawAddresses) {
+          if (!customerLatestLocationMap.has(addr.customer_id) || addr.is_default) {
+            customerLatestLocationMap.set(addr.customer_id, {
+              state: addr.state || null,
+              city: addr.lga || null,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // 4. Resolve product purchases if product conditions exist
+  const hasProductConditions = rules.conditions.some((c) =>
+    SUPPORTED_PRODUCT_FIELDS.includes(c.field)
+  );
+
+  const validTenantProductIds = new Set<string>();
+  const customerProductMap = new Map<string, Set<string>>();
+
+  if (hasProductConditions) {
+    // Collect all referenced product IDs across rules
+    const referencedProductIds = new Set<string>();
+    for (const cond of rules.conditions) {
+      if (SUPPORTED_PRODUCT_FIELDS.includes(cond.field)) {
+        if (typeof cond.value === 'string' && cond.value.trim()) {
+          referencedProductIds.add(cond.value.trim());
+        } else if (Array.isArray(cond.value)) {
+          for (const v of cond.value) {
+            if (typeof v === 'string' && v.trim()) {
+              referencedProductIds.add(v.trim());
+            }
+          }
+        }
+      }
+    }
+
+    if (referencedProductIds.size > 0) {
+      const { data: tenantProducts, error: prodErr } = await supabase
+        .from('products')
+        .select('id, name, status')
+        .eq('organization_id', organizationId)
+        .in('id', Array.from(referencedProductIds));
+
+      if (!prodErr && tenantProducts) {
+        for (const p of tenantProducts) {
+          validTenantProductIds.add(p.id);
+        }
+      }
+    }
+
+    const validOrderIds = validOrders.map((o) => o.id);
+    if (validOrderIds.length > 0) {
+      const orderCustomerMap = new Map<string, string>();
+      for (const o of validOrders) {
+        orderCustomerMap.set(o.id, o.customer_id!);
+      }
+
+      const { data: rawOrderItems, error: itemsErr } = await supabase
+        .from('order_items')
+        .select('order_id, product_id')
+        .in('order_id', validOrderIds);
+
+      if (!itemsErr && rawOrderItems) {
+        for (const item of rawOrderItems) {
+          const custId = orderCustomerMap.get(item.order_id);
+          if (custId && item.product_id) {
+            let set = customerProductMap.get(custId);
+            if (!set) {
+              set = new Set<string>();
+              customerProductMap.set(custId, set);
+            }
+            set.add(item.product_id);
+          }
+        }
+      }
+    }
+  }
+
+  // 5. Evaluate conditions against each customer
   const matchedCustomers: SegmentCustomer[] = [];
 
   for (const c of customers) {
@@ -379,6 +682,11 @@ export async function resolveCohortRules(
       total_spent: 0,
       last_order_at: null,
     };
+    const location = customerLatestLocationMap.get(c.id) || {
+      state: null,
+      city: null,
+    };
+    const purchasedProducts = customerProductMap.get(c.id) || new Set<string>();
 
     const cohortData: CustomerCohortData = {
       id: c.id,
@@ -391,14 +699,21 @@ export async function resolveCohortRules(
       order_count: orderStats.order_count,
       total_spent: orderStats.total_spent,
       last_order_at: orderStats.last_order_at,
+      shipping_state: location.state,
+      shipping_city: location.city,
+      purchasedProductIds: purchasedProducts,
     };
 
     let isMatch = false;
 
     if (rules.match === 'all') {
-      isMatch = rules.conditions.every((cond) => evaluateCondition(cohortData, cond));
+      isMatch = rules.conditions.every((cond) =>
+        evaluateCondition(cohortData, cond, validTenantProductIds)
+      );
     } else {
-      isMatch = rules.conditions.some((cond) => evaluateCondition(cohortData, cond));
+      isMatch = rules.conditions.some((cond) =>
+        evaluateCondition(cohortData, cond, validTenantProductIds)
+      );
     }
 
     if (isMatch) {

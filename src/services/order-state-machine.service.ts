@@ -177,17 +177,24 @@ export async function transitionOrderStatus(
   }
 
   // 6. Publish domain events (specific lifecycle event + general change event)
+  const deliverySource =
+    (metadata?.deliverySource as string) ||
+    (targetStatus === ORDER_STATUS.RECEIVED ? 'actual' : undefined);
+
   await Promise.all([
     publishDomainEvent(supabase, {
       eventType: `order.${targetStatus}`,
       aggregateType: 'order',
       aggregateId: orderId,
+      organizationId: orgId,
       payload: {
         orderId,
         orderNumber: order.order_number,
+        organizationId: orgId,
         previousStatus: currentStatus,
         newStatus: targetStatus,
         customerId: order.customer_id,
+        deliverySource,
         updatedBy: userId || null,
         note: note || null,
         timestamp: now,
@@ -197,9 +204,11 @@ export async function transitionOrderStatus(
       eventType: 'order.status_changed',
       aggregateType: 'order',
       aggregateId: orderId,
+      organizationId: orgId,
       payload: {
         orderId,
         orderNumber: order.order_number,
+        organizationId: orgId,
         previousStatus: currentStatus,
         newStatus: targetStatus,
         updatedBy: userId || null,

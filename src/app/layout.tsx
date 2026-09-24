@@ -6,6 +6,7 @@ import Footer from '@/components/Footer';
 import CartDrawer from '@/components/CartDrawer';
 import { Toaster } from 'sonner';
 import { CartProvider } from '@/context/CartContext';
+import MetaPixel from '@/components/analytics/MetaPixel';
 
 const fredoka = Fredoka({
   subsets: ['latin'],
@@ -21,10 +22,77 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   display: 'swap',
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://unwindanddoodle.com';
+
 export const metadata: Metadata = {
-  title: 'Unwind & Doodle | Mindful Coloring Books & Journals',
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: 'Unwind & Doodle | Mindful Coloring Books & Journals',
+    template: '%s | Unwind & Doodle',
+  },
   description:
-    'Escape everyday stress and unleash your creativity with our beautifully designed coloring books and customizable journals.',
+    'Escape everyday stress and unleash your creativity with our beautifully designed coloring books, customizable journals, and mindful stationery.',
+  keywords: [
+    'Coloring Books',
+    'Custom Journals',
+    'Mindfulness',
+    'Art Therapy',
+    'Stress Relief',
+    'Doodling',
+    'Stationery',
+    'Unwind & Doodle',
+  ],
+  authors: [{ name: 'Unwind & Doodle' }],
+  creator: 'Unwind & Doodle',
+  publisher: 'Unwind & Doodle',
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  icons: {
+    icon: [
+      { url: '/logo.ico' },
+      { url: '/logo.png', sizes: '192x192', type: 'image/png' },
+      { url: '/logo.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/logo.ico',
+    apple: [{ url: '/logo.png', sizes: '180x180', type: 'image/png' }],
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: siteUrl,
+    siteName: 'Unwind & Doodle',
+    title: 'Unwind & Doodle | Mindful Coloring Books & Journals',
+    description:
+      'Escape everyday stress and unleash your creativity with our beautifully designed coloring books and customizable journals.',
+    images: [
+      {
+        url: '/logo.png',
+        width: 1200,
+        height: 630,
+        alt: 'Unwind & Doodle',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Unwind & Doodle | Mindful Coloring Books & Journals',
+    description:
+      'Escape everyday stress and unleash your creativity with our beautifully designed coloring books and customizable journals.',
+    images: ['/logo.png'],
+    creator: '@unwindanddoodle',
+  },
+  alternates: {
+    canonical: '/',
+  },
 };
 
 export default function RootLayout({
@@ -43,6 +111,7 @@ export default function RootLayout({
         />
       </head>
       <body className={`${fredoka.variable} ${plusJakartaSans.variable} antialiased min-h-screen flex flex-col bg-bg-default text-text-primary`}>
+        <MetaPixel />
         <CartProvider>
           <Navbar />
           <main className="grow">{children}</main>

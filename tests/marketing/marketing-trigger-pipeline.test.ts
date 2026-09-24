@@ -18,9 +18,9 @@ describe('Marketing Automation Trigger Pipeline & E-Commerce Integration', () =>
   });
 
   // ============================================================================
-  // 1. PAYMENT.COMPLETED -> ORDER.PAID CANONICAL MAPPING
+  // 1. ORDER.RECEIVED POST-PURCHASE RETENTION TRIGGER
   // ============================================================================
-  describe('Canonical Event Mapping: payment.completed -> order.paid', () => {
+  describe('Post-Purchase Retention Trigger: order.received vs order.paid', () => {
     const postPurchaseAutomation: MarketingAutomation = {
       id: 'auto-post-purchase-1',
       organization_id: orgAlpha,
@@ -28,7 +28,7 @@ describe('Marketing Automation Trigger Pipeline & E-Commerce Integration', () =>
       type: 'post_purchase',
       status: 'active',
       config: {
-        trigger: { type: 'order.paid' },
+        trigger: { type: 'order.received' },
         action: { type: 'email', campaignId: 'camp-thank-you' },
       },
       created_by: 'user-admin',
@@ -36,24 +36,53 @@ describe('Marketing Automation Trigger Pipeline & E-Commerce Integration', () =>
       updated_at: new Date().toISOString(),
     };
 
-    it('matches payment.completed commerce event to order.paid automation trigger', () => {
+    it('matches order.received commerce event to post-purchase automation trigger', () => {
+      const orderReceivedEvent = {
+        event_type: 'order.received',
+        organization_id: orgAlpha,
+        payload: {
+          orderId: 'ord-999',
+          orderNumber: 'ORD-TEST-001',
+          customerId: 'cust-123',
+          deliverySource: 'actual',
+        },
+      };
+
+      const matched = matchesAutomationTrigger(postPurchaseAutomation, orderReceivedEvent);
+      expect(matched).toBe(true);
+    });
+
+    it('matches fallback order.delivery_estimated to post-purchase automation trigger', () => {
+      const estimatedDeliveryEvent = {
+        event_type: 'order.delivery_estimated',
+        organization_id: orgAlpha,
+        payload: {
+          orderId: 'ord-999',
+          customerId: 'cust-123',
+          deliverySource: 'estimated',
+        },
+      };
+
+      const matched = matchesAutomationTrigger(postPurchaseAutomation, estimatedDeliveryEvent);
+      expect(matched).toBe(true);
+    });
+
+    it('CRITICAL: payment.completed does NOT match post-purchase retention trigger', () => {
       const paymentCompletedEvent = {
         event_type: 'payment.completed',
         organization_id: orgAlpha,
         payload: {
           paymentId: 'pay-123',
           orderId: 'ord-999',
-          orderNumber: 'ORD-TEST-001',
           customerId: 'cust-123',
-          amount: 14500,
         },
       };
 
       const matched = matchesAutomationTrigger(postPurchaseAutomation, paymentCompletedEvent);
-      expect(matched).toBe(true);
+      expect(matched).toBe(false);
     });
 
-    it('preserves matching for direct order.paid events', () => {
+    it('CRITICAL: order.paid does NOT match post-purchase retention trigger', () => {
       const orderPaidEvent = {
         event_type: 'order.paid',
         organization_id: orgAlpha,
@@ -64,35 +93,20 @@ describe('Marketing Automation Trigger Pipeline & E-Commerce Integration', () =>
       };
 
       const matched = matchesAutomationTrigger(postPurchaseAutomation, orderPaidEvent);
-      expect(matched).toBe(true);
-    });
-
-    it('does not match order.paid automation if event is order.created', () => {
-      const orderCreatedEvent = {
-        event_type: 'order.created',
-        organization_id: orgAlpha,
-        payload: {
-          orderId: 'ord-999',
-          customerId: 'cust-123',
-        },
-      };
-
-      const matched = matchesAutomationTrigger(postPurchaseAutomation, orderCreatedEvent);
       expect(matched).toBe(false);
     });
 
-    it('enforces multi-tenant isolation on payment.completed matching', () => {
-      const foreignPaymentEvent = {
-        event_type: 'payment.completed',
+    it('enforces multi-tenant isolation on order.received matching', () => {
+      const foreignEvent = {
+        event_type: 'order.received',
         organization_id: orgBeta,
         payload: {
-          paymentId: 'pay-foreign',
           orderId: 'ord-foreign',
           customerId: 'cust-foreign',
         },
       };
 
-      const matched = matchesAutomationTrigger(postPurchaseAutomation, foreignPaymentEvent);
+      const matched = matchesAutomationTrigger(postPurchaseAutomation, foreignEvent);
       expect(matched).toBe(false);
     });
   });

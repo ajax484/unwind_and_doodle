@@ -486,93 +486,164 @@ export async function dispatchTransactionalEmail(
   }
 }
 
+let handlersInitialized = false;
+
 /**
  * Initializes and registers domain event handlers for post-purchase lifecycle notifications.
  */
 export function initializeNotificationEventHandlers(): void {
+  if (handlersInitialized) return;
+  handlersInitialized = true;
+
   const { appUrl } = getConfig();
 
   // 1. Order Confirmation (on order.pending or payment.completed)
-  registerDomainEventHandler('order.pending', async (event) => {
-    const payload = event.payload as Record<string, unknown>;
-    const orderNumber = (payload.orderNumber as string) || (payload.order_number as string) || event.aggregateId;
-    const email = (payload.email as string) || (payload.customerEmail as string);
+  const handleOrderConfirmation = async (event: {
+    id: string;
+    eventType: string;
+    aggregateType: string;
+    aggregateId: string;
+    payload: unknown;
+    createdAt: string;
+  }) => {
+    const payload = (event.payload && typeof event.payload === 'object' ? event.payload : {}) as Record<string, unknown>;
+    const orderNumber = (payload.orderNumber as string) || (payload.order_number as string) || (event.aggregateType === 'order' ? event.aggregateId : '');
 
+    let email = (payload.email as string) || (payload.customerEmail as string) || '';
+    let items = (payload.items as Array<{ name?: string; product_name?: string; quantity: number; unit_price?: number; price?: number }>) || [];
+    let total = typeof payload.total === 'number' ? payload.total : (typeof payload.amount === 'number' ? payload.amount : undefined);
+    let customerName = (payload.firstName as string) || (payload.customerName as string) || '';
+    let customerId = (payload.customerId as string) || (payload.customer_id as string) || null;
+    let orgId = (payload.organizationId as string) || (payload.organization_id as string);
+    const orderSource = (payload.orderSource as string) || (payload.order_source as string) || 'online';
+
+    // Enrich missing fields from Supabase if needed
+    if (!email || items.length === 0 || !total) {
+      try {
+        const supabase = getServiceSupabaseClient();
+        const orderIdToLookup = (payload.orderId as string) || (event.aggregateType === 'order' ? event.aggregateId : null);
+        
+        let orderRow: any = null;
+        if (orderIdToLookup) {
+          const { data } = await supabase.from('orders').select('*').eq('id', orderIdToLookup).maybeSingle();
+          orderRow = data;
+        } else if (orderNumber) {
+          const { data } = await supabase.from('orders').select('*').eq('order_number', orderNumber).maybeSingle();
+          orderRow = data;
+        }
+
+        if (orderRow) {
+          if (!total) total = orderRow.total;
+          if (!customerId) customerId = orderRow.customer_id;
+          if (!orgId) orgId = orderRow.organization_id;
+
+          if (items.length === 0) {
+            const { data: dbItems } = await supabase.from('order_items').select('*').eq('order_id', orderRow.id);
+            if (dbItems && dbItems.length > 0) {
+              items = dbItems.map((i: any) => ({
+                product_name: i.product_name,
+                name: i.product_name,
+                quantity: i.quantity,
+                unit_price: i.unit_price,
+              }));
+            }
+          }
+
+          if (!email && orderRow.customer_id) {
+            const { data: dbCustomer } = await supabase.from('customers').select('*').eq('id', orderRow.customer_id).maybeSingle();
+            if (dbCustomer) {
+              email = dbCustomer.email || '';
+              if (!customerName) {
+                customerName = `${dbCustomer.first_name || ''} ${dbCustomer.last_name || ''}`.trim() || dbCustomer.first_name || 'Customer';
+              }
+            }
+          }
+        }
+      } catch (enrichErr) {
+        console.warn('[notification.order_enrich_failed]', enrichErr);
+      }
+    }
+
+    const effectiveCustomerName = customerName || 'Valued Customer';
+    const effectiveOrderNumber = orderNumber || event.aggregateId;
+
+    // Send customer confirmation email
     if (email) {
-      const accessToken = generateOrderAccessToken(orderNumber, email);
-      const trackingUrl = `${appUrl}/order/${orderNumber}?token=${accessToken}`;
+      const accessToken = generateOrderAccessToken(effectiveOrderNumber, email);
+      const trackingUrl = `${appUrl}/order/${effectiveOrderNumber}?token=${accessToken}`;
 
       await dispatchTransactionalEmail(
         {
           to: email,
-          subject: `Order Confirmed: #${orderNumber} — Unwind and Doodle`,
+          subject: `Order Confirmed: #${effectiveOrderNumber} — Unwind and Doodle`,
           template: 'order_confirmation',
           data: {
-            orderNumber,
-            customerName: payload.firstName || 'Valued Customer',
-            total: payload.total,
+            orderNumber: effectiveOrderNumber,
+            customerName: effectiveCustomerName,
+            total,
             trackingUrl,
-            items: payload.items || [],
+            items,
           },
         },
-        `notif_order_confirm_${event.id}`
+        `notif_order_confirm_${effectiveOrderNumber}_${email}`
       );
     }
 
-    // Create in-app notifications for customer & admin
+    // Create in-app notifications & send admin email
     try {
       const supabase = getServiceSupabaseClient();
-      const customerId = (payload.customerId as string) || (payload.customer_id as string) || null;
 
       if (customerId) {
         await createInAppNotification(supabase, {
           recipientType: 'customer',
           recipientId: customerId,
-          title: `Order #${orderNumber} Confirmed! 🎉`,
+          title: `Order #${effectiveOrderNumber} Confirmed! 🎉`,
           message: 'Thank you for your order! We are preparing your doodle kit with care.',
           type: 'success',
           category: 'order',
-          link: `/order/${orderNumber}`,
-          metadata: { orderNumber, total: payload.total },
+          link: `/order/${effectiveOrderNumber}`,
+          metadata: { orderNumber: effectiveOrderNumber, total },
         });
       }
 
       await createInAppNotification(supabase, {
         recipientType: 'admin',
-        title: `New Order #${orderNumber}`,
-        message: payload.total ? `New order received totaling ${formatPrice(payload.total as number)}` : `New order #${orderNumber} placed`,
+        title: `New Order #${effectiveOrderNumber}`,
+        message: total ? `New order received totaling ${formatPrice(total)}` : `New order #${effectiveOrderNumber} placed`,
         type: 'info',
         category: 'order',
         link: '/admin/orders',
-        metadata: { orderNumber, total: payload.total },
+        metadata: { orderNumber: effectiveOrderNumber, total },
       });
 
       // Dispatch admin new order alert email
-      const orgId = (payload.organizationId as string) || (payload.organization_id as string);
       const adminRecipients = await getAdminNotificationRecipients(supabase, orgId);
       for (const adminEmail of adminRecipients) {
         await dispatchTransactionalEmail(
           {
             to: adminEmail,
-            subject: `🛒 New Order #${orderNumber} (${payload.total ? formatPrice(payload.total as number) : 'Pending'}) — Unwind and Doodle Admin`,
+            subject: `🛒 New Order #${effectiveOrderNumber} (${total ? formatPrice(total) : 'Pending'}) — Unwind and Doodle Admin`,
             template: 'admin_new_order',
             data: {
-              orderNumber,
-              customerName: payload.firstName || payload.customerName || 'Customer',
+              orderNumber: effectiveOrderNumber,
+              customerName: effectiveCustomerName,
               customerEmail: email || 'N/A',
-              total: payload.total,
-              items: payload.items || [],
-              orderSource: payload.orderSource || payload.order_source || 'online',
+              total,
+              items,
+              orderSource,
               adminUrl: `${appUrl}/admin/orders`,
             },
           },
-          `notif_admin_order_${orderNumber}_${adminEmail}_${event.id}`
+          `notif_admin_order_${effectiveOrderNumber}_${adminEmail}`
         );
       }
     } catch (inAppErr) {
       console.warn('[notification.in_app_skipped]', inAppErr);
     }
-  });
+  };
+
+  registerDomainEventHandler('order.pending', handleOrderConfirmation);
+  registerDomainEventHandler('payment.completed', handleOrderConfirmation);
 
   // 2. Order Shipped Notification
   registerDomainEventHandler('order.shipped', async (event) => {

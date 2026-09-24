@@ -20,6 +20,7 @@ import { recordBreadcrumb, captureError } from '@/lib/observability/error-monito
 import {
   scanAndEmitAbandonedCheckouts,
   scanAndEmitInactiveCustomers,
+  scanAndEmitEstimatedDeliveries,
 } from '@/services/marketing-scanner.service';
 import { dispatchDueScheduledCampaigns } from '@/services/marketing-dispatcher.service';
 
@@ -142,26 +143,68 @@ export const marketingEventOrchestrator = inngest.createFunction(
 
       const scheduledFor = calculateScheduledTime(now, config.delay);
 
+      const payload = (domainEvent.payload && typeof domainEvent.payload === 'object' && !Array.isArray(domainEvent.payload)
+        ? domainEvent.payload
+        : {}) as Record<string, unknown>;
+
+      const orderId = (payload.orderId || payload.order_id || (domainEvent.aggregate_type === 'order' ? domainEvent.aggregate_id : undefined)) as string | undefined;
+      const deliverySource = (payload.deliverySource || 'actual') as 'actual' | 'estimated';
+
       const createdExecution = await step.run(`prepare-execution-${auto.id}`, async () => {
-        // Enforce idempotency on (automation_id, domain_event_id)
-        const { data: existing } = await (supabase as any)
+        // 1. Enforce idempotency on (automation_id, domain_event_id)
+        const { data: existingByEvent } = await (supabase as any)
           .from('marketing_automation_executions')
-          .select('id, status')
+          .select('id, status, delivery_source')
           .eq('automation_id', auto.id)
           .eq('domain_event_id', domainEvent.id)
           .maybeSingle();
 
-        if (existing) {
+        if (existingByEvent) {
           console.info(
             `[inngest_marketing.idempotent_skip] automation_id=${auto.id} event_id=${domainEvent.id}`
           );
           return null;
         }
 
+        // 2. Enforce order-level idempotency on (automation_id, order_id)
+        if (orderId) {
+          const { data: existingByOrder } = await (supabase as any)
+            .from('marketing_automation_executions')
+            .select('id, status, delivery_source')
+            .eq('automation_id', auto.id)
+            .eq('order_id', orderId)
+            .maybeSingle();
+
+          if (existingByOrder) {
+            // If existing was 'estimated' and actual delivery arrives, upgrade delivery_source to 'actual'
+            if (existingByOrder.delivery_source === 'estimated' && deliverySource === 'actual') {
+              await (supabase as any)
+                .from('marketing_automation_executions')
+                .update({
+                  delivery_source: 'actual',
+                  domain_event_id: domainEvent.id,
+                  updated_at: now.toISOString(),
+                })
+                .eq('id', existingByOrder.id);
+
+              console.info(
+                `[inngest_marketing.actual_superseded_estimate] automation_id=${auto.id} order_id=${orderId} execution_id=${existingByOrder.id}`
+              );
+            } else {
+              console.info(
+                `[inngest_marketing.order_idempotent_skip] automation_id=${auto.id} order_id=${orderId} execution_id=${existingByOrder.id}`
+              );
+            }
+            return null;
+          }
+        }
+
         const executionPayload = {
           organization_id: auto.organization_id,
           automation_id: auto.id,
           domain_event_id: domainEvent.id,
+          order_id: orderId || null,
+          delivery_source: deliverySource || 'actual',
           campaign_id: initialCampaignId,
           customer_id: customerContext.customerId,
           customer_email: customerContext.customerEmail,
@@ -656,6 +699,35 @@ export const recoverStaleMarketingExecutionsFunction = inngest.createFunction(
     });
 
     return recoveryResult;
+  }
+);
+
+/**
+ * 7. Scheduled Estimated Delivery Scanner
+ * Runs every hour to identify shipped orders without actual delivery confirmations,
+ * computes destination-aware delivery estimates, and emits 'order.received' events with deliverySource: 'estimated'.
+ */
+export const scanEstimatedDeliveriesFunction = inngest.createFunction(
+  {
+    id: 'scan-estimated-deliveries',
+    name: 'Scan Estimated Deliveries',
+    retries: 2,
+    triggers: [{ cron: '0 * * * *' }], // Hourly
+  },
+  async ({ step }) => {
+    const supabase = getServiceSupabaseClient();
+
+    const scanResult = await step.run('scan-estimated-deliveries-all-orgs', async () => {
+      return await scanAndEmitEstimatedDeliveries(supabase);
+    });
+
+    recordBreadcrumb({
+      category: 'inngest_scanner',
+      message: `Estimated delivery scan completed: ${scanResult.estimatedDelivered} estimated delivered out of ${scanResult.scanned} scanned.`,
+      data: scanResult,
+    });
+
+    return scanResult;
   }
 );
 

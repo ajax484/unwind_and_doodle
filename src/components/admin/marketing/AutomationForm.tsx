@@ -253,24 +253,45 @@ export function AutomationForm({ initialAutomation }: AutomationFormProps) {
             </div>
 
             <Select
-              label="Triggering Domain Event"
+              label="Trigger Condition"
               value={triggerType}
               onChange={(e) => setTriggerType(e.target.value as AutomationTriggerEventType)}
-              options={meta?.compatibleEventTypes.map((et) => ({
-                label: `${et} (Compatible with ${meta.label})`,
-                value: et,
-              })) || []}
-              helperText={`Listens for ${triggerType} domain events emitted by the commerce platform.`}
+              options={
+                meta?.compatibleEventTypes.map((et) => {
+                  const displayLabels: Record<string, string> = {
+                    'order.received': 'When an order is received (Customer delivered)',
+                    'order.paid': 'When an order is paid (Payment confirmed)',
+                    'order.created': 'When an order is placed',
+                    'customer.created': 'When a new customer signs up',
+                    'checkout.abandoned': 'When a checkout is abandoned',
+                    'order.delivery_estimated': 'When delivery is estimated (Fallback)',
+                    'customer.inactive': 'When a customer becomes inactive',
+                  };
+                  return {
+                    label: displayLabels[et] || `${et} (${meta.label})`,
+                    value: et,
+                  };
+                }) || []
+              }
+              helperText={
+                triggerType === 'order.received'
+                  ? 'Starts post-purchase retention journey after the customer receives their order (at Delivery + 2 days, + 10 days, + 21 days).'
+                  : triggerType === 'order.paid'
+                  ? 'Starts immediately after payment confirmation for transactional/payment communications.'
+                  : `Trigger condition for ${meta?.label || 'this automation'}.`
+              }
             />
 
             <div className="bg-bg-subtle p-3.5 rounded-xl border border-border-default text-xs text-text-secondary space-y-1">
-              <span className="font-semibold text-text-primary">Event Payload Requirements:</span>
+              <span className="font-semibold text-text-primary">Lifecycle Meaning:</span>
               <p>
-                {triggerType.startsWith('order.')
-                  ? 'Event payload must contain valid orderId and customer identifier (email or customerId).'
+                {triggerType === 'order.received'
+                  ? 'Delivery confirms receipt and begins the retention relationship, ensuring review and recommendation messages only reach customers after their product has arrived.'
+                  : triggerType === 'order.paid'
+                  ? 'Payment confirms the transaction and should be reserved for immediate order confirmations.'
                   : triggerType === 'checkout.abandoned'
-                  ? 'Event payload must contain cartId/checkoutId or customer email.'
-                  : 'Event payload must contain customerId or email address.'}
+                  ? 'Recovers uncompleted shopping carts after 2 hours of inactivity.'
+                  : 'Triggers on domain events with customer context.'}
               </p>
             </div>
           </div>

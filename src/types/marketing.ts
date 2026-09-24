@@ -189,6 +189,8 @@ export type AutomationTriggerEventType =
   | 'checkout.abandoned'
   | 'order.created'
   | 'order.paid'
+  | 'order.received'
+  | 'order.delivery_estimated'
   | 'customer.inactive';
 
 export interface MarketingAutomationTrigger {
@@ -298,6 +300,8 @@ export interface MarketingAutomationExecution {
   organization_id: string;
   automation_id: string;
   domain_event_id: string;
+  order_id?: string | null;
+  delivery_source?: 'actual' | 'estimated' | null;
   campaign_id: string;
   customer_id: string | null;
   customer_email: string;
@@ -319,7 +323,33 @@ export interface MarketingAutomationExecution {
 
 export interface MarketingAutomationExecutionFilter {
   automation_id?: string;
+  order_id?: string;
   status?: MarketingAutomationExecutionStatus;
+}
+
+export type DeliveryEstimateSource = 'actual' | 'estimated';
+
+export interface DeliveryEstimateConfig {
+  lagosAbujaShippingDays: number;
+  otherStatesShippingDays: number;
+  customItemProductionDays: number;
+  maxEstimateLookbackDays: number;
+}
+
+export const DEFAULT_DELIVERY_ESTIMATE_CONFIG: DeliveryEstimateConfig = {
+  lagosAbujaShippingDays: 2,
+  otherStatesShippingDays: 6,
+  customItemProductionDays: 3,
+  maxEstimateLookbackDays: 14,
+};
+
+export interface DeliveryEstimate {
+  estimatedDeliveryAt: Date;
+  source: DeliveryEstimateSource;
+  shippingDays: number;
+  productionDays: number;
+  isLagosOrAbuja: boolean;
+  hasCustomItems: boolean;
 }
 
 // ============================================================================
@@ -339,7 +369,21 @@ export type PurchaseSegmentField =
   | 'order_count'
   | 'total_spent';
 
-export type SegmentField = CustomerSegmentField | PurchaseSegmentField;
+export type ProductSegmentField =
+  | 'purchased_product'
+  | 'not_purchased_product'
+  | 'purchased_any_product'
+  | 'purchased_all_products';
+
+export type LocationSegmentField =
+  | 'shipping_state'
+  | 'shipping_city';
+
+export type SegmentField =
+  | CustomerSegmentField
+  | PurchaseSegmentField
+  | ProductSegmentField
+  | LocationSegmentField;
 
 export type SegmentOperator =
   | 'equals'
@@ -355,7 +399,8 @@ export type SegmentOperator =
   | 'greater_than_or_equal'
   | 'less_than_or_equal'
   | 'is_null'
-  | 'is_not_null';
+  | 'is_not_null'
+  | 'in';
 
 export interface SegmentCondition {
   field: SegmentField;

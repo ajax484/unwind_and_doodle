@@ -19,6 +19,8 @@ import Select, { SelectOption } from '@/components/Select';
 import Badge from '@/components/Badge';
 import Spinner from '@/components/Spinner';
 import Modal from '@/components/Modal';
+import { ProductPickerModal, SelectableProduct } from '@/components/admin/ProductPickerModal';
+import { MultiProductPickerModal, MultiProductSelection } from '@/components/admin/MultiProductPickerModal';
 
 export interface SegmentFormProps {
   initialSegment?: MarketingSegment | null;
@@ -33,7 +35,15 @@ interface UiCondition {
   error?: string;
 }
 
-type FieldType = 'text' | 'boolean' | 'date' | 'numeric';
+type FieldType =
+  | 'text'
+  | 'boolean'
+  | 'date'
+  | 'numeric'
+  | 'product'
+  | 'product_multi'
+  | 'location_state'
+  | 'location_city';
 
 interface FieldConfig {
   value: SegmentField;
@@ -42,15 +52,21 @@ interface FieldConfig {
 }
 
 const FIELD_CONFIGS: FieldConfig[] = [
-  { value: 'email', label: 'Email', type: 'text' },
-  { value: 'first_name', label: 'First name', type: 'text' },
-  { value: 'last_name', label: 'Last name', type: 'text' },
-  { value: 'email_marketing_consent', label: 'Email marketing consent', type: 'boolean' },
-  { value: 'whatsapp_marketing_consent', label: 'WhatsApp marketing consent', type: 'boolean' },
-  { value: 'created_at', label: 'Customer created at', type: 'date' },
-  { value: 'last_order_at', label: 'Last order date', type: 'date' },
-  { value: 'order_count', label: 'Order count', type: 'numeric' },
-  { value: 'total_spent', label: 'Total spent (₦)', type: 'numeric' },
+  { value: 'email', label: 'Customer: Email', type: 'text' },
+  { value: 'first_name', label: 'Customer: First name', type: 'text' },
+  { value: 'last_name', label: 'Customer: Last name', type: 'text' },
+  { value: 'email_marketing_consent', label: 'Customer: Email consent', type: 'boolean' },
+  { value: 'whatsapp_marketing_consent', label: 'Customer: WhatsApp consent', type: 'boolean' },
+  { value: 'created_at', label: 'Customer: Created at', type: 'date' },
+  { value: 'purchased_product', label: 'Product: Purchased product', type: 'product' },
+  { value: 'not_purchased_product', label: 'Product: Has not purchased product', type: 'product' },
+  { value: 'purchased_any_product', label: 'Product: Purchased any of', type: 'product_multi' },
+  { value: 'purchased_all_products', label: 'Product: Purchased all of', type: 'product_multi' },
+  { value: 'shipping_state', label: 'Shipping: State / Region', type: 'location_state' },
+  { value: 'shipping_city', label: 'Shipping: City / LGA', type: 'location_city' },
+  { value: 'last_order_at', label: 'Purchase: Last order date', type: 'date' },
+  { value: 'order_count', label: 'Purchase: Order count', type: 'numeric' },
+  { value: 'total_spent', label: 'Purchase: Total spent (₦)', type: 'numeric' },
 ];
 
 const TEXT_OPERATORS: { value: SegmentOperator; label: string }[] = [
@@ -87,6 +103,40 @@ const NUMERIC_OPERATORS: { value: SegmentOperator; label: string }[] = [
   { value: 'between', label: 'is between' },
 ];
 
+const PRODUCT_SINGLE_OPERATORS: { value: SegmentOperator; label: string }[] = [
+  { value: 'equals', label: 'is' },
+];
+
+const PRODUCT_MULTI_OPERATORS: { value: SegmentOperator; label: string }[] = [
+  { value: 'in', label: 'includes' },
+];
+
+const LOCATION_STATE_OPERATORS: { value: SegmentOperator; label: string }[] = [
+  { value: 'equals', label: 'is equal to' },
+  { value: 'not_equals', label: 'is not equal to' },
+  { value: 'contains', label: 'contains' },
+  { value: 'is_null', label: 'is not set' },
+  { value: 'is_not_null', label: 'is set' },
+];
+
+const LOCATION_CITY_OPERATORS: { value: SegmentOperator; label: string }[] = [
+  { value: 'equals', label: 'is equal to' },
+  { value: 'not_equals', label: 'is not equal to' },
+  { value: 'contains', label: 'contains' },
+  { value: 'starts_with', label: 'starts with' },
+  { value: 'ends_with', label: 'ends with' },
+  { value: 'is_null', label: 'is not set' },
+  { value: 'is_not_null', label: 'is set' },
+];
+
+export const NIGERIA_STATES = [
+  'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
+  'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'Federal Capital Territory (Abuja)',
+  'Gombe', 'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara',
+  'Lagos', 'Nasarawa', 'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers',
+  'Sokoto', 'Taraba', 'Yobe', 'Zamfara'
+];
+
 function getFieldType(field: SegmentField): FieldType {
   const cfg = FIELD_CONFIGS.find((f) => f.value === field);
   return cfg?.type || 'text';
@@ -100,6 +150,14 @@ function getAvailableOperators(fieldType: FieldType): { value: SegmentOperator; 
       return DATE_OPERATORS;
     case 'numeric':
       return NUMERIC_OPERATORS;
+    case 'product':
+      return PRODUCT_SINGLE_OPERATORS;
+    case 'product_multi':
+      return PRODUCT_MULTI_OPERATORS;
+    case 'location_state':
+      return LOCATION_STATE_OPERATORS;
+    case 'location_city':
+      return LOCATION_CITY_OPERATORS;
     case 'text':
     default:
       return TEXT_OPERATORS;
@@ -114,6 +172,13 @@ function getDefaultOperator(fieldType: FieldType): SegmentOperator {
       return 'after';
     case 'numeric':
       return 'greater_than';
+    case 'product':
+      return 'equals';
+    case 'product_multi':
+      return 'in';
+    case 'location_state':
+    case 'location_city':
+      return 'equals';
     case 'text':
     default:
       return 'contains';
@@ -129,6 +194,15 @@ function getDefaultValue(fieldType: FieldType, operator: SegmentOperator): any {
   }
   if (fieldType === 'numeric') {
     return 0;
+  }
+  if (fieldType === 'product') {
+    return '';
+  }
+  if (fieldType === 'product_multi') {
+    return [];
+  }
+  if (fieldType === 'location_state') {
+    return 'Lagos';
   }
   return '';
 }
@@ -212,6 +286,43 @@ export function SegmentForm({ initialSegment }: SegmentFormProps) {
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
 
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Product Selection Modal States
+  const [activePickerConditionId, setActivePickerConditionId] = useState<string | null>(null);
+  const [isSinglePickerOpen, setIsSinglePickerOpen] = useState(false);
+  const [isMultiPickerOpen, setIsMultiPickerOpen] = useState(false);
+  const [productMetadataMap, setProductMetadataMap] = useState<
+    Map<string, { name: string; sku: string | null; selling_price?: number; status?: string }>
+  >(new Map());
+
+  // Load product catalog metadata for chip displays and unavailable product fallbacks
+  useEffect(() => {
+    let isMounted = true;
+    async function loadProducts() {
+      try {
+        const res = await fetch('/api/admin/products?limit=100');
+        const json = await res.json();
+        if (isMounted && res.ok && json.success && Array.isArray(json.data?.products)) {
+          const map = new Map<string, { name: string; sku: string | null; selling_price?: number; status?: string }>();
+          for (const p of json.data.products) {
+            map.set(p.id, {
+              name: p.name,
+              sku: p.sku || null,
+              selling_price: p.selling_price,
+              status: p.status,
+            });
+          }
+          setProductMetadataMap(map);
+        }
+      } catch {
+        // Non-fatal metadata load
+      }
+    }
+    loadProducts();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // 1. Condition Row Mutators
   const handleFieldChange = (id: string, newField: SegmentField) => {
@@ -411,6 +522,48 @@ export function SegmentForm({ initialSegment }: SegmentFormProps) {
           operator: c.operator,
           value: c.value.trim(),
         });
+      } else if (fieldType === 'product') {
+        if (typeof c.value !== 'string' || !c.value.trim()) {
+          errors.push(`Condition #${i + 1}: Please select a product.`);
+          continue;
+        }
+        validConditions.push({
+          field: c.field,
+          operator: c.operator,
+          value: c.value.trim(),
+        });
+      } else if (fieldType === 'product_multi') {
+        if (!Array.isArray(c.value) || c.value.length === 0) {
+          errors.push(`Condition #${i + 1}: Please select at least one product.`);
+          continue;
+        }
+        validConditions.push({
+          field: c.field,
+          operator: c.operator,
+          value: c.value,
+        });
+      } else if (fieldType === 'location_state' || fieldType === 'location_city') {
+        if (c.operator === 'in') {
+          if (!Array.isArray(c.value) || c.value.length === 0) {
+            errors.push(`Condition #${i + 1}: Please enter at least one location.`);
+            continue;
+          }
+          validConditions.push({
+            field: c.field,
+            operator: c.operator,
+            value: c.value,
+          });
+        } else {
+          if (typeof c.value !== 'string' || !c.value.trim()) {
+            errors.push(`Condition #${i + 1}: Location value cannot be empty.`);
+            continue;
+          }
+          validConditions.push({
+            field: c.field,
+            operator: c.operator,
+            value: c.value.trim(),
+          });
+        }
       } else {
         // text
         if (typeof c.value !== 'string' || !c.value.trim()) {
@@ -866,6 +1019,137 @@ export function SegmentForm({ initialSegment }: SegmentFormProps) {
                         className="h-8 px-2.5 text-xs rounded-xl bg-bg-surface border border-border-input text-text-primary w-full focus:ring-2 focus:ring-border-brand focus:border-border-brand"
                         required
                       />
+                    ) : fieldType === 'product' ? (
+                      <div className="flex items-center gap-2 w-full">
+                        {condition.value ? (
+                          <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-bg-surface border border-border-default text-xs w-full">
+                            <div className="flex items-center gap-2 truncate">
+                              <span className="font-semibold text-text-primary truncate">
+                                {productMetadataMap.get(condition.value)?.name || (
+                                  <span className="text-status-warning-text flex items-center gap-1">
+                                    ⚠️ Unavailable Product ({String(condition.value).slice(0, 8)}...)
+                                  </span>
+                                )}
+                              </span>
+                              {productMetadataMap.get(condition.value)?.sku && (
+                                <Badge variant="tag" size="sm">
+                                  SKU: {productMetadataMap.get(condition.value)?.sku}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActivePickerConditionId(condition.id);
+                                  setIsSinglePickerOpen(true);
+                                }}
+                                className="text-xs font-semibold text-action-primary hover:underline cursor-pointer"
+                              >
+                                Change
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleValueChange(condition.id, '')}
+                                className="text-xs text-text-tertiary hover:text-status-danger-accent cursor-pointer"
+                                title="Clear product"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            type="button"
+                            onClick={() => {
+                              setActivePickerConditionId(condition.id);
+                              setIsSinglePickerOpen(true);
+                            }}
+                            className="w-full justify-center text-xs"
+                          >
+                            📦 Choose Product...
+                          </Button>
+                        )}
+                      </div>
+                    ) : fieldType === 'product_multi' ? (
+                      <div className="flex flex-col gap-2 w-full">
+                        {Array.isArray(condition.value) && condition.value.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5 items-center p-2 rounded-xl bg-bg-surface border border-border-default min-h-9">
+                            {condition.value.map((pid: string) => {
+                              const info = productMetadataMap.get(pid);
+                              return (
+                                <span
+                                  key={pid}
+                                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-bg-subtle text-xs font-medium text-text-primary border border-border-default"
+                                >
+                                  <span>{info?.name || `Product (${pid.slice(0, 8)}...)`}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const nextVal = condition.value.filter((id: string) => id !== pid);
+                                      handleValueChange(condition.id, nextVal);
+                                    }}
+                                    className="text-text-tertiary hover:text-status-danger-accent cursor-pointer text-xs"
+                                    title="Remove product"
+                                  >
+                                    ✕
+                                  </button>
+                                </span>
+                              );
+                            })}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              type="button"
+                              onClick={() => {
+                                setActivePickerConditionId(condition.id);
+                                setIsMultiPickerOpen(true);
+                              }}
+                              className="text-xs py-0.5 px-2"
+                            >
+                              + Edit Products ({condition.value.length})
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            type="button"
+                            onClick={() => {
+                              setActivePickerConditionId(condition.id);
+                              setIsMultiPickerOpen(true);
+                            }}
+                            className="w-full justify-center text-xs"
+                          >
+                            📦 Choose Products...
+                          </Button>
+                        )}
+                      </div>
+                    ) : fieldType === 'location_state' ? (
+                      <div className="w-full">
+                        <Select
+                          id={`state-${condition.id}`}
+                          size="sm"
+                          value={condition.value || 'Lagos'}
+                          onChange={(e) => handleValueChange(condition.id, e.target.value)}
+                          options={NIGERIA_STATES.map((st) => ({
+                            value: st,
+                            label: st,
+                          }))}
+                        />
+                      </div>
+                    ) : fieldType === 'location_city' ? (
+                      <input
+                        type="text"
+                        id={`city-${condition.id}`}
+                        value={condition.value ?? ''}
+                        onChange={(e) => handleValueChange(condition.id, e.target.value)}
+                        placeholder="e.g. Ikeja, Lekki, Abuja, Port Harcourt..."
+                        className="h-8 px-2.5 text-xs rounded-xl bg-bg-surface border border-border-input text-text-primary w-full focus:ring-2 focus:ring-border-brand focus:border-border-brand"
+                        required
+                      />
                     ) : (
                       <input
                         type="text"
@@ -1058,6 +1342,75 @@ export function SegmentForm({ initialSegment }: SegmentFormProps) {
           </div>
         </div>
       </Modal>
+
+      {/* Single Product Picker Modal */}
+      {isSinglePickerOpen && (
+        <ProductPickerModal
+          isOpen={isSinglePickerOpen}
+          onClose={() => {
+            setIsSinglePickerOpen(false);
+            setActivePickerConditionId(null);
+          }}
+          onSelectProduct={(product: SelectableProduct) => {
+            if (activePickerConditionId) {
+              handleValueChange(activePickerConditionId, product.id);
+              setProductMetadataMap((prev) => {
+                const next = new Map(prev);
+                next.set(product.id, {
+                  name: product.name,
+                  sku: product.sku,
+                  selling_price: product.selling_price,
+                  status: product.status,
+                });
+                return next;
+              });
+            }
+            setIsSinglePickerOpen(false);
+            setActivePickerConditionId(null);
+          }}
+          selectedProductIds={
+            activePickerConditionId
+              ? [conditions.find((c) => c.id === activePickerConditionId)?.value].filter(Boolean)
+              : []
+          }
+        />
+      )}
+
+      {/* Multi Product Picker Modal */}
+      {isMultiPickerOpen && (
+        <MultiProductPickerModal
+          isOpen={isMultiPickerOpen}
+          onClose={() => {
+            setIsMultiPickerOpen(false);
+            setActivePickerConditionId(null);
+          }}
+          onAddProducts={(selections: MultiProductSelection[]) => {
+            if (activePickerConditionId) {
+              const selectedIds = selections.map((s) => s.product.id);
+              handleValueChange(activePickerConditionId, selectedIds);
+              setProductMetadataMap((prev) => {
+                const next = new Map(prev);
+                for (const s of selections) {
+                  next.set(s.product.id, {
+                    name: s.product.name,
+                    sku: s.product.sku,
+                    selling_price: s.product.selling_price,
+                    status: s.product.status,
+                  });
+                }
+                return next;
+              });
+            }
+            setIsMultiPickerOpen(false);
+            setActivePickerConditionId(null);
+          }}
+          alreadySelectedProductIds={
+            activePickerConditionId
+              ? (conditions.find((c) => c.id === activePickerConditionId)?.value || [])
+              : []
+          }
+        />
+      )}
     </div>
   );
 }

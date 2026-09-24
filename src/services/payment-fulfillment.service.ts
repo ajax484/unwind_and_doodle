@@ -10,6 +10,8 @@ import {
   DOMAIN_EVENT_TYPES,
   DEFAULT_ORGANIZATION_ID,
 } from '../lib/constants';
+import { sendMetaConversionEvent } from './meta-conversions.service';
+import './notification.service';
 
 export interface VerifiedPaymentDetails {
   amount: number;
@@ -207,26 +209,68 @@ export async function fulfillSuccessfulPayment(
     new_values: auditPayload,
   } as Database['public']['Tables']['audit_logs']['Insert']);
 
-  // 9. Emit domain event (payment.completed)
-  await publishDomainEvent(supabase, {
-    eventType: DOMAIN_EVENT_TYPES.PAYMENT_COMPLETED,
-    aggregateType: 'payment',
-    aggregateId: payment.id,
-    organizationId: orgId,
-    payload: {
-      paymentId: payment.id,
-      orderId: order.id,
-      orderNumber: order.order_number,
-      provider,
-      providerReference: reference,
-      amount: payment.amount,
-      currency: payment.currency,
-      paidAt: effectivePaidAt,
-      customerId: order.customer_id,
-    },
-  });
+  // 9. Fetch customer and order items for domain events and CAPI
+  const [{ data: customer }, { data: items }] = await Promise.all([
+    order.customer_id
+      ? supabase.from('customers').select('*').eq('id', order.customer_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase.from('order_items').select('*').eq('order_id', order.id),
+  ]);
 
-  // 10. Mark associated active cart converted
+  const customerName = customer
+    ? `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'Customer'
+    : 'Customer';
+  const customerEmail = customer?.email || undefined;
+
+  // 10. Emit domain events (payment.completed and order.pending)
+  await Promise.all([
+    publishDomainEvent(supabase, {
+      eventType: DOMAIN_EVENT_TYPES.PAYMENT_COMPLETED,
+      aggregateType: 'payment',
+      aggregateId: payment.id,
+      organizationId: orgId,
+      payload: {
+        paymentId: payment.id,
+        orderId: order.id,
+        orderNumber: order.order_number,
+        provider,
+        providerReference: reference,
+        amount: payment.amount,
+        currency: payment.currency,
+        paidAt: effectivePaidAt,
+        customerId: order.customer_id,
+        customerEmail,
+        customerName,
+        firstName: customer?.first_name,
+        lastName: customer?.last_name,
+        total: order.total || payment.amount,
+        items: items || [],
+      },
+    }),
+    publishDomainEvent(supabase, {
+      eventType: 'order.pending',
+      aggregateType: 'order',
+      aggregateId: order.id,
+      organizationId: orgId,
+      payload: {
+        orderId: order.id,
+        orderNumber: order.order_number,
+        organizationId: orgId,
+        customerId: order.customer_id,
+        customerEmail,
+        email: customerEmail,
+        firstName: customer?.first_name,
+        lastName: customer?.last_name,
+        customerName,
+        total: order.total || payment.amount,
+        items: items || [],
+        orderSource: (order as Record<string, unknown>).order_source || 'online',
+        timestamp: effectivePaidAt,
+      },
+    }),
+  ]);
+
+  // 11. Mark associated active cart converted
   try {
     if (order.customer_id) {
       await supabase
@@ -242,6 +286,41 @@ export async function fulfillSuccessfulPayment(
     }
   } catch {
     // Non-blocking conversion tracking
+  }
+
+  // 12. Dispatch Meta Conversions API Purchase event asynchronously
+  try {
+    const shippingAddr = (order.shipping_address as Record<string, unknown>) || {};
+    sendMetaConversionEvent({
+      eventName: 'Purchase',
+      eventId: order.order_number, // Matching deduplication event_id with client
+      userData: {
+        email: customer?.email || undefined,
+        phone: customer?.phone || undefined,
+        firstName: customer?.first_name || undefined,
+        lastName: customer?.last_name || undefined,
+        city: (shippingAddr.city as string) || undefined,
+        state: (shippingAddr.state as string) || undefined,
+        country: 'ng',
+      },
+      customData: {
+        currency: payment.currency || 'NGN',
+        value: payment.amount,
+        order_id: order.order_number,
+        num_items: items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 1,
+        content_ids: items?.map((i) => i.product_id || i.id).filter(Boolean),
+        contents: items?.map((i) => ({
+          id: i.product_id || i.id,
+          quantity: i.quantity,
+          item_price: i.unit_price,
+          title: i.product_name,
+        })),
+      },
+    }).catch((err) => {
+      console.warn('[meta-conversions] CAPI purchase dispatch warning:', err);
+    });
+  } catch (capiErr) {
+    console.warn('[meta-conversions] Failed to construct CAPI payload:', capiErr);
   }
 
   return {

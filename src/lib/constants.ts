@@ -38,6 +38,8 @@ export const CURRENCY = {
 export const DOMAIN_EVENT_TYPES = {
   ORDER_CREATED: 'order.created',
   PAYMENT_COMPLETED: 'payment.completed',
+  ORDER_SHIPPED: 'order.shipped',
+  ORDER_RECEIVED: 'order.received',
   ORDER_REFUNDED: 'order.refunded',
   PAYMENT_REFUNDED: 'payment.refunded',
   INVENTORY_RESERVED: 'inventory.reserved',

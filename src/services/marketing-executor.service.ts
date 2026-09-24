@@ -13,6 +13,8 @@ import {
 } from './marketing-automation.service';
 import { getMarketingEmailProvider } from './marketing-provider/nodemailer-marketing.provider';
 import { sanitizeHtml, replacePersonalizationTags } from '@/lib/sanitize-html';
+import { resolveMarketingContext } from './marketing-context.service';
+import { renderMarketingTemplate } from './marketing-renderer.service';
 import {
   generateMarketingUnsubscribeToken,
   generateMarketingTrackingToken,
@@ -253,10 +255,19 @@ export async function handleMarketingAutomationEvent(
     const scheduledFor = calculateScheduledTime(now, config.delay);
     const isImmediate = scheduledFor.getTime() <= now.getTime();
 
+    const eventPayload = (
+      event.payload && typeof event.payload === 'object' && !Array.isArray(event.payload)
+        ? event.payload
+        : {}
+    ) as Record<string, unknown>;
+
+    const orderId = (eventPayload.orderId || eventPayload.order_id || (event.aggregate_type === 'order' ? event.aggregate_id : undefined)) as string | undefined;
+    const deliverySource = (eventPayload.deliverySource || 'actual') as 'actual' | 'estimated';
+
     // Enforce database-level and in-memory idempotency on (automation_id, domain_event_id)
     const { data: existingExecution } = await (supabase as any)
       .from('marketing_automation_executions')
-      .select('id')
+      .select('id, delivery_source')
       .eq('automation_id', auto.id)
       .eq('domain_event_id', event.id)
       .maybeSingle();
@@ -268,10 +279,44 @@ export async function handleMarketingAutomationEvent(
       continue;
     }
 
+    // Enforce order-level idempotency on (automation_id, order_id)
+    if (orderId) {
+      const { data: existingByOrder } = await (supabase as any)
+        .from('marketing_automation_executions')
+        .select('id, delivery_source')
+        .eq('automation_id', auto.id)
+        .eq('order_id', orderId)
+        .maybeSingle();
+
+      if (existingByOrder) {
+        if (existingByOrder.delivery_source === 'estimated' && deliverySource === 'actual') {
+          await (supabase as any)
+            .from('marketing_automation_executions')
+            .update({
+              delivery_source: 'actual',
+              domain_event_id: event.id,
+              updated_at: now.toISOString(),
+            })
+            .eq('id', existingByOrder.id);
+
+          console.info(
+            `[marketing_automation.actual_superseded_estimate] automation_id=${auto.id} order_id=${orderId} execution_id=${existingByOrder.id}`
+          );
+        } else {
+          console.info(
+            `[marketing_automation.order_idempotent_skip] automation_id=${auto.id} order_id=${orderId} execution_id=${existingByOrder.id}`
+          );
+        }
+        continue;
+      }
+    }
+
     const executionPayload = {
       organization_id: auto.organization_id,
       automation_id: auto.id,
       domain_event_id: event.id,
+      order_id: orderId || null,
+      delivery_source: deliverySource || 'actual',
       campaign_id: config.action.campaignId,
       customer_id: customerContext.customerId,
       customer_email: customerContext.customerEmail,
@@ -579,26 +624,32 @@ export async function executeSingleAutomation(
     }
   }
 
-  // 6. Fetch customer details for personalization
-  let firstName = '';
-  let lastName = '';
+  // 6. Resolve marketing personalization context
+  let domainEventPayload: Record<string, unknown> | null = null;
+  if (execution.domain_event_id) {
+    try {
+      const { data: dev } = await supabase
+        .from('domain_events')
+        .select('payload')
+        .eq('id', execution.domain_event_id)
+        .maybeSingle();
 
-  if (execution.customer_id) {
-    const { data: cust } = await supabase
-      .from('customers')
-      .select('first_name, last_name')
-      .eq('id', execution.customer_id)
-      .maybeSingle();
-
-    firstName = cust?.first_name || '';
-    lastName = cust?.last_name || '';
+      if (dev?.payload && typeof dev.payload === 'object' && !Array.isArray(dev.payload)) {
+        domainEventPayload = dev.payload as Record<string, unknown>;
+      }
+    } catch {
+      // Non-critical domain event payload resolution failure
+    }
   }
 
-  const personalizationData = {
-    first_name: firstName,
-    last_name: lastName,
-    email: execution.customer_email,
-  };
+  const marketingContext = await resolveMarketingContext(supabase, {
+    organizationId: execution.organization_id,
+    customerId: execution.customer_id,
+    customerEmail: execution.customer_email,
+    campaignId: campaign.id,
+    automationType: automation.type,
+    domainEventPayload,
+  });
 
   const { appUrl } = getConfig();
   const provider = getMarketingEmailProvider();
@@ -631,8 +682,7 @@ export async function executeSingleAutomation(
   );
   const unsubscribeUrl = `${appUrl}/unsubscribe?token=${unsubscribeToken}`;
 
-  let personalizedHtml = replacePersonalizationTags(baseHtml, personalizationData);
-  personalizedHtml = sanitizeHtml(personalizedHtml);
+  let personalizedHtml = renderMarketingTemplate(baseHtml, marketingContext, { isHtml: true });
 
   const unsubscribeFooter = `
     <div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; text-align: center; font-family: sans-serif;">
@@ -652,14 +702,14 @@ export async function executeSingleAutomation(
   personalizedHtml = injectOpenTrackingPixel(personalizedHtml, trackingToken, appUrl);
 
   const personalizedText = baseText
-    ? `${replacePersonalizationTags(baseText, personalizationData)}\n\nUnsubscribe: ${unsubscribeUrl}`
+    ? `${renderMarketingTemplate(baseText, marketingContext, { isHtml: false })}\n\nUnsubscribe: ${unsubscribeUrl}`
     : undefined;
 
   // 9. Deliver via email provider with retry protection
   try {
     const sendResult = await provider.sendEmail({
       to: execution.customer_email,
-      subject: replacePersonalizationTags(campaign.subject, personalizationData),
+      subject: renderMarketingTemplate(campaign.subject || '', marketingContext, { isHtml: false }),
       senderName: campaign.sender_name || 'Unwind & Doodle',
       senderEmail: campaign.sender_email,
       html: personalizedHtml,

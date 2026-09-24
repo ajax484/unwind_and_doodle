@@ -11,6 +11,9 @@ import {
 import { getSegmentCustomers } from './marketing-segmentation.service';
 import { getMarketingEmailProvider } from './marketing-provider/nodemailer-marketing.provider';
 import { sanitizeHtml, replacePersonalizationTags } from '@/lib/sanitize-html';
+import { resolveMarketingContext } from './marketing-context.service';
+import { renderMarketingTemplate } from './marketing-renderer.service';
+import { MarketingContext } from '@/types/marketing-context';
 import {
   generateMarketingUnsubscribeToken,
   generateMarketingTrackingToken,
@@ -116,15 +119,32 @@ export async function sendTestEmail(
   const content = campaign.content as { html?: string; text?: string } | null;
   const rawHtml = content?.html || '';
 
-  // Substitute sample customer values for test email preview
-  const sampleData = {
-    first_name: 'Test',
-    last_name: 'Recipient',
+  const sampleContext: MarketingContext = {
+    firstName: 'Test',
+    lastName: 'Recipient',
     email: recipientEmail,
+    orderNumber: 'ORD-TEST-1001',
+    productName: 'General-Themed Colouring Book',
+    lastProduct: 'General-Themed Colouring Book',
+    productRecommendation: {
+      productId: 'sample-rec',
+      productFamily: 'ultimate_game_book',
+      title: 'Ultimate Game Book',
+      url: `${getConfig().appUrl}/products/ultimate-game-book`,
+      recommendationText:
+        'If you enjoyed colouring but want more variety, try the Ultimate Game Book. It gives you puzzles, word games, brain teasers and other screen-free activities for the days you do not feel like colouring.',
+    },
+    personalizedRecommendation: {
+      productId: 'sample-rec',
+      productFamily: 'ultimate_game_book',
+      title: 'Ultimate Game Book',
+      url: `${getConfig().appUrl}/products/ultimate-game-book`,
+      recommendationText:
+        'Try the Ultimate Game Book or Play and Color Kit when you want puzzles and games alongside colouring.',
+    },
   };
 
-  let renderedHtml = replacePersonalizationTags(rawHtml, sampleData);
-  renderedHtml = sanitizeHtml(renderedHtml);
+  let renderedHtml = renderMarketingTemplate(rawHtml, sampleContext, { isHtml: true });
 
   // Append sample unsubscribe text for completeness
   if (!renderedHtml.includes('unsubscribe') && !renderedHtml.includes('Unsubscribe')) {
@@ -139,11 +159,11 @@ export async function sendTestEmail(
   const provider = getMarketingEmailProvider();
   const result = await provider.sendEmail({
     to: recipientEmail,
-    subject: `[Test] ${campaign.subject}`,
+    subject: `[Test] ${renderMarketingTemplate(campaign.subject || '', sampleContext, { isHtml: false })}`,
     senderName: campaign.sender_name || 'Unwind & Doodle',
     senderEmail: campaign.sender_email || 'no-reply@unwindanddoodle.com',
     html: renderedHtml,
-    text: content?.text ? replacePersonalizationTags(content.text, sampleData) : undefined,
+    text: content?.text ? renderMarketingTemplate(content.text, sampleContext, { isHtml: false }) : undefined,
   });
 
   return result;
@@ -287,11 +307,20 @@ export async function dispatchCampaign(
           ? customerMap.get(recipient.customer_id)
           : null;
 
-        const personalizationData = {
-          first_name: customerInfo?.first_name || null,
-          last_name: customerInfo?.last_name || null,
-          email: recipient.email,
-        };
+        const marketingContext = await resolveMarketingContext(supabase, {
+          organizationId,
+          customerId: recipient.customer_id,
+          customerEmail: recipient.email,
+          campaignId,
+        });
+
+        // Ensure customer names from batch map take priority if resolver didn't load them
+        if (!marketingContext.firstName && customerInfo?.first_name) {
+          marketingContext.firstName = customerInfo.first_name;
+        }
+        if (!marketingContext.lastName && customerInfo?.last_name) {
+          marketingContext.lastName = customerInfo.last_name;
+        }
 
         // Generate signed unsubscribe link
         const unsubscribeToken = generateMarketingUnsubscribeToken(
@@ -302,8 +331,7 @@ export async function dispatchCampaign(
         const unsubscribeUrl = `${appUrl}/unsubscribe?token=${unsubscribeToken}`;
 
         // Personalize and sanitize HTML
-        let personalizedHtml = replacePersonalizationTags(baseHtml, personalizationData);
-        personalizedHtml = sanitizeHtml(personalizedHtml);
+        let personalizedHtml = renderMarketingTemplate(baseHtml, marketingContext, { isHtml: true });
 
         // Append unsubscribe footer
         const unsubscribeFooter = `
@@ -328,13 +356,13 @@ export async function dispatchCampaign(
         personalizedHtml = injectOpenTrackingPixel(personalizedHtml, trackingToken, appUrl);
 
         const personalizedText = baseText
-          ? `${replacePersonalizationTags(baseText, personalizationData)}\n\nUnsubscribe: ${unsubscribeUrl}`
+          ? `${renderMarketingTemplate(baseText, marketingContext, { isHtml: false })}\n\nUnsubscribe: ${unsubscribeUrl}`
           : undefined;
 
         // Deliver via provider
         const sendResult = await provider.sendEmail({
           to: recipient.email,
-          subject: replacePersonalizationTags(campaign.subject || '', personalizationData),
+          subject: renderMarketingTemplate(campaign.subject || '', marketingContext, { isHtml: false }),
           senderName: campaign.sender_name || 'Unwind & Doodle',
           senderEmail: campaign.sender_email || 'no-reply@unwindanddoodle.com',
           html: personalizedHtml,

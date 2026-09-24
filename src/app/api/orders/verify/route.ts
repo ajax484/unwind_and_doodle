@@ -3,6 +3,7 @@ import { getServiceSupabaseClient } from '@/lib/supabase/client';
 import { getPaymentProvider } from '@/services/payment';
 import { fulfillSuccessfulPayment } from '@/services/payment-fulfillment.service';
 import { PAYMENT_STATUS, CURRENCY } from '@/lib/constants';
+import '@/services/notification.service';
 
 export async function GET(req: NextRequest) {
   try {

@@ -169,6 +169,11 @@ export interface PersonalizationData {
   first_name?: string | null;
   last_name?: string | null;
   email?: string | null;
+  order_number?: string | null;
+  product_name?: string | null;
+  last_product?: string | null;
+  product_recommendation?: string | null;
+  personalized_recommendation?: string | null;
 }
 
 /**
@@ -187,5 +192,11 @@ export function replacePersonalizationTags(
   return template
     .replace(/\{\{\s*first_name\s*\}\}/gi, data?.first_name?.trim() || fallback)
     .replace(/\{\{\s*last_name\s*\}\}/gi, data?.last_name?.trim() || fallback)
-    .replace(/\{\{\s*email\s*\}\}/gi, data?.email?.trim() || fallback);
+    .replace(/\{\{\s*email\s*\}\}/gi, data?.email?.trim() || fallback)
+    .replace(/\{\{\s*order_number\s*\}\}/gi, data?.order_number?.trim() || '')
+    .replace(/\{\{\s*product_name\s*\}\}/gi, data?.product_name?.trim() || '')
+    .replace(/\{\{\s*last_product\s*\}\}/gi, data?.last_product?.trim() || '')
+    .replace(/\{\{\s*product_recommendation\s*\}\}/gi, data?.product_recommendation?.trim() || '')
+    .replace(/\{\{\s*personalized_recommendation\s*\}\}/gi, data?.personalized_recommendation?.trim() || '');
 }
+

@@ -436,9 +436,12 @@ export type Database = {
           email_verified_at: string | null;
           first_name: string | null;
           id: string;
+          import_batch_id: string | null;
           last_name: string | null;
           organization_id: string;
           phone: string | null;
+          source_record_id: string | null;
+          source_system: string | null;
           updated_at: string;
           user_id: string | null;
           whatsapp_marketing_consent: boolean;
@@ -451,9 +454,12 @@ export type Database = {
           email_verified_at?: string | null;
           first_name?: string | null;
           id?: string;
+          import_batch_id?: string | null;
           last_name?: string | null;
           organization_id: string;
           phone?: string | null;
+          source_record_id?: string | null;
+          source_system?: string | null;
           updated_at?: string;
           user_id?: string | null;
           whatsapp_marketing_consent?: boolean;
@@ -466,9 +472,12 @@ export type Database = {
           email_verified_at?: string | null;
           first_name?: string | null;
           id?: string;
+          import_batch_id?: string | null;
           last_name?: string | null;
           organization_id?: string;
           phone?: string | null;
+          source_record_id?: string | null;
+          source_system?: string | null;
           updated_at?: string;
           user_id?: string | null;
           whatsapp_marketing_consent?: boolean;
@@ -803,6 +812,142 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "domain_events_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      historical_product_mappings: {
+        Row: {
+          canonical_product_id: string | null;
+          confidence: number;
+          created_at: string;
+          historical_title: string;
+          id: string;
+          normalized_title: string;
+          organization_id: string;
+          source_system: string;
+          status: "mapped" | "unmapped" | "ignored";
+          updated_at: string;
+        };
+        Insert: {
+          canonical_product_id?: string | null;
+          confidence?: number;
+          created_at?: string;
+          historical_title: string;
+          id?: string;
+          normalized_title: string;
+          organization_id: string;
+          source_system?: string;
+          status?: "mapped" | "unmapped" | "ignored";
+          updated_at?: string;
+        };
+        Update: {
+          canonical_product_id?: string | null;
+          confidence?: number;
+          created_at?: string;
+          historical_title?: string;
+          normalized_title?: string;
+          organization_id?: string;
+          source_system?: string;
+          status?: "mapped" | "unmapped" | "ignored";
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "historical_product_mappings_canonical_product_id_fkey";
+            columns: ["canonical_product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "historical_product_mappings_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      import_batches: {
+        Row: {
+          ambiguous_products_count: number;
+          completed_at: string | null;
+          created_at: string;
+          created_by: string | null;
+          customers_count: number;
+          error_count: number;
+          errors: Json;
+          field_mappings: Json;
+          file_name: string;
+          id: string;
+          items_count: number;
+          mapped_products_count: number;
+          orders_count: number;
+          organization_id: string;
+          product_mappings: Json;
+          source_system: string;
+          status: string;
+          summary: Json;
+          total_rows: number;
+          unmapped_products_count: number;
+          warning_count: number;
+          warnings: Json;
+        };
+        Insert: {
+          ambiguous_products_count?: number;
+          completed_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          customers_count?: number;
+          error_count?: number;
+          errors?: Json;
+          field_mappings?: Json;
+          file_name: string;
+          id?: string;
+          items_count?: number;
+          mapped_products_count?: number;
+          orders_count?: number;
+          organization_id: string;
+          product_mappings?: Json;
+          source_system?: string;
+          status?: string;
+          summary?: Json;
+          total_rows?: number;
+          unmapped_products_count?: number;
+          warning_count?: number;
+          warnings?: Json;
+        };
+        Update: {
+          ambiguous_products_count?: number;
+          completed_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          customers_count?: number;
+          error_count?: number;
+          errors?: Json;
+          field_mappings?: Json;
+          file_name?: string;
+          id?: string;
+          items_count?: number;
+          mapped_products_count?: number;
+          orders_count?: number;
+          organization_id?: string;
+          product_mappings?: Json;
+          source_system?: string;
+          status?: string;
+          summary?: Json;
+          total_rows?: number;
+          unmapped_products_count?: number;
+          warning_count?: number;
+          warnings?: Json;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "import_batches_organization_id_fkey";
             columns: ["organization_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
@@ -1377,7 +1522,10 @@ export type Database = {
       order_items: {
         Row: {
           created_at: string;
+          historical_product_title: string | null;
           id: string;
+          import_batch_id: string | null;
+          mapping_status: string;
           order_id: string;
           product_id: string;
           product_name: string;
@@ -1389,9 +1537,12 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
+          historical_product_title?: string | null;
           id?: string;
+          import_batch_id?: string | null;
+          mapping_status?: string;
           order_id: string;
-          product_id: string;
+          product_id?: string | null;
           product_name: string;
           quantity: number;
           sku?: string | null;
@@ -1401,9 +1552,12 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          historical_product_title?: string | null;
           id?: string;
+          import_batch_id?: string | null;
+          mapping_status?: string;
           order_id?: string;
-          product_id?: string;
+          product_id?: string | null;
           product_name?: string;
           quantity?: number;
           sku?: string | null;
@@ -1554,6 +1708,7 @@ export type Database = {
           first_name: string | null;
           id: string;
           idempotency_key: string | null;
+          import_batch_id: string | null;
           last_name: string | null;
           location_id: string | null;
           manual_order_channel: string | null;
@@ -1567,6 +1722,8 @@ export type Database = {
           shipped_at: string | null;
           shipping_address: Json;
           shipping_fee: number;
+          source_record_id: string | null;
+          source_system: string | null;
           status: Database["public"]["Enums"]["order_status"];
           subtotal: number;
           total: number;
@@ -1588,6 +1745,7 @@ export type Database = {
           first_name?: string | null;
           id?: string;
           idempotency_key?: string | null;
+          import_batch_id?: string | null;
           last_name?: string | null;
           location_id?: string | null;
           manual_order_channel?: string | null;
@@ -1601,6 +1759,8 @@ export type Database = {
           shipped_at?: string | null;
           shipping_address: Json;
           shipping_fee?: number;
+          source_record_id?: string | null;
+          source_system?: string | null;
           status?: Database["public"]["Enums"]["order_status"];
           subtotal?: number;
           total?: number;
@@ -1622,6 +1782,7 @@ export type Database = {
           first_name?: string | null;
           id?: string;
           idempotency_key?: string | null;
+          import_batch_id?: string | null;
           last_name?: string | null;
           location_id?: string | null;
           manual_order_channel?: string | null;
@@ -1635,6 +1796,8 @@ export type Database = {
           shipped_at?: string | null;
           shipping_address?: Json;
           shipping_fee?: number;
+          source_record_id?: string | null;
+          source_system?: string | null;
           status?: Database["public"]["Enums"]["order_status"];
           subtotal?: number;
           total?: number;

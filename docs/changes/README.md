@@ -51,12 +51,17 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-16 Step 2A: Marketing Automation Foundation](./admin/2026-09-16-marketing-automation-foundation.md)
 - [2026-09-16 Order Status History, Audit Trail Logging & Timeline Display Fix](./admin/2026-09-16-order-status-history-and-audit-trail-fix.md)
 - [2026-09-16 Rich Text Product and Bundle Descriptions (TipTap & HTML Sanitization)](./admin/2026-09-16-rich-text-description.md)
+- [2026-09-20 Migrate Delayed Marketing Automations to Inngest Durable Scheduling](./admin/2026-09-20-inngest-durable-scheduling.md)
+- [2026-09-20 Inngest Durable Workflow Infrastructure](./admin/2026-09-20-inngest-durable-workflows.md)
 - [2026-09-20 Step 11: Productionize Marketing Automation Background Processing](./admin/2026-09-20-marketing-automation-background-processing.md)
-- [2026-09-20 Step 12: Introduce Inngest Durable Workflow Infrastructure](./admin/2026-09-20-inngest-durable-workflows.md)
-- [2026-09-20 Step 13: Migrate Delayed Marketing Automations to Inngest Durable Scheduling](./admin/2026-09-20-inngest-durable-scheduling.md)
 - [2026-09-20 Step 14: Event Cancellation & Multi-Step Marketing Journeys](./admin/2026-09-20-marketing-automation-multi-step-journeys.md)
 - [2026-09-20 Marketing Automation Trigger Pipeline Audit & Repair](./admin/2026-09-20-marketing-automation-trigger-repair.md)
-- [2026-09-21 Marketing Automation Idempotency & Inngest Dispatch Fix](./admin/2026-09-21-marketing-automation-idempotency-and-inngest-dispatch-fix.md)
+- [2026-09-21 2026-09-21 Marketing Automation Idempotency & Inngest Dispatch Fix](./admin/2026-09-21-marketing-automation-idempotency-and-inngest-dispatch-fix.md)
+- [2026-09-22 2026-09-22: Delivery Location Resolution for Analytics & Order Management](./admin/2026-09-22-analytics-delivery-locations.md)
+- [2026-09-22 Historical Customer, Order & Product Import (Bumpa -> Unwind & Doodle)](./admin/2026-09-22-historical-customer-order-import.md)
+- [2026-09-22 Step 17A: Marketing Personalization Context & Dynamic Recommendations](./admin/2026-09-22-marketing-context-and-recommendations.md)
+- [2026-09-22 Post-Delivery Retention Journeys & Delivery Fallback](./admin/2026-09-22-post-delivery-retention-journeys.md)
+- [2026-09-22 Product-Aware Marketing Audiences & Segmentation](./admin/2026-09-22-product-aware-marketing-audiences.md)
 
 ---
 
@@ -86,7 +91,8 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-13 Inventory RLS & Service Key Hardening](./commerce/2026-09-13-inventory-rls-and-service-key-hardening.md)
 - [2026-09-13 2026-09-13 Manual Orders: Voluntary Address for Admins & Compulsory Address for Customers](./commerce/2026-09-13-manual-order-voluntary-address-compulsory-customer.md)
 - [2026-09-14 Unified Product Media Architecture](./commerce/2026-09-14-unified-product-media-architecture.md)
-- [2026-09-21 2-Tier Cascading Delivery Location Picker Across Storefront and Admin](./commerce/2026-09-21-cascading-delivery-location-picker.md)
+- [2026-09-21 2026-09-21: 2-Tier Cascading Delivery Location Picker Across Storefront and Admin](./commerce/2026-09-21-cascading-delivery-location-picker.md)
+- [2026-09-24 SEO, Open Graph & Favicon Metadata Infrastructure](./commerce/2026-09-24-seo-and-favicon-setup.md)
 
 ---
 
@@ -154,6 +160,7 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-03 Option 2: Persistent In-App Notification Center & Domain Event Feed](./notifications/2026-09-03-persistent-in-app-notification-center.md)
 - [2026-09-03 Switch to Sonner Toast Notification System](./notifications/2026-09-03-switch-to-sonner-toast-system.md)
 - [2026-09-13 Admin Notifications & Real-Time Alerts](./notifications/2026-09-13-admin-notifications-and-alerts.md)
+- [2026-09-24 Order Notification Dispatch & Enrichment Fix](./notifications/2026-09-24-order-notification-dispatch-fix.md)
 
 ---
 
@@ -249,6 +256,6 @@ This directory maintains categorized, per-feature change records following the r
 ---
 
 ## 📊 Summary
-- **Total Changelogs**: 188 across 8 domain modules
+- **Total Changelogs**: 197 across 8 domain modules
 - **Template Scaffold**: [`docs/changes/_template.md`](./_template.md)
-- **Status**: 100% indexed (188 of 188 files registered)
+- **Status**: 100% indexed (197 of 197 files registered)

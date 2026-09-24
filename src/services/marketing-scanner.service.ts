@@ -1,6 +1,8 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../lib/supabase/types';
 import { publishDomainEvent } from './events.service';
+import { calculateEstimatedDelivery } from './delivery-estimate.service';
+import { DeliveryEstimateConfig, DEFAULT_DELIVERY_ESTIMATE_CONFIG } from '@/types/marketing';
 
 export const ABANDONED_CART_THRESHOLD_HOURS = 2;
 export const CUSTOMER_INACTIVITY_THRESHOLD_DAYS = 30;
@@ -263,6 +265,154 @@ export async function scanAndEmitInactiveCustomers(
   return {
     scanned: customers.length,
     inactiveEmitted: emittedCount,
+    skipped: skippedCount,
+  };
+}
+
+export interface EstimatedDeliveryScanResult {
+  scanned: number;
+  estimatedDelivered: number;
+  skipped: number;
+}
+
+/**
+ * Scans for shipped orders that lack an actual order.received confirmation,
+ * calculates delivery estimates based on location and customization,
+ * and emits 'order.received' events with deliverySource: 'estimated'.
+ *
+ * Strict Guarantees:
+ * - Bounded lookback prevents historical orders from being triggered.
+ * - Idempotency checks prevent duplicate executions or event emissions.
+ * - Does not alter database order status to preserve ground truth.
+ */
+export async function scanAndEmitEstimatedDeliveries(
+  supabase: SupabaseClient<Database>,
+  options?: {
+    organizationId?: string;
+    batchLimit?: number;
+    config?: DeliveryEstimateConfig;
+    now?: Date;
+  }
+): Promise<EstimatedDeliveryScanResult> {
+  const batchLimit = options?.batchLimit ?? DEFAULT_SCAN_BATCH_LIMIT;
+  const config = options?.config ?? DEFAULT_DELIVERY_ESTIMATE_CONFIG;
+  const now = options?.now ?? new Date();
+
+  // Bounded lookback: Only inspect orders shipped within maxEstimateLookbackDays
+  const lookbackDate = new Date(
+    now.getTime() - config.maxEstimateLookbackDays * 24 * 60 * 60 * 1000
+  );
+
+  let query = (supabase as any)
+    .from('orders')
+    .select(
+      'id, organization_id, customer_id, order_number, status, shipping_address, created_at, placed_at, confirmed_at, shipped_at, received_at, order_items(id, product_name, product_id, sku, total, unit_price)'
+    )
+    .eq('status', 'shipped')
+    .is('received_at', null)
+    .gte('shipped_at', lookbackDate.toISOString())
+    .limit(batchLimit);
+
+  if (options?.organizationId) {
+    query = query.eq('organization_id', options.organizationId);
+  }
+
+  const { data: candidates, error } = await query;
+  if (error || !candidates || candidates.length === 0) {
+    return { scanned: 0, estimatedDelivered: 0, skipped: 0 };
+  }
+
+  let emittedCount = 0;
+  let skippedCount = 0;
+
+  for (const rawOrder of candidates) {
+    const order = rawOrder as {
+      id: string;
+      organization_id: string;
+      customer_id?: string | null;
+      order_number: string;
+      status: string;
+      shipping_address?: unknown;
+      created_at?: string;
+      placed_at?: string | null;
+      confirmed_at?: string | null;
+      shipped_at?: string | null;
+      received_at?: string | null;
+      order_items?: Array<{
+        id: string;
+        product_name: string;
+        product_id?: string;
+        sku?: string | null;
+        total?: number;
+        unit_price?: number;
+      }>;
+    };
+
+    // Filter by organization if specified
+    if (options?.organizationId && order.organization_id !== options.organizationId) {
+      skippedCount++;
+      continue;
+    }
+
+    // Check if retention automation execution already exists for this order
+    const { data: existingExecution } = await (supabase as any)
+      .from('marketing_automation_executions')
+      .select('id')
+      .eq('order_id', order.id)
+      .maybeSingle();
+
+    if (existingExecution) {
+      skippedCount++;
+      continue;
+    }
+
+    // Check if order.received or order.delivery_estimated event was already emitted
+    const { data: existingEvent } = await (supabase as any)
+      .from('domain_events')
+      .select('id')
+      .eq('aggregate_id', order.id)
+      .in('event_type', ['order.received', 'order.delivery_estimated'])
+      .maybeSingle();
+
+    if (existingEvent) {
+      skippedCount++;
+      continue;
+    }
+
+    // Compute estimate
+    const estimate = calculateEstimatedDelivery(order, order.order_items, config);
+
+    // If estimate is due (now >= estimatedDeliveryAt)
+    if (now.getTime() >= estimate.estimatedDeliveryAt.getTime()) {
+      await publishDomainEvent(supabase, {
+        eventType: 'order.received',
+        aggregateType: 'order',
+        aggregateId: order.id,
+        organizationId: order.organization_id,
+        payload: {
+          orderId: order.id,
+          orderNumber: order.order_number,
+          organizationId: order.organization_id,
+          customerId: order.customer_id || null,
+          deliverySource: 'estimated',
+          estimatedDeliveryAt: estimate.estimatedDeliveryAt.toISOString(),
+          shippingDays: estimate.shippingDays,
+          productionDays: estimate.productionDays,
+          isLagosOrAbuja: estimate.isLagosOrAbuja,
+          hasCustomItems: estimate.hasCustomItems,
+          timestamp: now.toISOString(),
+        },
+      });
+
+      emittedCount++;
+    } else {
+      skippedCount++;
+    }
+  }
+
+  return {
+    scanned: candidates.length,
+    estimatedDelivered: emittedCount,
     skipped: skippedCount,
   };
 }

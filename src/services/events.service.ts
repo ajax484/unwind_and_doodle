@@ -4,6 +4,7 @@ import { DEFAULT_ORGANIZATION_ID } from '../lib/constants';
 import { handleMarketingAutomationEvent } from './marketing-executor.service';
 import { captureError, recordBreadcrumb } from '../lib/observability/error-monitoring';
 import { inngest } from '../inngest/client';
+import './notification.service';
 
 export type DomainEventHandler = (event: {
   id: string;
@@ -17,7 +18,7 @@ export type DomainEventHandler = (event: {
 // Lazily initialized map to guarantee safety even during circular module evaluation
 var registeredHandlers: Map<string, DomainEventHandler[]> | undefined;
 
-function getRegisteredHandlers(): Map<string, DomainEventHandler[]> {
+export function getRegisteredHandlers(): Map<string, DomainEventHandler[]> {
   if (!registeredHandlers) {
     registeredHandlers = new Map<string, DomainEventHandler[]>();
   }
@@ -132,6 +133,53 @@ export async function publishDomainEvent(
       }).catch((inngestErr) => {
         console.warn(`[inngest.send_failed] event_id=${eventId}`, inngestErr);
       });
+    }
+
+    // Execute registered domain event handlers (notifications, audit, alerts) in live/serverless environments
+    const isTest = process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST);
+    if (!isTest) {
+      const registered = getRegisteredHandlers().get(params.eventType) || [];
+      if (registered.length > 0) {
+        const eventRecord = {
+          id: eventId,
+          eventType: params.eventType,
+          aggregateType: params.aggregateType,
+          aggregateId: params.aggregateId,
+          payload: params.payload,
+          createdAt: new Date().toISOString(),
+        };
+
+        try {
+          await Promise.all(
+            registered.map(async (handler) => {
+              try {
+                await handler(eventRecord);
+              } catch (handlerErr) {
+                console.warn(`[domain_event.handler_failed] event_id=${eventId} type=${params.eventType}`, handlerErr);
+              }
+            })
+          );
+
+          if (data?.id) {
+            try {
+              await (supabase as unknown as {
+                from: (table: string) => {
+                  update: (payload: unknown) => {
+                    eq: (col: string, val: string) => Promise<unknown>;
+                  };
+                };
+              })
+                .from('domain_events')
+                .update({ processed_at: new Date().toISOString() })
+                .eq('id', data.id);
+            } catch {
+              // Non-blocking outbox status update
+            }
+          }
+        } catch (execErr) {
+          console.warn(`[domain_event.dispatch_warning] event_id=${eventId}`, execErr);
+        }
+      }
     }
 
     return eventId;
