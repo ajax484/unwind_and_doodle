@@ -245,7 +245,7 @@ export async function fulfillSuccessfulPayment(
         lastName: customer?.last_name,
         total: order.total || payment.amount,
         items: items || [],
-      },
+      } as unknown as Database['public']['Tables']['domain_events']['Insert']['payload'],
     }),
     publishDomainEvent(supabase, {
       eventType: 'order.pending',
@@ -263,10 +263,9 @@ export async function fulfillSuccessfulPayment(
         lastName: customer?.last_name,
         customerName,
         total: order.total || payment.amount,
-        items: items || [],
-        orderSource: (order as Record<string, unknown>).order_source || 'online',
+        orderSource: ((order as Record<string, unknown>).order_source as string) || 'online',
         timestamp: effectivePaidAt,
-      },
+      } as unknown as Database['public']['Tables']['domain_events']['Insert']['payload'],
     }),
   ]);
 
