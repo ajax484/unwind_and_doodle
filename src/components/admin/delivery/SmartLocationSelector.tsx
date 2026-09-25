@@ -23,13 +23,8 @@ interface SmartLocationSelectorProps {
   className?: string;
 }
 
-const NIGERIAN_STATES = [
-  'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
-  'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'FCT Abuja', 'Gombe',
-  'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara', 'Lagos',
-  'Nasarawa', 'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers', 'Sokoto',
-  'Taraba', 'Yobe', 'Zamfara'
-];
+import ComboBox from '@/components/ComboBox';
+import { NIGERIAN_STATES, NIGERIAN_STATE_OPTIONS } from '@/lib/constants';
 
 export default function SmartLocationSelector({
   locations,
@@ -732,20 +727,16 @@ export default function SmartLocationSelector({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    State <span className="text-rose-500">*</span>
-                  </label>
-                  <select
+                  <ComboBox
+                    label={<span className="text-[11px] font-semibold text-slate-700">State <span className="text-rose-500">*</span></span>}
                     value={newLocState}
-                    onChange={(e) => setNewLocState(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-hidden focus:border-rose-400"
-                  >
-                    {NIGERIAN_STATES.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setNewLocState(typeof val === 'string' ? val : 'Lagos')}
+                    options={NIGERIAN_STATE_OPTIONS}
+                    allowCustom={true}
+                    size="sm"
+                    placeholder="Select state..."
+                    searchPlaceholder="Search state (e.g. Lagos, Abuja, Interstate)..."
+                  />
                 </div>
 
                 <div>

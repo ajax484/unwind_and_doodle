@@ -6,6 +6,8 @@ import {
   AdminWarehouseListItem,
   AdminDeliveryZoneItem,
 } from '@/types/admin-inventory';
+import ComboBox from '@/components/ComboBox';
+import { NIGERIAN_STATE_OPTIONS } from '@/lib/constants';
 
 interface AddDeliveryZoneModalProps {
   isOpen: boolean;
@@ -310,28 +312,27 @@ export default function AddDeliveryZoneModal({
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="font-semibold text-slate-700 block">
-                      State <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
+                  <div>
+                    <ComboBox
+                      label={<span className="font-semibold text-slate-700 block text-xs">State <span className="text-rose-500">*</span></span>}
                       value={newLocState}
-                      onChange={(e) => setNewLocState(e.target.value)}
-                      placeholder="e.g. Lagos, Abuja"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white"
-                      required
+                      onChange={(val) => setNewLocState(typeof val === 'string' ? val : 'Lagos')}
+                      options={NIGERIAN_STATE_OPTIONS}
+                      allowCustom={true}
+                      size="sm"
+                      placeholder="Select state..."
+                      searchPlaceholder="Search or type state (e.g. Lagos, Abuja, Interstate)..."
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="font-semibold text-slate-700 block">LGA / District (Optional)</label>
+                    <label className="font-semibold text-slate-700 block text-xs">LGA / District (Optional)</label>
                     <input
                       type="text"
                       value={newLocLga}
                       onChange={(e) => setNewLocLga(e.target.value)}
                       placeholder="e.g. Eti-Osa, Ikeja"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs focus:outline-hidden focus:border-rose-400"
                     />
                   </div>
                 </div>

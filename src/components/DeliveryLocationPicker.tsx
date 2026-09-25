@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { Select } from '@/components/Select';
+import ComboBox, { ComboBoxOption } from '@/components/ComboBox';
 import { formatPrice } from '@/lib/format-utils';
 
 export interface DeliveryLocationItem {
@@ -135,7 +136,7 @@ export default function DeliveryLocationPicker({
       locs.sort((a, b) => a.name.localeCompare(b.name));
     }
 
-    // Sort states with Lagos & Abuja prioritized first if present, then alphabetical
+    // Sort states with Lagos, Abuja, and Interstate prioritized first if present, then alphabetical
     const states = Array.from(map.keys()).sort((a, b) => {
       const aLower = a.toLowerCase();
       const bLower = b.toLowerCase();
@@ -143,6 +144,8 @@ export default function DeliveryLocationPicker({
       if (bLower.includes('lagos')) return 1;
       if (aLower.includes('abuja') || aLower.includes('fct')) return -1;
       if (bLower.includes('abuja') || bLower.includes('fct')) return 1;
+      if (aLower.includes('interstate')) return -1;
+      if (bLower.includes('interstate')) return 1;
       return a.localeCompare(b);
     });
 
@@ -173,8 +176,8 @@ export default function DeliveryLocationPicker({
   }, [currentState, locationsByState]);
 
   // Handle State Change
-  const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newState = e.target.value;
+  const handleStateSelect = (val: string | number | null) => {
+    const newState = typeof val === 'string' ? val : '';
 
     if (!newState) {
       onChange({
@@ -246,9 +249,9 @@ export default function DeliveryLocationPicker({
     }
   };
 
-  // State Options for Select
-  const stateOptions = useMemo(() => {
-    const opts = [];
+  // State Options for ComboBox
+  const stateOptions: ComboBoxOption[] = useMemo(() => {
+    const opts: ComboBoxOption[] = [];
     if (allowBlank) {
       opts.push({ value: '', label: blankLabel });
     }
@@ -256,7 +259,8 @@ export default function DeliveryLocationPicker({
       const count = locationsByState.get(stateName)?.length || 0;
       opts.push({
         value: stateName,
-        label: `${stateName} (${count} ${count === 1 ? 'hub' : 'hubs'})`,
+        label: stateName,
+        description: `${count} ${count === 1 ? 'hub' : 'hubs'} available`,
       });
     }
     return opts;
@@ -285,11 +289,13 @@ export default function DeliveryLocationPicker({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         {/* Tier 1: State Selection */}
         <div>
-          <Select
+          <ComboBox
             label={stateLabel}
             value={currentState}
-            onChange={handleStateChange}
+            onChange={handleStateSelect}
             options={stateOptions}
+            placeholder="Select delivery state..."
+            searchPlaceholder="Search states (e.g. Lagos, Abuja, Interstate)..."
             size={size}
             disabled={disabled || locations.length === 0}
             errorMessage={stateError}

@@ -12,6 +12,8 @@ import {
   deleteDeliveryRateTemplate,
   listEnrichedDeliveryLocations,
   createLocation,
+  updateLocation,
+  deleteLocation,
 } from '@/services/admin-warehouse.service';
 import { resolveDeliveryFee } from '@/services/pricing.service';
 
@@ -894,6 +896,65 @@ describe('Warehouse-Centric Delivery Zones Experience', () => {
       const maryland = enriched.find((l) => l.name === 'Maryland Mall');
       expect(maryland).toBeDefined();
       expect(maryland?.statusForWarehouse).toBe('not_configured');
+    });
+
+    it('updates an existing delivery location and records an audit log', async () => {
+      const updated = await updateLocation(
+        mockSupabase,
+        'loc-yaba',
+        {
+          name: 'Yaba Central Hub',
+          state: 'Lagos',
+          lga: 'Lagos Mainland',
+        },
+        adminUserA,
+        orgA
+      );
+
+      expect(updated.name).toBe('Yaba Central Hub');
+      expect(updated.lga).toBe('Lagos Mainland');
+
+      // Verify cross-organization access rejection
+      await expect(
+        updateLocation(
+          mockSupabase,
+          'loc-yaba',
+          { name: 'Illegal Update' },
+          'usr-competitor',
+          orgB
+        )
+      ).rejects.toThrow(/Forbidden/);
+    });
+
+    it('deletes a delivery location and cleans up associations safely', async () => {
+      // Create temporary location
+      const tempLoc = await createLocation(
+        mockSupabase,
+        {
+          name: 'Temporary Zone',
+          state: 'Lagos',
+        },
+        adminUserA,
+        orgA
+      );
+
+      const deleteRes = await deleteLocation(mockSupabase, tempLoc.id, adminUserA, orgA);
+      expect(deleteRes.success).toBe(true);
+      expect(deleteRes.id).toBe(tempLoc.id);
+
+      // Verify deletion from database
+      const { data: found } = await mockSupabase
+        .from('locations')
+        .select('*')
+        .eq('id', tempLoc.id)
+        .maybeSingle();
+
+      expect(found).toBeNull();
+
+      // Verify cross-organization delete is rejected
+      await expect(
+        deleteLocation(mockSupabase, 'loc-vi', 'usr-competitor', orgB)
+      ).rejects.toThrow(/Forbidden/);
     });
   });
 });

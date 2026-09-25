@@ -3,6 +3,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { AdminWarehouseListItem } from '@/types/admin-inventory';
+import ComboBox from '@/components/ComboBox';
+import { NIGERIAN_STATE_OPTIONS } from '@/lib/constants';
 
 export default function WarehousesListPage() {
   const [warehouses, setWarehouses] = useState<AdminWarehouseListItem[]>([]);
@@ -285,14 +287,16 @@ export default function WarehousesListPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-semibold text-slate-700">State</label>
-                  <input
-                    type="text"
+                <div>
+                  <ComboBox
+                    label={<span className="font-semibold text-slate-700 block">State</span>}
                     value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    placeholder="e.g. Lagos"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200"
+                    onChange={(val) => setState(typeof val === 'string' ? val : 'Lagos')}
+                    options={NIGERIAN_STATE_OPTIONS}
+                    allowCustom={true}
+                    size="sm"
+                    placeholder="Select state..."
+                    searchPlaceholder="Search or type state (e.g. Lagos, Abuja, Interstate)..."
                   />
                 </div>
 

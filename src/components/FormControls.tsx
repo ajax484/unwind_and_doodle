@@ -11,3 +11,7 @@ export { default as Select } from './Select';
 
 export * from './Checkbox';
 export { default as Checkbox } from './Checkbox';
+
+export * from './ComboBox';
+export { default as ComboBox } from './ComboBox';
+

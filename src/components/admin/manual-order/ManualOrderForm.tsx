@@ -16,12 +16,14 @@ import {
 } from "./OrderItemCustomizationModal";
 import TextInput from "@/components/TextInput";
 import Select from "@/components/Select";
+import ComboBox from "@/components/ComboBox";
 import Textarea from "@/components/Textarea";
 import Button from "@/components/Button";
 import AlertBanner from "@/components/AlertBanner";
 import Badge from "@/components/Badge";
 import Spinner from "@/components/Spinner";
 import DeliveryLocationPicker from "@/components/DeliveryLocationPicker";
+import { NIGERIAN_STATE_OPTIONS } from "@/lib/constants";
 
 interface CustomerSearchResult {
   id: string;
@@ -1016,11 +1018,15 @@ export function ManualOrderForm() {
                   size="sm"
                 />
 
-                <TextInput
+                <ComboBox
                   label="State"
                   value={state}
-                  onChange={(e) => setState(e.target.value)}
+                  onChange={(val) => setState(typeof val === 'string' ? val : '')}
+                  options={NIGERIAN_STATE_OPTIONS}
+                  allowCustom={true}
                   size="sm"
+                  placeholder="Select state..."
+                  searchPlaceholder="Search or type state (e.g. Lagos, Abuja, Interstate)..."
                 />
 
                 <Select

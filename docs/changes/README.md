@@ -62,6 +62,7 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-22 Step 17A: Marketing Personalization Context & Dynamic Recommendations](./admin/2026-09-22-marketing-context-and-recommendations.md)
 - [2026-09-22 Post-Delivery Retention Journeys & Delivery Fallback](./admin/2026-09-22-post-delivery-retention-journeys.md)
 - [2026-09-22 Product-Aware Marketing Audiences & Segmentation](./admin/2026-09-22-product-aware-marketing-audiences.md)
+- [2026-09-25 Edit and Delete Delivery Locations](./admin/2026-09-25-edit-and-delete-delivery-locations.md)
 
 ---
 
@@ -252,10 +253,11 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-07 Step 5E: Toast Component Molecule Reconciliation](./design-system/2026-09-07-toast-component-reconciliation.md)
 - [2026-09-08 Step 8B: Design System Post-Audit Cleanups & Token Consolidation](./design-system/2026-09-08-design-system-post-audit-cleanup.md)
 - [2026-09-09 Phase 8B - Responsive and Breakpoint Foundation](./design-system/2026-09-09-phase-8b-responsive-breakpoint-foundation.md)
+- [2026-09-25 ComboBox Component Implementation](./design-system/2026-09-25-combobox-component.md)
 
 ---
 
 ## 📊 Summary
-- **Total Changelogs**: 197 across 8 domain modules
+- **Total Changelogs**: 199 across 8 domain modules
 - **Template Scaffold**: [`docs/changes/_template.md`](./_template.md)
-- **Status**: 100% indexed (197 of 197 files registered)
+- **Status**: 100% indexed (199 of 199 files registered)

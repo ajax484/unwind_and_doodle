@@ -595,6 +595,49 @@ export async function updateLocation(
 }
 
 /**
+ * Deletes a delivery location and logs an audit record.
+ * Associated warehouse assignments and delivery rates are cleaned up.
+ */
+export async function deleteLocation(
+  supabase: SupabaseClient<Database>,
+  locationId: string,
+  adminUserId: string,
+  organizationId: string
+): Promise<{ success: boolean; id: string }> {
+  const { data: existing, error: findErr } = await supabase
+    .from('locations')
+    .select('*')
+    .eq('id', locationId)
+    .single();
+
+  if (findErr || !existing || existing.organization_id !== organizationId) {
+    throw new Error('Forbidden: Location not found or belongs to another organization');
+  }
+
+  const { error: delErr } = await supabase
+    .from('locations')
+    .delete()
+    .eq('id', locationId);
+
+  if (delErr) {
+    throw new Error(`Failed to delete location: ${delErr.message}`);
+  }
+
+  await supabase.from('audit_logs').insert({
+    organization_id: organizationId,
+    actor_id: adminUserId,
+    user_id: adminUserId,
+    action: 'location.deleted',
+    entity_type: 'location',
+    entity_id: locationId,
+    before_data: existing as unknown as Json,
+    after_data: null,
+  } as unknown as Database['public']['Tables']['audit_logs']['Insert']);
+
+  return { success: true, id: locationId };
+}
+
+/**
  * Lists delivery rates for all warehouses in an organization.
  */
 export async function listDeliveryRates(
