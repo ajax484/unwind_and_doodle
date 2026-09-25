@@ -168,9 +168,18 @@ export default function ProductDetailClient({ initialSlug }: { initialSlug?: str
         }),
       });
 
-      const json = await res.json();
+      let json: Record<string, unknown>;
+      const cartResponseText = await res.text();
+      try {
+        json = JSON.parse(cartResponseText);
+      } catch {
+        const hint = res.status === 413
+          ? 'Request too large for server'
+          : `Server error (${res.status} ${res.statusText || 'Unknown'})`;
+        throw new Error(`Failed to add to cart: ${hint}`);
+      }
       if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Failed to add item to cart');
+        throw new Error((json.error as string) || 'Failed to add item to cart');
       }
 
       setAddedSuccess(true);

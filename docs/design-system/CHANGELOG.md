@@ -2,6 +2,20 @@
 
 All updates to individual Figma canvas components, frames, variant iterations, and token adjustments are documented here per design system governance rules.
 
+## 2026-09-25 — Landing Page Hero Video Experience Explorations
+
+### What Changed
+
+- **New Exploration Board in Figma Canvas**: `🎬 Hero Video Explorations` on the `Storefront — Home` page (`138:9287`)
+  - **Coordinates**: `x: 5600, y: 0` (placed beside page documentation with dedicated presentation frame).
+  - **Structure & Deliverables**:
+    - **Header & Scope**: Title, category tag (`🎥 Storefront Experiment • Hero Section Video Variants`), and strategic overview.
+    - **Concept 01 — Process Showcase (Interactive Player)** (1368px wide): Asymmetric 12-col split hero pairing copy and dual CTAs with a high-fidelity video player card featuring live drawing motion, glowing play button, scrub bar, and floating customer validation (`★★★★★ "Markers glide like butter. Zero bleed onto the next page!"`).
+    - **Concept 02 — Memory-to-Art Transformation (Dual Reels)** (1368px wide): High-conversion UGC-focused layout pairing a 3-step value prop (`1. Upload Photo`, `2. Custom Line Art`, `3. Color & Unwind`) with staggered dual 9:16 vertical video reels showing the photo snapshot to live-animated line-art conversion journey.
+    - **Concept 03 — Full-Width Ambient Cinematic Hero (Immersive Studio)** (1368px wide): Dark atmospheric studio session backdrop (`#06080E` gradient with deep blue/rose ambient light halos) featuring a frosted glassmorphism command card (`backdrop-blur: 30px`), live studio stream watermark, audio track tag, and dedicated behind-the-scenes video widget.
+    - **Comparison & Implementation Architecture Matrix**: Structured spec cards comparing conversion hypotheses, user psychology, Core Web Vitals / LCP considerations, and mobile responsive strategies for each concept.
+---
+
 ## 2026-09-16 — RichTextEditor Component Set & Standardization
 
 ### What Changed

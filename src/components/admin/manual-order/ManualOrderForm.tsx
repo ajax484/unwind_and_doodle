@@ -452,6 +452,11 @@ export function ManualOrderForm() {
         idempotencyKey,
       };
 
+      if (selectedPaymentMethod === 'manual' && alreadyPaid && (!selectedLocationId || !selectedLocationId.trim())) {
+        setFormError("Delivery location is required when payment is already received.");
+        return;
+      }
+
       if (discountType === "code" && discountCode.trim()) {
         payload.discountCode = discountCode.trim();
       } else if (discountType === "manual" && typeof manualDiscountValue === "number" && manualDiscountValue > 0) {
@@ -977,11 +982,20 @@ export function ManualOrderForm() {
             {/* 4. Shipping & Delivery Section */}
             <div className="p-6 rounded-3xl bg-bg-surface border border-border-default shadow-xs space-y-4">
               <div className="border-b border-border-default pb-3">
-                <h3 className="text-base font-heading font-bold text-text-primary">
-                  Delivery &amp; Fulfillment Location
-                </h3>
-                <p className="text-xs text-text-secondary">
-                  Select customer delivery location to auto-calculate delivery rate, or leave blank to let customer select during payment checkout.
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-heading font-bold text-text-primary">
+                    Delivery &amp; Fulfillment Location
+                  </h3>
+                  {selectedPaymentMethod === 'manual' && alreadyPaid && (
+                    <span className="text-[11px] font-bold text-status-danger-accent bg-status-danger-bg px-2 py-0.5 rounded-full border border-status-danger-accent/20">
+                      * Required for confirmed payment
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-text-secondary mt-0.5">
+                  {selectedPaymentMethod === 'manual' && alreadyPaid
+                    ? 'Select the customer delivery location for routing and delivery fee calculation.'
+                    : 'Select customer delivery location to auto-calculate delivery rate, or leave blank to let customer select during payment checkout.'}
                 </p>
               </div>
 
@@ -989,7 +1003,7 @@ export function ManualOrderForm() {
                 <DeliveryLocationPicker
                   locations={locations as any}
                   selectedLocationId={selectedLocationId}
-                  allowBlank={true}
+                  allowBlank={!(selectedPaymentMethod === 'manual' && alreadyPaid)}
                   blankLabel="Leave blank — Customer selects via payment link"
                   onChange={(payload) => {
                     setSelectedLocationId(payload.locationId);
@@ -1188,22 +1202,11 @@ export function ManualOrderForm() {
                         size="sm"
                       />
 
-                      {!selectedLocationId && (
-                        <div className="p-3 bg-status-amber-bg/50 border border-status-amber-accent/30 rounded-xl space-y-1.5 text-xs text-status-amber-text">
-                          <p className="text-[11px] leading-relaxed">
-                            ⚠️ <strong>No delivery location selected:</strong> Delivery fee is currently ₦0. If customer requires delivery, select their location above.
-                          </p>
-                          <label className="flex items-center gap-2 cursor-pointer font-semibold pt-0.5">
-                            <input
-                              type="checkbox"
-                              checked={isFreeShippingPickup}
-                              onChange={(e) => setIsFreeShippingPickup(e.target.checked)}
-                              className="h-3.5 w-3.5 rounded border-border-default text-action-primary focus:ring-action-primary cursor-pointer"
-                            />
-                            <span>Confirm Free Shipping / Store Self-Pickup (₦0)</span>
-                          </label>
-                        </div>
-                      )}
+                      <div className="p-3 bg-action-primary/5 border border-action-primary/20 rounded-xl space-y-1 text-xs text-text-secondary">
+                        <p className="text-[11px] leading-relaxed font-medium text-text-primary">
+                          ℹ️ <strong>No payment link will be generated:</strong> Since payment is already confirmed, the order will transition directly to processing status.
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1290,14 +1293,17 @@ export function ManualOrderForm() {
                   submitting ||
                   previewLoading ||
                   items.length === 0 ||
-                  Boolean(previewError)
+                  Boolean(previewError) ||
+                  (selectedPaymentMethod === 'manual' && alreadyPaid && !selectedLocationId)
                 }
                 loading={submitting}
                 variant="primary"
                 size="lg"
                 className="w-full justify-center rounded-xl font-heading font-bold text-sm shadow-md hover:shadow-lg"
               >
-                Create Manual Order &amp; Link
+                {selectedPaymentMethod === 'manual' && alreadyPaid
+                  ? 'Create & Confirm Order'
+                  : 'Create Manual Order & Link'}
               </Button>
 
               <p className="text-[11px] text-text-tertiary text-center">

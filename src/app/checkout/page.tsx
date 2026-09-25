@@ -181,10 +181,21 @@ export default function CheckoutPage() {
         }),
       });
 
-      const json = await res.json();
-      if (!res.ok || !json.success || !json.data?.valid) {
+      let json: Record<string, unknown>;
+      const responseText = await res.text();
+      try {
+        json = JSON.parse(responseText);
+      } catch {
+        const hint = res.status === 413
+          ? 'Request too large'
+          : `Server error (${res.status} ${res.statusText || 'Unknown'})`;
         setAppliedDiscount(null);
-        setDiscountError(json.error || 'Invalid promo code.');
+        setDiscountError(`Discount validation failed: ${hint}`);
+        return;
+      }
+      if (!res.ok || !json.success || !(json.data as Record<string, unknown>)?.valid) {
+        setAppliedDiscount(null);
+        setDiscountError((json.error as string) || 'Invalid promo code.');
         return;
       }
 
@@ -343,9 +354,18 @@ export default function CheckoutPage() {
         body: JSON.stringify(payload),
       });
 
-      const json = await res.json();
+      let json: Record<string, unknown>;
+      const checkoutText = await res.text();
+      try {
+        json = JSON.parse(checkoutText);
+      } catch {
+        const hint = res.status === 413
+          ? 'Request too large for server'
+          : `Server error (${res.status} ${res.statusText || 'Unknown'})`;
+        throw new Error(`Checkout failed: ${hint}. Please try again.`);
+      }
       if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Checkout failed. Please try again.');
+        throw new Error((json.error as string) || 'Checkout failed. Please try again.');
       }
 
       // Handle Manual / Direct Bank Transfer order

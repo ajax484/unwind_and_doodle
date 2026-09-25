@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: `File size exceeds 5MB limit. Uploaded size: ${(file.size / (1024 * 1024)).toFixed(1)}MB`,
+          error: `File size exceeds 10MB limit. Uploaded size: ${(file.size / (1024 * 1024)).toFixed(1)}MB`,
         },
         { status: 400 }
       );

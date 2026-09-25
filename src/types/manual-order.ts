@@ -82,6 +82,15 @@ export const CreateManualOrderSchema = z
       return true;
     },
     { message: 'Discount code and manual discount cannot be used together', path: ['manualDiscount'] }
+  )
+  .refine(
+    (data) => {
+      if (data.alreadyPaid && (!data.locationId || data.locationId.trim() === '')) {
+        return false;
+      }
+      return true;
+    },
+    { message: 'Delivery location is required when payment is already confirmed', path: ['locationId'] }
   );
 
 export const UpdateCustomerOrderSchema = z.object({

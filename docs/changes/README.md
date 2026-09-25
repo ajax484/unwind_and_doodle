@@ -63,6 +63,7 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-22 Post-Delivery Retention Journeys & Delivery Fallback](./admin/2026-09-22-post-delivery-retention-journeys.md)
 - [2026-09-22 Product-Aware Marketing Audiences & Segmentation](./admin/2026-09-22-product-aware-marketing-audiences.md)
 - [2026-09-25 Edit and Delete Delivery Locations](./admin/2026-09-25-edit-and-delete-delivery-locations.md)
+- [2026-09-25 Manual Orders: Mandatory Delivery Location & Omitting Payment Link for Confirmed Orders](./admin/2026-09-25-manual-order-mandatory-location-and-no-link.md)
 
 ---
 

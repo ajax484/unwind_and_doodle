@@ -52,8 +52,8 @@ export default function CartPage() {
     if (!file) return;
 
     setModalError(null);
-    if (file.size > 5 * 1024 * 1024) {
-      setModalError('File must be under 5MB');
+    if (file.size > 10 * 1024 * 1024) {
+      setModalError('File must be under 10MB');
       return;
     }
 
@@ -73,12 +73,21 @@ export default function CartPage() {
         body: formData,
       });
 
-      const json = await res.json();
+      let json: Record<string, unknown>;
+      const responseText = await res.text();
+      try {
+        json = JSON.parse(responseText);
+      } catch {
+        const hint = res.status === 413
+          ? 'File exceeds server upload limit (10MB)'
+          : `Server error (${res.status} ${res.statusText || 'Unknown'})`;
+        throw new Error(`Upload failed: ${hint}`);
+      }
       if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Failed to upload photo');
+        throw new Error((json.error as string) || 'Failed to upload photo');
       }
 
-      setModalAssetUrls((prev) => [...prev, json.data.assetUrl]);
+      setModalAssetUrls((prev) => [...prev, (json.data as { assetUrl: string }).assetUrl]);
     } catch (err: unknown) {
       setModalError(err instanceof Error ? err.message : 'Error uploading photo');
     } finally {
@@ -105,13 +114,19 @@ export default function CartPage() {
         }),
       });
 
-      const json = await res.json();
+      let json: Record<string, unknown>;
+      const saveText = await res.text();
+      try {
+        json = JSON.parse(saveText);
+      } catch {
+        throw new Error(`Failed to save customization: server error (${res.status})`);
+      }
       if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Failed to save customization');
+        throw new Error((json.error as string) || 'Failed to save customization');
       }
 
-      setCartDirectly(json.data);
-      dispatchCartUpdated(json.data, false);
+      setCartDirectly(json.data as Parameters<typeof setCartDirectly>[0]);
+      dispatchCartUpdated(json.data as Parameters<typeof dispatchCartUpdated>[0], false);
       setEditingCustomizationItem(null);
     } catch (err: unknown) {
       setModalError(err instanceof Error ? err.message : 'Error saving customization');
@@ -579,7 +594,7 @@ export default function CartPage() {
                   >
                     <span className="text-2xl">{uploadingPhoto ? '⏳' : '📷'}</span>
                     <span className="text-xs font-heading font-semibold text-action-primary hover:text-action-primary-hover">
-                      {uploadingPhoto ? 'Uploading...' : 'Click to select photo (JPEG, PNG, WebP ≤ 5MB)'}
+                      {uploadingPhoto ? 'Uploading...' : 'Click to select photo (JPEG, PNG, WebP ≤ 10MB)'}
                     </span>
                   </label>
                 </div>

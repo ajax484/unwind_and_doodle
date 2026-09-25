@@ -296,6 +296,8 @@ describe('Admin Manual Orders: Offline Payment & Admin-Controlled Payment Method
       else if (table === 'inventory_reservations') source = inMemoryReservations;
       else if (table === 'warehouses') {
         source = [{ id: warehouseId, name: 'Main Lagos Warehouse', is_active: true, active: true, location_id: locationId }];
+      } else if (table === 'warehouse_locations' || table === 'warehouse_delivery_zones') {
+        source = [{ id: 'wl-1', warehouse_id: warehouseId, location_id: locationId, is_active: true, active: true }];
       } else if (table === 'products') {
         source = [{ id: productId, name: 'Mindful Coloring Book', selling_price: 15000, is_active: true, status: 'published' }];
       } else if (table === 'organizations') {
@@ -430,13 +432,14 @@ describe('Admin Manual Orders: Offline Payment & Admin-Controlled Payment Method
   // 2. Offline "Payment Already Received" Flow
   // =========================================================================
   describe('2. Offline "Payment Already Received" Flow', () => {
-    it('creates manual order, records manual payment, and confirms fulfillment immediately when alreadyPaid is true', async () => {
+    it('creates manual order, records manual payment, and confirms fulfillment immediately when alreadyPaid is true with locationId', async () => {
       const res = await createAdminManualOrder(
         mockSupabase,
         {
           customer: { email: 'walkin.cust@example.com', firstName: 'Alan', lastName: 'Turing', phone: '+2348011223344' },
           shippingAddress: { addressLine1: 'In-store Walk-in pickup' },
           items: [{ productId, quantity: 1 }],
+          locationId,
           paymentMethod: 'manual',
           alreadyPaid: true,
           paymentNote: 'Paid ₦16,500 cash at Lagos showroom',
@@ -451,6 +454,7 @@ describe('Admin Manual Orders: Offline Payment & Admin-Controlled Payment Method
       expect(res.paymentMethod).toBe('manual');
       expect(res.alreadyPaid).toBe(true);
       expect(res.paymentStatus).toBe('successful');
+      expect(res.paymentUrl).toBe('');
 
       // Verify payment was marked successful
       const payment = inMemoryPayments.find((p) => p.order_id === res.orderId);
@@ -467,6 +471,25 @@ describe('Admin Manual Orders: Offline Payment & Admin-Controlled Payment Method
       expect(paymentEvent).toBeDefined();
     });
 
+    it('rejects alreadyPaid flag if locationId is missing', async () => {
+      await expect(
+        createAdminManualOrder(
+          mockSupabase,
+          {
+            customer: { email: 'nolocation.cust@example.com', firstName: 'Alan', phone: '+2348011223344' },
+            items: [{ productId, quantity: 1 }],
+            paymentMethod: 'manual',
+            alreadyPaid: true,
+            // locationId intentionally omitted
+          },
+          userId,
+          orgId,
+          'http://localhost:3000',
+          adminEmail
+        )
+      ).rejects.toThrow(/Delivery location is required when payment is already confirmed/);
+    });
+
     it('rejects alreadyPaid flag if paymentMethod is a gateway provider (e.g. Paystack)', async () => {
       await expect(
         createAdminManualOrder(
@@ -474,6 +497,7 @@ describe('Admin Manual Orders: Offline Payment & Admin-Controlled Payment Method
           {
             customer: { email: 'invalid.already@example.com', firstName: 'Invalid' },
             items: [{ productId, quantity: 1 }],
+            locationId,
             paymentMethod: 'paystack',
             alreadyPaid: true,
           },
@@ -597,6 +621,7 @@ describe('Admin Manual Orders: Offline Payment & Admin-Controlled Payment Method
           customer: { email: 'token.paid@example.com', firstName: 'Dorothy', lastName: 'Vaughan' },
           shippingAddress: { addressLine1: '20 Lekki Expressway', city: 'Lagos' },
           items: [{ productId, quantity: 1 }],
+          locationId,
           paymentMethod: 'manual',
           alreadyPaid: true,
         },
@@ -606,9 +631,15 @@ describe('Admin Manual Orders: Offline Payment & Admin-Controlled Payment Method
         adminEmail
       );
 
-      const detail = await getPaymentRequestByToken(mockSupabase, orderRes.token);
-      expect(detail.status).toBe('paid');
-      expect(detail.paymentStatus).toBe('successful');
+      expect(orderRes.alreadyPaid).toBe(true);
+      expect(orderRes.paymentUrl).toBe('');
+
+      const token = inMemoryPaymentRequests[0]?.token;
+      if (token) {
+        const detail = await getPaymentRequestByToken(mockSupabase, token);
+        expect(detail.status).toBe('paid');
+        expect(detail.paymentStatus).toBe('successful');
+      }
     });
   });
 });

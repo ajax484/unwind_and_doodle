@@ -344,8 +344,9 @@ export async function createAdminManualOrder(
       },
     });
 
+    const isAlreadyPaid = Boolean(validated.alreadyPaid && selectedPaymentMethod === 'manual');
     const origin = baseUrl || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const paymentUrl = `${origin}/pay/${token}`;
+    const paymentUrl = isAlreadyPaid ? '' : `${origin}/pay/${token}`;
 
     const finalSubtotal = Number(result.subtotal ?? 0);
     const finalDiscountTotal = Number(result.discount_total ?? 0);
@@ -353,20 +354,20 @@ export async function createAdminManualOrder(
     const finalTotal = Number(result.total ?? totalAmount ?? 0);
 
     return {
-      paymentRequestId: result.payment_request_id,
-      token,
+      paymentRequestId: isAlreadyPaid ? '' : result.payment_request_id,
+      token: isAlreadyPaid ? '' : token,
       paymentUrl,
       orderId,
       orderNumber: result.order_number,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      expiresAt: isAlreadyPaid ? null : new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       amount: finalTotal,
       subtotal: finalSubtotal,
       discountTotal: finalDiscountTotal,
       shippingFee: finalShippingFee,
       total: finalTotal,
       paymentMethod: selectedPaymentMethod,
-      paymentStatus: validated.alreadyPaid ? PAYMENT_STATUS.SUCCESSFUL : PAYMENT_STATUS.PENDING,
-      alreadyPaid: Boolean(validated.alreadyPaid),
+      paymentStatus: isAlreadyPaid ? PAYMENT_STATUS.SUCCESSFUL : PAYMENT_STATUS.PENDING,
+      alreadyPaid: isAlreadyPaid,
     };
   } catch (err) {
     // Cleanup order & inventory if failed after RPC insertion

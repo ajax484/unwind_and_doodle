@@ -6,15 +6,16 @@ import Button from '@/components/Button';
 export interface ManualOrderSuccessData {
   orderId: string;
   orderNumber: string;
-  paymentRequestId: string;
-  token: string;
+  paymentRequestId?: string;
+  token?: string;
   amount: number;
-  subtotal: number;
-  discountTotal: number;
-  shippingFee: number;
-  total: number;
-  paymentUrl: string;
-  expiresAt: string;
+  subtotal?: number;
+  discountTotal?: number;
+  shippingFee?: number;
+  total?: number;
+  paymentUrl?: string | null;
+  expiresAt?: string | null;
+  alreadyPaid?: boolean;
 }
 
 interface ManualOrderSuccessModalProps {
@@ -30,6 +31,8 @@ export function ManualOrderSuccessModal({ isOpen, data, onReset, onClose }: Manu
 
   if (!isOpen || !data) return null;
 
+  const isAlreadyPaid = Boolean(data.alreadyPaid || !data.paymentUrl);
+
   const formatCurrency = (amount: number | string | undefined | null) => {
     const num = Number(amount ?? 0);
     return new Intl.NumberFormat('en-NG', {
@@ -40,6 +43,7 @@ export function ManualOrderSuccessModal({ isOpen, data, onReset, onClose }: Manu
   };
 
   const handleCopyLink = async () => {
+    if (!data.paymentUrl) return;
     try {
       await navigator.clipboard.writeText(data.paymentUrl);
       setCopied(true);
@@ -66,9 +70,13 @@ export function ManualOrderSuccessModal({ isOpen, data, onReset, onClose }: Manu
             ✓
           </div>
           <div>
-            <h3 className="text-lg font-heading font-bold text-text-primary">Payment Link Created</h3>
+            <h3 className="text-lg font-heading font-bold text-text-primary">
+              {isAlreadyPaid ? 'Manual Order Confirmed' : 'Payment Link Created'}
+            </h3>
             <p className="text-xs text-status-success-text font-medium mt-0.5">
-              Order {data.orderNumber} is created & stock is reserved for 24 hours.
+              {isAlreadyPaid
+                ? `Order ${data.orderNumber} is confirmed & payment recorded successfully.`
+                : `Order ${data.orderNumber} is created & stock is reserved for 24 hours.`}
             </p>
           </div>
         </div>
@@ -91,47 +99,64 @@ export function ManualOrderSuccessModal({ isOpen, data, onReset, onClose }: Manu
             </div>
           </div>
 
-          {/* Payment Link URL Box */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-text-primary">Customer Payment Link</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                readOnly
-                value={data.paymentUrl}
-                aria-label="Customer Payment Link"
-                className="w-full px-3.5 py-2.5 text-xs font-mono bg-bg-subtle border border-border-default rounded-xl text-text-primary focus:outline-hidden"
-              />
-              <Button
-                type="button"
-                onClick={handleCopyLink}
-                variant={copied ? 'primary' : 'secondary'}
-                size="sm"
-                className="rounded-xl font-heading font-bold whitespace-nowrap shadow-xs"
-              >
-                {copied ? '✓ Copied!' : '📋 Copy Link'}
-              </Button>
+          {/* If already paid: show payment confirmation status card */}
+          {isAlreadyPaid ? (
+            <div className="p-4 rounded-2xl bg-status-success-bg/40 border border-status-success-accent/30 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-text-primary">Payment Status</span>
+                <span className="text-xs font-bold text-status-success-text bg-status-success-bg px-2.5 py-0.5 rounded-full border border-status-success-accent/40">
+                  ✓ Paid / Confirmed Offline
+                </span>
+              </div>
+              <p className="text-[11px] text-text-secondary leading-relaxed">
+                Offline payment has been verified and recorded immediately. Inventory has been allocated and the order is ready for picking and fulfillment. No customer payment link is needed.
+              </p>
             </div>
-            <p className="text-[11px] text-text-tertiary">
-              Send this link to the customer over Instagram, WhatsApp, or email. No account required to pay.
-            </p>
-          </div>
+          ) : (
+            /* Otherwise: Payment Link URL Box */
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-text-primary">Customer Payment Link</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={data.paymentUrl || ''}
+                  aria-label="Customer Payment Link"
+                  className="w-full px-3.5 py-2.5 text-xs font-mono bg-bg-subtle border border-border-default rounded-xl text-text-primary focus:outline-hidden"
+                />
+                <Button
+                  type="button"
+                  onClick={handleCopyLink}
+                  variant={copied ? 'primary' : 'secondary'}
+                  size="sm"
+                  className="rounded-xl font-heading font-bold whitespace-nowrap shadow-xs"
+                >
+                  {copied ? '✓ Copied!' : '📋 Copy Link'}
+                </Button>
+              </div>
+              <p className="text-[11px] text-text-tertiary">
+                Send this link to the customer over Instagram, WhatsApp, or email. No account required to pay.
+              </p>
+            </div>
+          )}
 
           {/* Action Buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-            <Button
-              href={data.paymentUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              variant="outline"
-              size="sm"
-              className="w-full justify-center rounded-xl font-heading font-bold"
-            >
-              🔗 Open Payment Page ↗
-            </Button>
+          <div className={`grid ${isAlreadyPaid ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-3 pt-2`}>
+            {!isAlreadyPaid && data.paymentUrl && (
+              <Button
+                href={data.paymentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="outline"
+                size="sm"
+                className="w-full justify-center rounded-xl font-heading font-bold"
+              >
+                🔗 Open Payment Page ↗
+              </Button>
+            )}
             <Button
               href={`/admin/orders/${data.orderId}`}
-              variant="outline"
+              variant={isAlreadyPaid ? 'primary' : 'outline'}
               size="sm"
               className="w-full justify-center rounded-xl font-heading font-bold"
             >
@@ -145,7 +170,7 @@ export function ManualOrderSuccessModal({ isOpen, data, onReset, onClose }: Manu
           <Button
             type="button"
             onClick={handleClose}
-            variant="primary"
+            variant={isAlreadyPaid ? 'outline' : 'primary'}
             size="sm"
             className="rounded-xl font-heading font-bold shadow-xs"
           >

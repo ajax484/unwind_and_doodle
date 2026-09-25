@@ -258,11 +258,22 @@ export const CustomizationUploader = forwardRef<HTMLDivElement, CustomizationUpl
             body: formData,
           });
 
-          const json = await res.json();
-          if (!res.ok || !json.success) {
-            throw new Error(json.error || `Failed to upload "${file.name}"`);
+          let json: Record<string, unknown>;
+          const responseText = await res.text();
+          try {
+            json = JSON.parse(responseText);
+          } catch {
+            // Server returned non-JSON (e.g. 413 "Request Entity Too Large", gateway error)
+            const hint =
+              res.status === 413
+                ? 'File exceeds server upload limit (10MB)'
+                : `Server error (${res.status} ${res.statusText || 'Unknown'})`;
+            throw new Error(`Upload failed: ${hint}`);
           }
-          newlyUploaded.push(json.data.assetUrl);
+          if (!res.ok || !json.success) {
+            throw new Error((json.error as string) || `Failed to upload "${file.name}"`);
+          }
+          newlyUploaded.push((json.data as { assetUrl: string }).assetUrl);
         }
 
         const updated = multiple ? [...uploadedUrls, ...newlyUploaded] : newlyUploaded;
