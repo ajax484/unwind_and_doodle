@@ -199,11 +199,13 @@ export default function CheckoutPage() {
         return;
       }
 
+      const discountData = json.data as { code: string; discountAmount: number; valid?: boolean };
+
       setAppliedDiscount({
-        code: json.data.code,
-        discountAmount: json.data.discountAmount,
+        code: discountData.code,
+        discountAmount: discountData.discountAmount,
       });
-      setDiscountCode(json.data.code);
+      setDiscountCode(discountData.code);
       setDiscountError(null);
     } catch (err: unknown) {
       setAppliedDiscount(null);
@@ -369,7 +371,15 @@ export default function CheckoutPage() {
       }
 
       // Handle Manual / Direct Bank Transfer order
-      if (json.data?.paymentType === 'manual' || selectedPaymentMethod === 'manual') {
+      const checkoutData = json.data as {
+        paymentType?: string;
+        bankDetails?: ManualOrderPlacedState['bankDetails'];
+        orderNumber?: string;
+        pricing?: { total?: number };
+        authorizationUrl?: string;
+      } | undefined;
+
+      if (checkoutData?.paymentType === 'manual' || selectedPaymentMethod === 'manual') {
         // Clear cart session upon successful order placement
         try {
           await fetch('/api/cart?clear=true', {
@@ -381,25 +391,25 @@ export default function CheckoutPage() {
           // non-blocking
         }
 
-        const bankDetails = json.data?.bankDetails || paymentMethods.find((p) => p.provider === 'manual')?.bankDetails;
+        const bankDetails = checkoutData?.bankDetails || paymentMethods.find((p) => p.provider === 'manual')?.bankDetails;
         if (bankDetails) {
           setManualOrderPlaced({
-            orderNumber: json.data.orderNumber,
-            totalAmount: json.data.pricing?.total || totalAmount,
+            orderNumber: checkoutData?.orderNumber || '',
+            totalAmount: checkoutData?.pricing?.total || totalAmount,
             bankDetails,
           });
           window.scrollTo({ top: 0, behavior: 'smooth' });
           return;
         } else {
           // Fallback to order tracking page
-          router.replace(`/order/${json.data.orderNumber}`);
+          router.replace(`/order/${checkoutData?.orderNumber}`);
           return;
         }
       }
 
       // Handle Gateway Redirect (Paystack / Flutterwave)
-      if (json.data?.authorizationUrl) {
-        window.location.href = json.data.authorizationUrl;
+      if (checkoutData?.authorizationUrl) {
+        window.location.href = checkoutData.authorizationUrl;
       } else {
         throw new Error('No payment URL received from payment provider');
       }

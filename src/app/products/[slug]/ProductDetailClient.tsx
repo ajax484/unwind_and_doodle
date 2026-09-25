@@ -183,7 +183,7 @@ export default function ProductDetailClient({ initialSlug }: { initialSlug?: str
       }
 
       setAddedSuccess(true);
-      dispatchCartUpdated(json.data, true);
+      dispatchCartUpdated(json.data as Parameters<typeof dispatchCartUpdated>[0], true);
       trackAddToCart({
         content_name: product.name,
         content_ids: [product.id],
