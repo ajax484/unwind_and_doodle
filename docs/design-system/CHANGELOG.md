@@ -2,18 +2,27 @@
 
 All updates to individual Figma canvas components, frames, variant iterations, and token adjustments are documented here per design system governance rules.
 
-## 2026-09-25 — Landing Page Hero Video Experience Explorations
+## 2026-09-25 — Hero / Circular Video IFrames Component Set & Variants
 
 ### What Changed
 
-- **New Exploration Board in Figma Canvas**: `🎬 Hero Video Explorations` on the `Storefront — Home` page (`138:9287`)
-  - **Coordinates**: `x: 5600, y: 0` (placed beside page documentation with dedicated presentation frame).
-  - **Structure & Deliverables**:
-    - **Header & Scope**: Title, category tag (`🎥 Storefront Experiment • Hero Section Video Variants`), and strategic overview.
-    - **Concept 01 — Process Showcase (Interactive Player)** (1368px wide): Asymmetric 12-col split hero pairing copy and dual CTAs with a high-fidelity video player card featuring live drawing motion, glowing play button, scrub bar, and floating customer validation (`★★★★★ "Markers glide like butter. Zero bleed onto the next page!"`).
-    - **Concept 02 — Memory-to-Art Transformation (Dual Reels)** (1368px wide): High-conversion UGC-focused layout pairing a 3-step value prop (`1. Upload Photo`, `2. Custom Line Art`, `3. Color & Unwind`) with staggered dual 9:16 vertical video reels showing the photo snapshot to live-animated line-art conversion journey.
-    - **Concept 03 — Full-Width Ambient Cinematic Hero (Immersive Studio)** (1368px wide): Dark atmospheric studio session backdrop (`#06080E` gradient with deep blue/rose ambient light halos) featuring a frosted glassmorphism command card (`backdrop-blur: 30px`), live studio stream watermark, audio track tag, and dedicated behind-the-scenes video widget.
-    - **Comparison & Implementation Architecture Matrix**: Structured spec cards comparing conversion hypotheses, user psychology, Core Web Vitals / LCP considerations, and mobile responsive strategies for each concept.
+- **Promoted to Canonical Components Page (`Components` page `16:2942`)**:
+  - **Component Set**: `Hero / Circular Video IFrames` (`269:14271`) placed at `x: 46400, y: 12200` in the Organisms / Section column directly below `HeroSection`.
+  - **Documentation Board**: `🎬 Hero / Circular Video IFrames Component Set Documentation` (`269:14272`) placed at `x: 45000, y: 12200`.
+  - **Cleanup**: Deleted temporary exploratory page `🎥 Explorations — Hero Video`.
+  - **Style-Guide & Design Token Compliance**:
+    - 100% bound to design system styles: `Display/XL` (Fredoka Bold 56px), `Body/Large` (Plus Jakarta Sans 18px), `Text/Primary` (`Color/Neutral/Charcoal` `#243342`), `Text/Secondary` (`Color/Neutral/Slate` `#52657A`), `Color/Rose/Base` (`#D99BA3`), and `Color/Blue/Light` (`#A7C2D4`).
+    - Uses canonical `Button` instances for primary (`"Shop the collection →"`) and secondary (`"Create your coloring book"`) actions.
+    - Preserves exact 3 trust columns: `"Archival Paper • Bleed-resistant 160gsm"`, `"Personalized • Made from your photos"`, and `"Nationwide • Delivery across Nigeria"`.
+  - **Corner Circular Video Iframe Elements**:
+    - **`Video IFrame 1 (Top-Left)`**: `500 × 500` circular video container with concentric `Color/Rose/Base` and `Color/Blue/Light` rings.
+    - **`Video IFrame 2 (Bottom-Right)`**: `500 × 500` circular video container with concentric rings for video playback/interaction.
+  - **Configurable Variant Properties**:
+    - `Device`: `Desktop` (1440 × 1024), `Tablet` (768 × 860), `Mobile` (390 × 880).
+    - `VideoIframes`: `Dual` (both top-left and bottom-right corner video iframes active), `Single` (primary top-left video iframe active), `Hidden` (editorial text-focused layout).
+    - `Badge`: `Visible` (`"♡ Mindful Coloring Books & Custom Photo Keepsakes"`), `Hidden`.
+    - `TrustRow`: `Visible` (Archival Paper, Personalized, Nationwide), `Hidden`.
+  - **Total Variants**: **10 production variants**.
 ---
 
 ## 2026-09-16 — RichTextEditor Component Set & Standardization
