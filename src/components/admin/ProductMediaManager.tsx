@@ -23,6 +23,122 @@ export interface ProductMediaManagerProps {
   disabled?: boolean;
 }
 
+/**
+ * Utility to extract a frame from a Video File or URL as a JPEG File
+ */
+export async function captureVideoThumbnail(
+  source: File | string,
+  seekTime: number = 0.5
+): Promise<File | null> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') {
+      resolve(null);
+      return;
+    }
+
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+
+    let objectUrl: string | null = null;
+    let isCleanedUp = false;
+
+    const cleanup = () => {
+      if (isCleanedUp) return;
+      isCleanedUp = true;
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve(null);
+    }, 10000);
+
+    video.onloadedmetadata = () => {
+      const targetTime = Math.min(
+        seekTime,
+        video.duration > 0 ? Math.max(0.1, video.duration / 2) : 0.1
+      );
+      video.currentTime = targetTime;
+    };
+
+    video.onseeked = () => {
+      try {
+        const width = video.videoWidth || 640;
+        const height = video.videoHeight || 640;
+
+        let targetW = width;
+        let targetH = height;
+        const maxDim = 1200;
+        if (targetW > maxDim || targetH > maxDim) {
+          if (targetW > targetH) {
+            targetH = Math.round((targetH * maxDim) / targetW);
+            targetW = maxDim;
+          } else {
+            targetW = Math.round((targetW * maxDim) / targetH);
+            targetH = maxDim;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          cleanup();
+          clearTimeout(timer);
+          resolve(null);
+          return;
+        }
+
+        ctx.drawImage(video, 0, 0, targetW, targetH);
+        canvas.toBlob(
+          (blob) => {
+            cleanup();
+            clearTimeout(timer);
+            if (!blob) {
+              resolve(null);
+              return;
+            }
+            const baseName =
+              typeof source === 'string'
+                ? 'video-thumbnail'
+                : source.name.replace(/\.[^/.]+$/, '');
+            const file = new File([blob], `${baseName}-poster.jpg`, { type: 'image/jpeg' });
+            resolve(file);
+          },
+          'image/jpeg',
+          0.85
+        );
+      } catch {
+        cleanup();
+        clearTimeout(timer);
+        resolve(null);
+      }
+    };
+
+    video.onerror = () => {
+      cleanup();
+      clearTimeout(timer);
+      resolve(null);
+    };
+
+    if (typeof source === 'string') {
+      video.src = source;
+    } else {
+      objectUrl = URL.createObjectURL(source);
+      video.src = objectUrl;
+    }
+  });
+}
+
 export default function ProductMediaManager({
   media,
   onChange,
@@ -48,6 +164,7 @@ export default function ProductMediaManager({
   const [editingAltText, setEditingAltText] = useState('');
   const [deletingIndex, setDeletingIndex] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isCapturingFrame, setIsCapturingFrame] = useState(false);
 
   // 1. Upload Handler for Images and Videos
   const handleFileUpload = async (
@@ -93,6 +210,12 @@ export default function ProductMediaManager({
         formData.append('productId', productId);
       }
 
+      // If uploading a video, initiate client-side thumbnail capture simultaneously
+      const thumbnailPromise =
+        type === 'video'
+          ? captureVideoThumbnail(file).catch(() => null)
+          : Promise.resolve(null);
+
       const res = await fetch('/api/admin/products/upload-media', {
         method: 'POST',
         body: formData,
@@ -114,10 +237,38 @@ export default function ProductMediaManager({
         throw new Error(json?.error || `Failed to upload ${type}`);
       }
 
+      let generatedThumbnailPath: string | null = null;
+
+      // If video thumbnail was captured, upload it automatically
+      const capturedThumbnailFile = await thumbnailPromise;
+      if (capturedThumbnailFile) {
+        try {
+          const thumbFormData = new FormData();
+          thumbFormData.append('file', capturedThumbnailFile);
+          thumbFormData.append('isThumbnail', 'true');
+          if (productId) {
+            thumbFormData.append('productId', productId);
+          }
+
+          const thumbRes = await fetch('/api/admin/products/upload-media', {
+            method: 'POST',
+            body: thumbFormData,
+          });
+          if (thumbRes.ok) {
+            const thumbJson = await thumbRes.json();
+            if (thumbJson?.success && thumbJson.data?.storagePath) {
+              generatedThumbnailPath = thumbJson.data.storagePath;
+            }
+          }
+        } catch {
+          // Non-critical: allow video upload to succeed even if auto-thumbnail upload fails
+        }
+      }
+
       const newMediaItem: AdminMediaItem = {
         type,
         storage_path: json.data.storagePath,
-        thumbnail_path: null,
+        thumbnail_path: generatedThumbnailPath,
         alt_text: json.data.altText || `${productName} ${type}`,
         sort_order: media.length,
       };
@@ -213,6 +364,55 @@ export default function ProductMediaManager({
       thumbnail_path: null,
     };
     onChange(updated);
+  };
+
+  // Auto-capture poster frame from existing video
+  const handleAutoCapturePoster = async (index: number) => {
+    const item = media[index];
+    if (!item || item.type !== 'video') return;
+
+    try {
+      setIsCapturingFrame(true);
+      setUploadError(null);
+
+      const capturedFile = await captureVideoThumbnail(item.storage_path);
+      if (!capturedFile) {
+        throw new Error('Unable to extract frame from video. You can upload an image manually instead.');
+      }
+
+      const formData = new FormData();
+      formData.append('file', capturedFile);
+      formData.append('isThumbnail', 'true');
+      if (productId) {
+        formData.append('productId', productId);
+      }
+
+      const res = await fetch('/api/admin/products/upload-media', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        throw new Error(json?.error || 'Failed to upload generated thumbnail');
+      }
+
+      const json = await res.json();
+      if (!json?.success || !json.data?.storagePath) {
+        throw new Error(json?.error || 'Failed to save thumbnail');
+      }
+
+      const updated = [...media];
+      updated[index] = {
+        ...updated[index],
+        thumbnail_path: json.data.storagePath,
+      };
+      onChange(updated);
+    } catch (err: unknown) {
+      setUploadError(err instanceof Error ? err.message : 'Error capturing frame from video');
+    } finally {
+      setIsCapturingFrame(false);
+    }
   };
 
   // 3. Reordering via Drag & Drop
@@ -706,21 +906,34 @@ export default function ProductMediaManager({
                         ? 'Custom poster thumbnail is active.'
                         : 'No thumbnail set. The storefront falls back to video playback.'}
                     </p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        loading={isCapturingFrame}
+                        disabled={isCapturingFrame || uploadingType === 'thumbnail'}
+                        onClick={() => handleAutoCapturePoster(editingItemIndex)}
+                        title="Auto-extract high quality poster frame from video"
+                      >
+                        ⚡ Capture Frame
+                      </Button>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         loading={uploadingType === 'thumbnail'}
+                        disabled={isCapturingFrame || uploadingType === 'thumbnail'}
                         onClick={() => thumbnailInputRef.current?.click()}
                       >
-                        {editingItem.thumbnail_path ? 'Replace Poster' : '+ Upload Poster'}
+                        {editingItem.thumbnail_path ? 'Upload Custom' : '+ Upload Custom'}
                       </Button>
                       {editingItem.thumbnail_path && (
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
+                          disabled={isCapturingFrame || uploadingType === 'thumbnail'}
                           onClick={() => handleRemoveThumbnail(editingItemIndex)}
                         >
                           Remove

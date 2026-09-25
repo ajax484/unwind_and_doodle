@@ -144,7 +144,7 @@ export function deriveGalleryMedia(
       type: m.type,
       url: m.storagePath,
       posterUrl: m.thumbnailPath || null,
-      thumbnailUrl: m.thumbnailPath || m.storagePath,
+      thumbnailUrl: m.thumbnailPath || (m.type === 'image' ? m.storagePath : null),
       alt:
         m.altText ||
         `${productName} — ${m.type === 'video' ? 'Product Video' : `View ${idx + 1}`}`,
@@ -521,9 +521,19 @@ export const ProductImageGallery = forwardRef<HTMLDivElement, ProductImageGaller
                       className="w-full h-full object-cover"
                       loading="lazy"
                     />
+                  ) : isVideo ? (
+                    <div className="w-full h-full relative bg-slate-900 overflow-hidden flex items-center justify-center">
+                      <video
+                        src={`${item.url}#t=0.001`}
+                        preload="metadata"
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover opacity-80 pointer-events-none"
+                      />
+                    </div>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-bg-surface text-text-tertiary">
-                      <span className="text-xs">🎬</span>
+                      <span className="text-xs">🖼️</span>
                     </div>
                   )}
 

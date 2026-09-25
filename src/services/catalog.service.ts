@@ -244,7 +244,7 @@ export async function getPublishedCatalog(
     const firstImage = sortedMedia.find((m) => m.type === 'image');
     const primaryImage = firstImage
       ? firstImage.storagePath
-      : (sortedMedia[0]?.thumbnailPath || sortedMedia[0]?.storagePath || null);
+      : (sortedMedia[0]?.thumbnailPath || null);
 
     const stock = stockByProduct.get(p.id) || 0;
     const cats = categoriesByProduct.get(p.id) || [];
@@ -400,7 +400,10 @@ export async function getProductDetailBySlug(
     const addonImgMap = new Map<string, string>();
     for (const m of addonMediaList || []) {
       if (!addonImgMap.has(m.product_id)) {
-        addonImgMap.set(m.product_id, m.thumbnail_path || m.storage_path);
+        const imgUrl = m.type === 'image' ? m.storage_path : (m.thumbnail_path || null);
+        if (imgUrl) {
+          addonImgMap.set(m.product_id, imgUrl);
+        }
       }
     }
     for (const img of addonImages || []) {

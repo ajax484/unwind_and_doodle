@@ -227,7 +227,9 @@ export async function listAdminProducts(
     if (firstImg) {
       primaryImageMap.set(prodId, firstImg.storagePath);
     } else if (pMedia.length > 0 && !primaryImageMap.has(prodId)) {
-      primaryImageMap.set(prodId, pMedia[0].thumbnailPath || pMedia[0].storagePath);
+      if (pMedia[0].thumbnailPath) {
+        primaryImageMap.set(prodId, pMedia[0].thumbnailPath);
+      }
     }
   }
 

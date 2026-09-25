@@ -338,6 +338,44 @@ describe('ProductImageGallery: Video Promotion & Storefront Presentation', () =>
       // Thumb 0 (video) should use poster/thumbnailPath
       expect(html).toContain('src="https://images.example.com/mandala-video-poster.jpg"');
     });
+
+    it('renders a fallback <video src="...#t=0.001"> preview in thumbnail strip when video thumbnailPath is null', () => {
+      const mediaWithNullPoster: ProductMedia[] = [
+        {
+          id: 'v1',
+          productId: 'p1',
+          type: 'video',
+          storagePath: 'https://videos.example.com/demo.mp4',
+          thumbnailPath: null,
+          altText: 'Demo Video',
+          sortOrder: 0,
+          createdAt: '2026-08-01T10:00:00Z',
+          updatedAt: '2026-08-01T10:00:00Z',
+        },
+        {
+          id: 'i1',
+          productId: 'p1',
+          type: 'image',
+          storagePath: 'https://images.example.com/demo.jpg',
+          thumbnailPath: null,
+          altText: 'Demo Image',
+          sortOrder: 1,
+          createdAt: '2026-08-01T10:00:00Z',
+          updatedAt: '2026-08-01T10:00:00Z',
+        },
+      ];
+
+      const html = renderToStaticMarkup(
+        React.createElement(ProductImageGallery, {
+          media: mediaWithNullPoster,
+          productName: 'Null Poster Product',
+        })
+      );
+
+      // Should render video preview in thumbnail strip instead of broken <img src="...mp4">
+      expect(html).toContain('src="https://videos.example.com/demo.mp4#t=0.001"');
+      expect(html).not.toContain('<img src="https://videos.example.com/demo.mp4"');
+    });
   });
 
   describe('4. Navigation Controls & Badge Slots', () => {

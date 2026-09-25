@@ -130,7 +130,10 @@ export async function listAdminBundles(
   const primaryImageMap = new Map<string, string>();
   for (const m of mediaList) {
     if (!primaryImageMap.has(m.product_id)) {
-      primaryImageMap.set(m.product_id, m.thumbnail_path || m.storage_path);
+      const imgUrl = m.type === 'image' ? m.storage_path : (m.thumbnail_path || null);
+      if (imgUrl) {
+        primaryImageMap.set(m.product_id, imgUrl);
+      }
     }
   }
   for (const img of images) {

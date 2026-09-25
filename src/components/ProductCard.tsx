@@ -106,14 +106,22 @@ export interface ProductCardProps
 }
 
 export function resolveProductCardMedia(
-  primaryImage: string | null,
+  primaryImage: string | null | undefined,
   media?: ProductMedia[],
   hoverVideoUrl?: string | null
 ) {
   const firstVideoMedia = media?.find((m) => m.type === 'video');
   const videoUrl = hoverVideoUrl || (firstVideoMedia ? firstVideoMedia.storagePath : null);
   const videoPoster = firstVideoMedia?.thumbnailPath || null;
-  const defaultImage = primaryImage || media?.find((m) => m.type === 'image')?.storagePath || null;
+  const isPrimaryVideo = Boolean(
+    primaryImage && /\.(mp4|webm|mov|m4v|ogv)($|\?)/i.test(primaryImage)
+  );
+  const safePrimaryImage = isPrimaryVideo ? null : (primaryImage || null);
+  const defaultImage =
+    safePrimaryImage ||
+    videoPoster ||
+    media?.find((m) => m.type === 'image')?.storagePath ||
+    null;
 
   return {
     firstVideoMedia,
@@ -160,7 +168,7 @@ export const ProductCard = forwardRef<HTMLDivElement, ProductCardProps>(
     ref
   ) => {
     // 1. Resolve first video from media (or hoverVideoUrl override)
-    const { firstVideoMedia, videoUrl, videoPoster } = resolveProductCardMedia(
+    const { firstVideoMedia, videoUrl, videoPoster, defaultImage } = resolveProductCardMedia(
       primaryImage,
       media,
       hoverVideoUrl
@@ -288,13 +296,23 @@ export const ProductCard = forwardRef<HTMLDivElement, ProductCardProps>(
           tabIndex={-1}
           aria-hidden="true"
         >
-          {primaryImage ? (
+          {defaultImage ? (
             <img
-              src={primaryImage}
+              src={defaultImage}
               alt={name}
               className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-500 ease-out"
               loading={priority ? 'eager' : 'lazy'}
             />
+          ) : videoUrl ? (
+            <div className="w-full h-full relative bg-slate-900 overflow-hidden flex items-center justify-center">
+              <video
+                src={`${videoUrl}#t=0.001`}
+                preload="metadata"
+                muted
+                playsInline
+                className="w-full h-full object-cover"
+              />
+            </div>
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-bg-brand via-bg-surface to-bg-accent p-6 text-center">
               <span className="text-3xl mb-1.5" aria-hidden="true">
