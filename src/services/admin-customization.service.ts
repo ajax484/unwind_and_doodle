@@ -85,18 +85,26 @@ export async function listAdminCustomizations(
     customizationIds.length > 0
       ? supabase
           .from('customization_assets')
-          .select('id, customization_id, processed_storage_path')
+          .select('id, customization_id, storage_path, processed_storage_path')
           .in('customization_id', customizationIds)
+          .order('created_at', { ascending: true })
       : Promise.resolve({ data: [] }),
   ]);
 
   const customerMap = new Map((customers || []).map((c) => [c.id, c]));
 
-  const assetsStatsMap = new Map<string, { total: number; processed: number }>();
+  const assetsStatsMap = new Map<string, { total: number; processed: number; previewUrls: string[] }>();
   for (const a of assets || []) {
-    const cur = assetsStatsMap.get(a.customization_id) || { total: 0, processed: 0 };
+    const cur = assetsStatsMap.get(a.customization_id) || { total: 0, processed: 0, previewUrls: [] };
     cur.total += 1;
     if (a.processed_storage_path) cur.processed += 1;
+    if (a.storage_path) {
+      const url =
+        a.storage_path.startsWith('http') || a.storage_path.startsWith('data:')
+          ? a.storage_path
+          : supabase.storage.from('customizations').getPublicUrl(a.storage_path).data.publicUrl;
+      cur.previewUrls.push(url);
+    }
     assetsStatsMap.set(a.customization_id, cur);
   }
 
@@ -110,7 +118,7 @@ export async function listAdminCustomizations(
       ? `${cust.first_name || ''} ${cust.last_name || ''}`.trim() || cust.email
       : 'Guest Customer';
 
-    const assetStats = assetsStatsMap.get(c.id) || { total: 0, processed: 0 };
+    const assetStats = assetsStatsMap.get(c.id) || { total: 0, processed: 0, previewUrls: [] };
 
     return {
       id: c.id,
@@ -125,6 +133,7 @@ export async function listAdminCustomizations(
       productName: item?.product_name || 'Custom Coloring Book',
       totalAssetsCount: assetStats.total,
       processedAssetsCount: assetStats.processed,
+      previewUrls: assetStats.previewUrls,
       status: c.status,
       completedAt: c.completed_at,
       createdAt: c.created_at,
@@ -264,13 +273,14 @@ export async function getAdminCustomizationDetail(
     mimeType: a.mime_type,
     fileSize: a.file_size,
     processedStoragePath: a.processed_storage_path,
-    originalUrl: a.storage_path.startsWith('http')
-      ? a.storage_path
-      : `/api/admin/customizations/${customization.id}/assets/${a.id}/original`,
+    originalUrl:
+      a.storage_path.startsWith('http') || a.storage_path.startsWith('data:')
+        ? a.storage_path
+        : supabase.storage.from('customizations').getPublicUrl(a.storage_path).data.publicUrl,
     processedUrl: a.processed_storage_path
-      ? a.processed_storage_path.startsWith('http')
+      ? a.processed_storage_path.startsWith('http') || a.processed_storage_path.startsWith('data:')
         ? a.processed_storage_path
-        : `/api/admin/customizations/${customization.id}/assets/${a.id}/processed`
+        : supabase.storage.from('customizations').getPublicUrl(a.processed_storage_path).data.publicUrl
       : null,
     createdAt: a.created_at,
   }));

@@ -1,5 +1,5 @@
 import { cookies, headers } from 'next/headers';
-import { getServiceSupabaseClient } from './supabase/client';
+import { getServiceSupabaseClient, createEphemeralAuthClient } from './supabase/client';
 import { requireOrganizationMember, AdminOrganizationContext } from '../services/auth.service';
 import { getRolePermissions } from '../services/permission.service';
 
@@ -134,7 +134,8 @@ export async function getAuthenticatedAdminServer(): Promise<AdminServerSession 
 
       if (!user && refreshToken) {
         try {
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession({
+          const authClient = createEphemeralAuthClient(supabase);
+          const { data: refreshData, error: refreshError } = await authClient.auth.refreshSession({
             refresh_token: refreshToken,
           });
           if (!refreshError && refreshData?.user) {

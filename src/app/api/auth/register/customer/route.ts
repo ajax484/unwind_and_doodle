@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceSupabaseClient } from '@/lib/supabase/client';
+import { getServiceSupabaseClient, createEphemeralAuthClient } from '@/lib/supabase/client';
 import { linkOrCreateCustomerAccount } from '@/services/customer-account.service';
 import { setAuthCookies } from '@/lib/auth-helpers';
 import { z } from 'zod';
@@ -28,9 +28,10 @@ export async function POST(req: NextRequest) {
     const { email, password, firstName, lastName, phone, emailMarketingConsent } = parsed.data;
     const cleanEmail = email.trim().toLowerCase();
     const supabase = getServiceSupabaseClient();
+    const authClient = createEphemeralAuthClient(supabase);
 
-    // 1. Create Supabase Auth User
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // 1. Create Supabase Auth User (using ephemeral client to keep service client pure)
+    const { data: authData, error: authError } = await authClient.auth.signUp({
       email: cleanEmail,
       password,
       options: {

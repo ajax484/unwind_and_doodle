@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceSupabaseClient } from '@/lib/supabase/client';
+import { getServiceSupabaseClient, createEphemeralAuthClient } from '@/lib/supabase/client';
 import { getConfig } from '@/lib/config';
 
 export async function GET(req: NextRequest) {
@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const next = url.searchParams.get('next') || (intent === 'admin' ? '/admin' : '/account');
 
     const { appUrl } = getConfig();
-    const supabase = getServiceSupabaseClient();
+    const supabase = createEphemeralAuthClient(getServiceSupabaseClient());
     const redirectTo = `${appUrl}/api/auth/callback?intent=${encodeURIComponent(intent)}&next=${encodeURIComponent(next)}`;
 
     const { data, error } = await supabase.auth.signInWithOAuth({

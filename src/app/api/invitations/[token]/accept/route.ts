@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractAuthToken, setAuthCookies } from '@/lib/auth-helpers';
-import { getServiceSupabaseClient } from '@/lib/supabase/client';
+import { getServiceSupabaseClient, createEphemeralAuthClient } from '@/lib/supabase/client';
 import { acceptTeamInvitation } from '@/services/team.service';
 import { AcceptInvitationBodySchema } from '@/types/admin-team';
 
@@ -75,9 +75,10 @@ export async function POST(
     let refreshToken: string | null = null;
 
     if (password) {
+      const authClient = createEphemeralAuthClient(supabase);
 
       // Try to sign in first (in case the auth user already exists)
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      const { data: signInData, error: signInError } = await authClient.auth.signInWithPassword({
         email: invitation.email,
         password,
       });
@@ -109,7 +110,7 @@ export async function POST(
 
         // Fallback to standard signUp if admin API is not available in mock/test
         if (!createdUserId) {
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          const { data: signUpData, error: signUpError } = await authClient.auth.signUp({
             email: invitation.email,
             password,
             options: {
@@ -134,7 +135,7 @@ export async function POST(
         }
 
         // Now sign in to get active session
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        const { data: authData, error: authError } = await authClient.auth.signInWithPassword({
           email: invitation.email,
           password,
         });

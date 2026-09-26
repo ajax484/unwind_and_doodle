@@ -48,9 +48,47 @@ export function getServiceSupabaseClient(
       persistSession: false,
       autoRefreshToken: false,
     },
+    global: {
+      headers: {
+        Authorization: `Bearer ${supabaseServiceRoleKey}`,
+        apikey: supabaseServiceRoleKey,
+      },
+    },
   });
 
   return serverClientInstance;
+}
+
+/**
+ * Creates an ephemeral, un-cached Supabase client specifically for user authentication actions
+ * (e.g. signIn, signUp, refreshSession, verifyOtp).
+ * This prevents auth methods from mutating or polluting the shared service client.
+ */
+export function createEphemeralAuthClient(
+  fallbackClient?: SupabaseClient<Database>
+): SupabaseClient<Database> {
+  if (process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST)) {
+    if (fallbackClient) {
+      return fallbackClient;
+    }
+    if (serverClientInstance) {
+      return serverClientInstance;
+    }
+  }
+
+  const { supabaseUrl, supabaseAnonKey, supabaseServiceRoleKey } = getConfig();
+  const key = supabaseAnonKey || supabaseServiceRoleKey || 'placeholder-key';
+
+  return createClient<Database>(
+    supabaseUrl || 'https://placeholder.supabase.co',
+    key,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    }
+  );
 }
 
 /**

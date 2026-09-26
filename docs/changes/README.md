@@ -95,6 +95,7 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-14 Unified Product Media Architecture](./commerce/2026-09-14-unified-product-media-architecture.md)
 - [2026-09-21 2026-09-21: 2-Tier Cascading Delivery Location Picker Across Storefront and Admin](./commerce/2026-09-21-cascading-delivery-location-picker.md)
 - [2026-09-24 SEO, Open Graph & Favicon Metadata Infrastructure](./commerce/2026-09-24-seo-and-favicon-setup.md)
+- [2026-09-26 Cart & Checkout RLS Policies and Stateless Auth Client Isolation](./2026-09-26-cart-and-auth-rls-isolation.md)
 
 ---
 

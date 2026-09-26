@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceSupabaseClient } from '@/lib/supabase/client';
+import { getServiceSupabaseClient, createEphemeralAuthClient } from '@/lib/supabase/client';
 import { linkOrCreateCustomerAccount } from '@/services/customer-account.service';
 import { setAuthCookies } from '@/lib/auth-helpers';
 
@@ -28,7 +28,8 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = getServiceSupabaseClient();
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+  const authClient = createEphemeralAuthClient(supabase);
+  const { data, error } = await authClient.auth.exchangeCodeForSession(code);
 
   if (error || !data.user || !data.session) {
     return NextResponse.redirect(errorFallbackUrl);

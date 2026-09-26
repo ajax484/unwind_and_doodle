@@ -276,9 +276,31 @@ export default function AdminCustomizationsPage() {
                           {c.productName}
                         </td>
 
-                        {/* Assets Progress */}
+                        {/* Assets Progress & Photo Previews */}
                         <td className="py-3.5 px-4 text-center">
-                          <div className="space-y-1 inline-block">
+                          <div className="flex flex-col items-center gap-1.5 inline-block">
+                            {c.previewUrls && c.previewUrls.length > 0 && (
+                              <div className="flex items-center -space-x-2 overflow-hidden py-0.5">
+                                {c.previewUrls.slice(0, 3).map((url, i) => (
+                                  <div
+                                    key={i}
+                                    className="inline-block h-8 w-8 rounded-lg overflow-hidden bg-slate-100 ring-2 ring-white shadow-2xs border border-slate-200 shrink-0"
+                                  >
+                                    <img
+                                      src={url}
+                                      alt={`Customer Photo ${i + 1}`}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  </div>
+                                ))}
+                                {c.previewUrls.length > 3 && (
+                                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-[10px] font-bold text-slate-600 ring-2 ring-white border border-slate-200 shrink-0">
+                                    +{c.previewUrls.length - 3}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
                             <span
                               className={`font-mono text-xs font-bold ${
                                 isAllDone ? 'text-emerald-600' : 'text-slate-800'
@@ -331,7 +353,7 @@ export default function AdminCustomizationsPage() {
                         <td className="py-3.5 px-4 text-right">
                           <Link
                             href={`/admin/customizations/${c.id}`}
-                            className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs shadow-xs"
+                            className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs shadow-xs inline-block"
                           >
                             Artwork Workspace →
                           </Link>
@@ -348,7 +370,7 @@ export default function AdminCustomizationsPage() {
               {customizations.map((c) => (
                 <div
                   key={c.id}
-                  className="p-4 rounded-2xl bg-slate-50/60 border border-slate-100 space-y-2 text-xs"
+                  className="p-4 rounded-2xl bg-slate-50/60 border border-slate-100 space-y-2.5 text-xs"
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-mono font-bold text-slate-900">#{c.orderNumber}</span>
@@ -369,6 +391,23 @@ export default function AdminCustomizationsPage() {
                   <div className="text-slate-500">
                     Customer: {c.customerName} • {c.processedAssetsCount}/{c.totalAssetsCount} line-art files ready
                   </div>
+
+                  {c.previewUrls && c.previewUrls.length > 0 && (
+                    <div className="flex items-center gap-2 py-1">
+                      {c.previewUrls.map((url, i) => (
+                        <div
+                          key={i}
+                          className="h-12 w-12 rounded-xl overflow-hidden bg-slate-200 border border-slate-300 shrink-0"
+                        >
+                          <img
+                            src={url}
+                            alt={`Photo ${i + 1}`}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
                     <span className="text-slate-400 text-[10px]">

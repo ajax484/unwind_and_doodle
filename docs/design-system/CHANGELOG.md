@@ -2,7 +2,47 @@
 
 All updates to individual Figma canvas components, frames, variant iterations, and token adjustments are documented here per design system governance rules.
 
-## 2026-09-25 — Hero / Circular Video IFrames Component Set & Variants
+## 2026-09-26 — Order Confirmation & Master Customer Transactional Email Template System
+
+### What Changed
+
+- **New Page in Figma Canvas**: `Email Templates` (`288:16021`)
+  - **Section 01: Architecture & Token Mapping**: Complete cross-mapping linking email UI usages to canonical design system tokens (`Semantic/Background/Subtle`, `Semantic/Background/Surface`, `Semantic/Text/Primary`, `Semantic/Text/Secondary`, `Semantic/Text/Tertiary`, `Semantic/Divider/Default`, `Semantic/Action/Primary`, `Semantic/Status/Success`, `Semantic/Status/Warning`, `Semantic/Status/Danger`, `Radius/LG`, `Radius/Pill`, `Typography/Heading/1–3` Fredoka, `Typography/Body/Base–Small` Plus Jakarta Sans).
+  - **Section 02: Canonical Atomic Email Component Library**:
+    - `Email / Header`: Centered brand logo emblem and wordmark.
+    - `Email / StatusHeader`: Variants for `Order Confirmed! 🎉`, `Your Order is on its Way! 🚚`, `Package Delivered! ✨`, `Order Cancelled`, `Refund Processed`, and `Action Required`.
+    - `Email / OrderMetadata`: 3-column metadata grid (Order Number, Order Date, Payment Method).
+    - `Email / OrderItem`: Auto-layout row supporting image thumbnails, no-image fallbacks, variant spec tags, item quantities, and right-aligned line prices.
+    - `Email / OrderSummary`: Subtotal, delivery fee, discount pill line, and prominent final total.
+    - `Email / DeliveryInformation`: Recipient name, street address, shipping method, and courier details.
+    - `Email / Button`: Primary and secondary full-width pill action buttons.
+    - `Email / StockAlertCard`: Published Component Set (`State=LowStock | OutOfStock`, `HasImage=True | False`) featuring product thumbnail, SKU, variant subtitle, high-prominence stock metric ("4 units remaining" vs "0 units remaining"), safety threshold, and warehouse location.
+    - `Email / EditorialHero`: Published Component Set (`Layout=ImageLed | TextLed`) supporting large artwork banners or bold essay typography entries.
+    - `Email / EditorialQuote`: Pull-quote callout block featuring a `Color/Rose/Base` vertical accent line and elevated brand background.
+    - `Email / FounderSignature`: Human founder sign-off ("Aisha" in Fredoka SemiBold + title + `✦` brand doodle accent).
+    - `Email / MarketingFooter`: Marketing email footer with social links (`@unwindndoodle`), instant unsubscribe, preference center management, and copyright notice.
+    - `Email / ServiceFooter`: Transactional service copyright, customer care contact, and reply-to notice.
+  - **Section 03: Master Order Confirmation Responsive Templates (Desktop & Mobile Pairs)**:
+    - **Variation 1 (Primary Master)**: Multi-item order with product variants, image thumbnails, subtotal, delivery fee, and final total (Desktop 640px + Mobile 375px).
+    - **Variation 2**: Single-item order (Desktop + Mobile).
+    - **Variation 3**: Multi-item order with discount coupon code (`WELCOME10`) and free delivery.
+  - **Section 04: Master Service Email Reusability Matrix**:
+    - Demonstrated modular slot swapping across 6 transactional lifecycle events: `Payment Confirmation`, `Order Shipped`, `Order Delivered`, `Order Cancelled`, `Refund Processed`, and `Payment Failed / Retry`.
+  - **Section 05: Admin Operational Alert Templates (Low Stock & Out of Stock)**:
+    - **Low Stock Warning (Desktop 640px + Mobile 375px)**: Immediate operational notice displaying product name, SKU, 4 units remaining callout, threshold 5, and primary CTA ("View product").
+    - **Out of Stock Alert (Desktop + Mobile)**: Critical inventory depletion notice (0 units remaining) with danger colorway and inventory restocking CTA.
+    - **Long Title & Fallback Edge Cases**: Resilient layout supporting extended product titles without clipping or horizontal overflow.
+  - **Section 06: Master Editorial Campaign Templates (Welcome, Nurture & Brand Stories)**:
+    - **Configuration A (Image-Led Welcome Series — Desktop & Mobile)**: Soft onboarding narrative with hero artwork, playbook copy, pull-quote reflection, and primary CTA ("Explore Unwind and Doodle").
+    - **Configuration B (Text-Led Essay / Nurture Campaign — Desktop & Mobile)**: Calming, human founder reflection (*"You can be tired without being sleepy"*), pull quote, and founder signature.
+    - **Configuration C (75-Day Win-Back Re-engagement)**: Re-engagement story on fresh colouring editions with primary CTA ("See what is new").
+  - **Canvas Layout Architecture**: Reorganized all 6 sections into a horizontal multi-board layout (`x = 0, 1760, 3520, 5280, 7040, 8800`) along the X-axis for modular inspection.
+  - **Component Extraction & Instance Binding**: 100% of all templates across Sections 03, 04, 05, and 06 instantiate extracted design system components.
+
+
+
+
+
 
 ### What Changed
 

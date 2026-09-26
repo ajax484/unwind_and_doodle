@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceSupabaseClient } from './supabase/client';
+import { getServiceSupabaseClient, createEphemeralAuthClient } from './supabase/client';
 import { CustomerProfile, getCustomerProfile, linkOrCreateCustomerAccount } from '../services/customer-account.service';
 import { AdminOrganizationContext, requireOrganizationMember } from '../services/auth.service';
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -160,7 +160,7 @@ export async function refreshSupabaseSession(
   customClient?: SupabaseClient<Database>
 ) {
   try {
-    const supabase = getServiceSupabaseClient(customClient);
+    const supabase = createEphemeralAuthClient(getServiceSupabaseClient(customClient));
     const { data, error } = await supabase.auth.refreshSession({
       refresh_token: refreshToken,
     });

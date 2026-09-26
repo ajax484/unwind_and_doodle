@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceSupabaseClient } from '@/lib/supabase/client';
+import { getServiceSupabaseClient, createEphemeralAuthClient } from '@/lib/supabase/client';
 import { getConfig } from '@/lib/config';
 import { z } from 'zod';
 
@@ -67,9 +67,10 @@ export async function POST(req: NextRequest) {
 
     const nextDestination = next || (intent === 'admin' ? '/admin' : '/account');
     const callbackUrl = `${appUrl}/api/auth/callback?intent=${intent}&next=${encodeURIComponent(nextDestination)}`;
+    const authClient = createEphemeralAuthClient(supabase);
 
-    // Trigger Supabase passwordless OTP
-    const { error } = await supabase.auth.signInWithOtp({
+    // Trigger Supabase passwordless OTP (using ephemeral client to keep service client pure)
+    const { error } = await authClient.auth.signInWithOtp({
       email: cleanEmail,
       options: {
         shouldCreateUser: intent !== 'admin',

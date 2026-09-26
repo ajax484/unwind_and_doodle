@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceSupabaseClient } from '@/lib/supabase/client';
+import { getServiceSupabaseClient, createEphemeralAuthClient } from '@/lib/supabase/client';
 import { linkOrCreateCustomerAccount } from '@/services/customer-account.service';
 import { setAuthCookies } from '@/lib/auth-helpers';
 import { z } from 'zod';
@@ -26,9 +26,10 @@ export async function POST(req: NextRequest) {
     const cleanEmail = email.trim().toLowerCase();
     const cleanToken = token.trim();
     const supabase = getServiceSupabaseClient();
+    const authClient = createEphemeralAuthClient(supabase);
 
-    // 1. Try verify with type: 'email'
-    let { data: authData, error: authError } = await supabase.auth.verifyOtp({
+    // 1. Try verify with type: 'email' (using ephemeral client to keep service client pure)
+    let { data: authData, error: authError } = await authClient.auth.verifyOtp({
       email: cleanEmail,
       token: cleanToken,
       type: 'email',
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
 
     // 2. If 'email' type fails, try 'signup' (for new users who registered via OTP)
     if (authError || !authData?.session) {
-      const signupAttempt = await supabase.auth.verifyOtp({
+      const signupAttempt = await authClient.auth.verifyOtp({
         email: cleanEmail,
         token: cleanToken,
         type: 'signup',
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
 
     // 3. If both fail, try 'magiclink'
     if (authError || !authData?.session) {
-      const magiclinkAttempt = await supabase.auth.verifyOtp({
+      const magiclinkAttempt = await authClient.auth.verifyOtp({
         email: cleanEmail,
         token: cleanToken,
         type: 'magiclink',

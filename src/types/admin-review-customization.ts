@@ -139,6 +139,7 @@ export interface AdminCustomizationListItem {
   productName: string;
   totalAssetsCount: number;
   processedAssetsCount: number;
+  previewUrls?: string[];
   status: 'pending' | 'processing' | 'completed' | 'cancelled';
   completedAt: string | null;
   createdAt: string;
