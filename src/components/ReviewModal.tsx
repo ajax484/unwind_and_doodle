@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import Modal from './Modal';
 import Button from './Button';
 import RatingStars from './RatingStars';
@@ -226,7 +227,14 @@ export default function ReviewModal({
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-md bg-bg-surface border border-border-default overflow-hidden shrink-0 flex items-center justify-center">
                 {productImage ? (
-                  <img src={productImage} alt={productName} className="w-full h-full object-cover" />
+                  <Image
+                    src={productImage}
+                    alt={productName}
+                    width={40}
+                    height={40}
+                    unoptimized={productImage.startsWith('data:')}
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <span className="text-xl" aria-hidden="true">
                     🎨
@@ -282,7 +290,14 @@ export default function ReviewModal({
             >
               <div className="w-9 h-9 rounded-md bg-bg-surface border border-border-default overflow-hidden shrink-0 flex items-center justify-center">
                 {productImage ? (
-                  <img src={productImage} alt={productName} className="w-full h-full object-cover" />
+                  <Image
+                    src={productImage}
+                    alt={productName}
+                    width={36}
+                    height={36}
+                    unoptimized={productImage.startsWith('data:')}
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <span className="text-lg" aria-hidden="true">
                     🎨

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import CustomizationUploader from '@/components/CustomizationUploader';
 import ProductCard from '@/components/ProductCard';
 import ProductImageGallery from '@/components/ProductImageGallery';
@@ -389,7 +390,14 @@ export default function ProductDetailClient({ initialSlug }: { initialSlug?: str
                   >
                     <div className="w-14 h-14 rounded-xl bg-bg-surface border border-status-purple-base/20 overflow-hidden flex-shrink-0 flex items-center justify-center">
                       {comp.primaryImage ? (
-                        <img src={comp.primaryImage} alt={comp.name} className="w-full h-full object-cover" />
+                        <Image
+                          src={comp.primaryImage}
+                          alt={comp.name}
+                          width={56}
+                          height={56}
+                          unoptimized={comp.primaryImage.startsWith('data:')}
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
                         <span className="text-2xl">🎨</span>
                       )}
@@ -541,9 +549,12 @@ export default function ProductDetailClient({ initialSlug }: { initialSlug?: str
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-xl bg-bg-surface border border-border-default overflow-hidden flex-shrink-0 flex items-center justify-center">
                           {addon.primaryImage ? (
-                            <img
+                            <Image
                               src={addon.primaryImage}
                               alt={addon.name}
+                              width={48}
+                              height={48}
+                              unoptimized={addon.primaryImage.startsWith('data:')}
                               className="w-full h-full object-cover"
                             />
                           ) : (

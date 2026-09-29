@@ -92,6 +92,7 @@ export async function POST(req: NextRequest) {
       .from(PRODUCT_STORAGE_BUCKET)
       .upload(storagePath, buffer, {
         contentType: file.type || (folder === 'videos' ? 'video/mp4' : 'image/jpeg'),
+        cacheControl: '31536000, public, immutable',
         upsert: true,
       });
 
@@ -111,6 +112,7 @@ export async function POST(req: NextRequest) {
             .from(PRODUCT_STORAGE_BUCKET)
             .upload(storagePath, buffer, {
               contentType: file.type || (folder === 'videos' ? 'video/mp4' : 'image/jpeg'),
+              cacheControl: '31536000, public, immutable',
               upsert: true,
             });
           uploadError = retry.error;
@@ -131,6 +133,7 @@ export async function POST(req: NextRequest) {
             .from(PRODUCT_STORAGE_BUCKET)
             .upload(storagePath, buffer, {
               contentType: file.type || (folder === 'videos' ? 'video/mp4' : 'image/jpeg'),
+              cacheControl: '31536000, public, immutable',
               upsert: true,
             });
           uploadError = retry.error;

@@ -2,6 +2,8 @@
 
 import React, { forwardRef, useState, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { isOptimizableImageUrl } from '@/lib/image-compress';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/lib/format-utils';
@@ -297,12 +299,23 @@ export const ProductCard = forwardRef<HTMLDivElement, ProductCardProps>(
           aria-hidden="true"
         >
           {defaultImage ? (
-            <img
-              src={defaultImage}
-              alt={name}
-              className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-500 ease-out"
-              loading={priority ? 'eager' : 'lazy'}
-            />
+            isOptimizableImageUrl(defaultImage) ? (
+              <Image
+                src={defaultImage}
+                alt={name}
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                priority={priority}
+                className="object-cover group-hover:scale-[1.04] transition-transform duration-500 ease-out"
+              />
+            ) : (
+              <img
+                src={defaultImage}
+                alt={name}
+                className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-500 ease-out"
+                loading={priority ? 'eager' : 'lazy'}
+              />
+            )
           ) : videoUrl ? (
             <div className="w-full h-full relative bg-slate-900 overflow-hidden flex items-center justify-center">
               <video

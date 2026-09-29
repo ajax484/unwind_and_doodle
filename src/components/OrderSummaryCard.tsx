@@ -2,6 +2,7 @@
 
 import React, { forwardRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/lib/format-utils';
@@ -385,7 +386,14 @@ export const OrderSummaryCard = forwardRef<HTMLDivElement, OrderSummaryCardProps
                 {/* 48px Square Thumbnail (Radius/MD = 14px) */}
                 <div className="w-12 h-12 rounded-md bg-bg-subtle border border-border-default overflow-hidden shrink-0 flex items-center justify-center">
                   {item.image ? (
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                    <Image
+                      src={item.image}
+                      alt={item.name}
+                      width={48}
+                      height={48}
+                      unoptimized={item.image.startsWith('data:')}
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
                     <span className="text-lg" aria-hidden="true">
                       🎨

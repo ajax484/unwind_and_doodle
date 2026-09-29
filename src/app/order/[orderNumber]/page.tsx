@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { OrderStatus } from '@/lib/supabase/types';
 import OrderStatusTimeline from '@/components/OrderStatusTimeline';
 import { formatPrice, formatDate } from '@/lib/format-utils';
@@ -364,7 +365,14 @@ export default function OrderStatusPage() {
               <div key={item.id} className="pt-4 first:pt-0 flex gap-4 items-start">
                 <div className="w-16 h-16 rounded-2xl bg-bg-subtle overflow-hidden flex-shrink-0 border border-border-default flex items-center justify-center">
                   {item.primaryImage ? (
-                    <img src={item.primaryImage} alt={item.productName} className="w-full h-full object-cover" />
+                    <Image
+                      src={item.primaryImage}
+                      alt={item.productName}
+                      width={64}
+                      height={64}
+                      unoptimized={item.primaryImage.startsWith('data:')}
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
                     <span className="text-xl">🎨</span>
                   )}

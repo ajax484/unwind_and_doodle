@@ -9,6 +9,8 @@ import { useCart } from '@/context/CartContext';
 import EmptyState from '@/components/EmptyState';
 import OrderSummaryCard from '@/components/OrderSummaryCard';
 import { Button } from '@/components/Button';
+import Image from 'next/image';
+import { compressImageBeforeUpload } from '@/lib/image-compress';
 
 export default function CartPage() {
   const router = useRouter();
@@ -65,8 +67,9 @@ export default function CartPage() {
 
     try {
       setUploadingPhoto(true);
+      const fileToUpload = await compressImageBeforeUpload(file);
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', fileToUpload);
 
       const res = await fetch('/api/customizations/upload', {
         method: 'POST',
@@ -348,7 +351,14 @@ export default function CartPage() {
                                   key={idx}
                                   className="w-12 h-12 rounded-xl overflow-hidden border border-border-input shadow-2xs"
                                 >
-                                  <img src={assetUrl} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                                  <Image
+                                    src={assetUrl}
+                                    alt={`Photo ${idx + 1}`}
+                                    width={48}
+                                    height={48}
+                                    unoptimized={assetUrl.startsWith('data:')}
+                                    className="w-full h-full object-cover"
+                                  />
                                 </div>
                               ))}
                               <span className="text-[11px] text-text-secondary font-semibold ml-1">
@@ -612,7 +622,14 @@ export default function CartPage() {
                         key={idx}
                         className="relative group w-20 h-20 rounded-xl overflow-hidden border border-border-default shadow-2xs"
                       >
-                        <img src={url} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                        <Image
+                          src={url}
+                          alt={`Photo ${idx + 1}`}
+                          width={80}
+                          height={80}
+                          unoptimized={url.startsWith('data:')}
+                          className="w-full h-full object-cover"
+                        />
                         <button
                           type="button"
                           onClick={() => setModalAssetUrls((prev) => prev.filter((_, i) => i !== idx))}

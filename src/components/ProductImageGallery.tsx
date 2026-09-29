@@ -1,6 +1,8 @@
 'use client';
 
 import React, { forwardRef, useState, useMemo, useRef, useEffect } from 'react';
+import Image from 'next/image';
+import { isOptimizableImageUrl } from '@/lib/image-compress';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 import { ProductMedia } from '@/types/product-media';
@@ -354,14 +356,24 @@ export const ProductImageGallery = forwardRef<HTMLDivElement, ProductImageGaller
                 data-testid={`${testId}-main-video`}
               />
             ) : (
-              <img
+              <Image
                 src={
                   currentItem.type === 'video' && videoHasError
                     ? currentItem.posterUrl || fallbackImageUrl || currentItem.url
                     : currentItem.url
                 }
                 alt={currentItem.alt || productName}
-                className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500 animate-in fade-in-50"
+                fill
+                priority={safeIndex === 0}
+                sizes="(max-width: 640px) 100vw, 480px"
+                unoptimized={
+                  !isOptimizableImageUrl(
+                    currentItem.type === 'video' && videoHasError
+                      ? currentItem.posterUrl || fallbackImageUrl || currentItem.url
+                      : currentItem.url
+                  )
+                }
+                className="object-cover group-hover:scale-[1.02] transition-transform duration-500 animate-in fade-in-50"
                 data-testid={`${testId}-main-image`}
               />
             )
@@ -515,10 +527,13 @@ export const ProductImageGallery = forwardRef<HTMLDivElement, ProductImageGaller
                   )}
                 >
                   {item.thumbnailUrl ? (
-                    <img
+                    <Image
                       src={item.thumbnailUrl}
                       alt=""
-                      className="w-full h-full object-cover"
+                      fill
+                      sizes="64px"
+                      unoptimized={!isOptimizableImageUrl(item.thumbnailUrl)}
+                      className="object-cover"
                       loading="lazy"
                     />
                   ) : isVideo ? (

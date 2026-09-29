@@ -2,6 +2,8 @@
 
 import React, { forwardRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { isOptimizableImageUrl } from '@/lib/image-compress';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/lib/format-utils';
@@ -128,7 +130,32 @@ export const CartItemRow = forwardRef<HTMLDivElement, CartItemRowProps>(
         {/* Column 1: 80-86px Replaceable Product Thumbnail (Radius/MD) */}
         <div className="w-20 h-20 sm:w-[86px] sm:h-[86px] shrink-0 aspect-square rounded-md overflow-hidden bg-bg-subtle border border-border-default flex items-center justify-center select-none">
           {image ? (
-            slug ? (
+            isOptimizableImageUrl(image) ? (
+              slug ? (
+                <Link
+                  href={`/products/${slug}`}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  className="w-full h-full block"
+                >
+                  <Image
+                    src={image}
+                    alt={name}
+                    width={80}
+                    height={80}
+                    className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
+                  />
+                </Link>
+              ) : (
+                <Image
+                  src={image}
+                  alt={name}
+                  width={80}
+                  height={80}
+                  className="w-full h-full object-cover"
+                />
+              )
+            ) : slug ? (
               <Link
                 href={`/products/${slug}`}
                 tabIndex={-1}

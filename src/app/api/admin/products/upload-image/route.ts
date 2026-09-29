@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
       .from('products')
       .upload(storagePath, buffer, {
         contentType: file.type,
+        cacheControl: '31536000, public, immutable',
         upsert: true,
       });
 
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
           .from('products')
           .upload(storagePath, buffer, {
             contentType: file.type,
+            cacheControl: '31536000, public, immutable',
             upsert: true,
           });
         uploadError = retry.error;

@@ -5,6 +5,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 import Button from './Button';
 import Spinner from './Spinner';
+import { compressImageBeforeUpload } from '@/lib/image-compress';
 
 /**
  * Root container variants for CustomizationUploader conforming to Figma 43:29976.
@@ -246,7 +247,7 @@ export const CustomizationUploader = forwardRef<HTMLDivElement, CustomizationUpl
         const newlyUploaded: string[] = [];
 
         for (let i = 0; i < files.length; i++) {
-          const file = files[i];
+          const file = await compressImageBeforeUpload(files[i]);
           const pct = Math.round(((i + 1) / files.length) * 100);
           setProgressPercent(pct);
 

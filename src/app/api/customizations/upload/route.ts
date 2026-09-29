@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
       .from('customizations')
       .upload(storagePath, buffer, {
         contentType: file.type,
+        cacheControl: '31536000, public, immutable',
         upsert: false,
       });
 
