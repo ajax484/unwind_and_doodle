@@ -17,7 +17,7 @@ export default function HeroSection() {
               loop
               muted
               playsInline
-              preload="metadata"
+              preload="none"
               className="w-full h-full object-cover scale-105"
             />
           </div>
@@ -34,7 +34,7 @@ export default function HeroSection() {
               loop
               muted
               playsInline
-              preload="metadata"
+              preload="none"
               className="w-full h-full object-cover scale-105"
             />
           </div>
@@ -71,7 +71,7 @@ export default function HeroSection() {
                 loop
                 muted
                 playsInline
-                preload="metadata"
+                preload="none"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -84,7 +84,7 @@ export default function HeroSection() {
                 loop
                 muted
                 playsInline
-                preload="metadata"
+                preload="none"
                 className="w-full h-full object-cover"
               />
             </div>

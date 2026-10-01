@@ -744,14 +744,14 @@ export default function ProductDetailClient({ initialSlug }: { initialSlug?: str
               <span className="font-heading font-bold text-text-primary block text-sm">
                 📍 Lagos &amp; Abuja
               </span>
-              <p>1–2 business days via priority dispatch. Real-time doorstep tracking provided.</p>
+              <p>Priority dispatch across Lagos and Abuja with doorstep delivery.</p>
             </div>
             <div className="space-y-2">
               <span className="font-heading font-bold text-text-primary block text-sm">
                 🚚 Nationwide Delivery
               </span>
               <p>
-                3–5 business days across all 36 states via certified logistics partners.
+                Reliable delivery across all 36 states via certified logistics partners.
               </p>
             </div>
             <div className="space-y-2">

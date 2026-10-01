@@ -274,10 +274,9 @@ export default function DeliveryLocationPicker({
     }
     for (const hub of availableHubs) {
       const feeFormatted = formatPrice(hub.deliveryFee);
-      const eta = hub.estimatedDays || '2-4 business days';
       opts.push({
         value: hub.id,
-        label: `${hub.name} (+${feeFormatted} • ${eta})`,
+        label: `${hub.name} (+${feeFormatted})`,
       });
     }
     return opts;

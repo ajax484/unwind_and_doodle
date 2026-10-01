@@ -289,7 +289,7 @@ export function Navbar({
         <Link
           href="/"
           className="flex items-center gap-3 text-decoration-none group select-none shrink-0"
-          aria-label="Unwind and Doodle Home"
+          aria-label="unwind & doodle"
         >
           <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl overflow-hidden border border-border-default shadow-xs group-hover:scale-105 transition-transform bg-white flex items-center justify-center p-0.5">
             <img

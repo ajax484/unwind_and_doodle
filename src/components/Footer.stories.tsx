@@ -240,7 +240,7 @@ export const CssCheck: Story = {
     await expect(computed.borderTopColor).toMatch(/rgb\(54,\s*73,\s*92\)/);
 
     // Verify Fredoka font family on brand wordmark
-    const brandLogo = canvas.getByLabelText('Unwind and Doodle Home');
+    const brandLogo = canvas.getByLabelText('unwind & doodle');
     await expect(brandLogo).toBeInTheDocument();
   },
 };

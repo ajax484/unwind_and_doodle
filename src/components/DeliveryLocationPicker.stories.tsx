@@ -21,7 +21,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Canonical 2-Tier Cascading Delivery Location Picker for selecting delivery destinations across Nigeria. Features State selection, cascading Hub/Area selection with dynamic fee and timeframe badges, and a live context summary pill.',
+          'Canonical 2-Tier Cascading Delivery Location Picker for selecting delivery destinations across Nigeria. Features State selection, cascading Hub/Area selection with dynamic fee badges, and a live context summary pill.',
       },
     },
   },

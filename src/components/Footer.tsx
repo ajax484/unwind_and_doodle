@@ -198,10 +198,10 @@ export default function Footer({
     : 'md:col-span-2 space-y-4 pr-0 sm:pr-8';
 
   const bottomBarClasses = isForcedDesktop
-    ? 'pt-8 flex flex-row items-center justify-between gap-4 text-xs text-text-tertiary'
+    ? 'pt-8 flex flex-row items-center justify-between gap-4 text-xs text-slate-300'
     : isForcedMobile
-    ? 'pt-8 flex flex-col items-start gap-4 text-xs text-text-tertiary'
-    : 'pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-text-tertiary';
+    ? 'pt-8 flex flex-col items-start gap-4 text-xs text-slate-300'
+    : 'pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-slate-300';
 
   return (
     <footer
@@ -218,7 +218,7 @@ export default function Footer({
             <Link
               href="/"
               className="flex items-center gap-3 group select-none shrink-0 text-decoration-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-charcoal rounded-sm w-fit"
-              aria-label="Unwind and Doodle Home"
+              aria-label="unwind & doodle"
             >
               <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl overflow-hidden border border-border-inverse shadow-xs group-hover:scale-105 transition-transform bg-white flex items-center justify-center p-0.5 shrink-0">
                 <img
@@ -238,14 +238,14 @@ export default function Footer({
               </span>
             </Link>
 
-            <p className="font-body text-xs sm:text-sm text-text-tertiary leading-relaxed max-w-sm">
+            <p className="font-body text-xs sm:text-sm text-slate-300 leading-relaxed max-w-sm">
               {brandDescription}
             </p>
 
             {showPledge && (
               <div
                 data-testid="footer-pledge"
-                className="pt-1 text-xs text-text-tertiary flex items-center gap-2 font-body"
+                className="pt-1 text-xs text-slate-300 flex items-center gap-2 font-body"
               >
                 <span className="text-brand-rose font-bold select-none" aria-hidden="true">
                   {pledgeHeart}
@@ -262,13 +262,13 @@ export default function Footer({
               aria-labelledby="footer-catalog-heading"
               className="space-y-3"
             >
-              <h4
+              <h3
                 id="footer-catalog-heading"
                 className="font-heading text-xs sm:text-sm font-semibold uppercase tracking-wider text-brand-blue"
               >
                 Shop
-              </h4>
-              <ul className="space-y-2 text-xs sm:text-sm text-text-tertiary font-body">
+              </h3>
+              <ul className="space-y-2 text-xs sm:text-sm text-slate-300 font-body">
                 {catalogLinks.map((link) => (
                   <li key={link.label}>
                     <Link
@@ -290,13 +290,13 @@ export default function Footer({
               aria-labelledby="footer-support-heading"
               className="space-y-3"
             >
-              <h4
+              <h3
                 id="footer-support-heading"
                 className="font-heading text-xs sm:text-sm font-semibold uppercase tracking-wider text-brand-rose"
               >
                 Support
-              </h4>
-              <ul className="space-y-2 text-xs sm:text-sm text-text-tertiary font-body">
+              </h3>
+              <ul className="space-y-2 text-xs sm:text-sm text-slate-300 font-body">
                 {supportLinks.map((link) => (
                   <li key={link.label}>
                     <Link
@@ -317,13 +317,13 @@ export default function Footer({
             aria-labelledby="footer-about-heading"
             className="space-y-3"
           >
-            <h4
+            <h3
               id="footer-about-heading"
               className="font-heading text-xs sm:text-sm font-semibold uppercase tracking-wider text-brand-blue"
             >
               About
-            </h4>
-            <ul className="space-y-2 text-xs sm:text-sm text-text-tertiary font-body">
+            </h3>
+            <ul className="space-y-2 text-xs sm:text-sm text-slate-300 font-body">
               {aboutLinks.map((link) => {
                 const isExternal = link.href.startsWith('http');
                 return (
@@ -354,7 +354,7 @@ export default function Footer({
 
         {/* Bottom Bar: Copyright and Legal */}
         <div className={bottomBarClasses}>
-          <p className="font-body text-xs text-text-tertiary">
+          <p className="font-body text-xs text-slate-300">
             © {copyrightYear} Unwind &amp; Doodle. All rights reserved.
           </p>
           {showLegal && (
@@ -367,7 +367,7 @@ export default function Footer({
                 <Link
                   key={link.label}
                   href={link.href}
-                  className="text-text-tertiary hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-charcoal rounded-xs text-xs font-body min-h-[36px] sm:min-h-0 flex items-center"
+                  className="text-slate-300 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-charcoal rounded-xs text-xs font-body min-h-[36px] sm:min-h-0 flex items-center"
                 >
                   {link.label}
                 </Link>

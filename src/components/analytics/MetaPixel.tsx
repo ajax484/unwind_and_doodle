@@ -27,7 +27,7 @@ export default function MetaPixel() {
     <>
       <Script
         id="meta-pixel-init"
-        strategy="afterInteractive"
+        strategy="lazyOnload"
         dangerouslySetInnerHTML={{
           __html: `
             !function(f,b,e,v,n,t,s)
