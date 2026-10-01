@@ -336,9 +336,6 @@ export default function DeliveryLocationPicker({
             <span className="font-heading font-bold text-action-primary text-xs bg-bg-surface px-2.5 py-0.5 rounded-full border border-border-default shadow-2xs">
               {formatPrice(selectedLocation.deliveryFee)}
             </span>
-            <span className="text-[11px] text-text-tertiary bg-bg-surface px-2 py-0.5 rounded-full border border-border-default">
-              ⏱️ {selectedLocation.estimatedDays || '2-4 business days'}
-            </span>
           </div>
         </div>
       )}
