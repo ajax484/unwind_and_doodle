@@ -64,6 +64,8 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-22 Product-Aware Marketing Audiences & Segmentation](./admin/2026-09-22-product-aware-marketing-audiences.md)
 - [2026-09-25 Edit and Delete Delivery Locations](./admin/2026-09-25-edit-and-delete-delivery-locations.md)
 - [2026-09-25 Manual Orders: Mandatory Delivery Location & Omitting Payment Link for Confirmed Orders](./admin/2026-09-25-manual-order-mandatory-location-and-no-link.md)
+- [2026-10-01 Modular Email Blocks and Figma Template Presets](./admin/2026-10-01-modular-email-blocks-and-figma-templates.md)
+- [2026-10-01 Modular Email Builder Rebuild](./admin/2026-10-01-modular-email-builder-rebuild.md)
 
 ---
 
@@ -260,6 +262,6 @@ This directory maintains categorized, per-feature change records following the r
 ---
 
 ## 📊 Summary
-- **Total Changelogs**: 201 across 8 domain modules
+- **Total Changelogs**: 203 across 8 domain modules
 - **Template Scaffold**: [`docs/changes/_template.md`](./_template.md)
-- **Status**: 100% indexed (201 of 201 files registered)
+- **Status**: 100% indexed (203 of 203 files registered)

@@ -339,8 +339,10 @@ export function validateCampaignForDelivery(
   }
 
   // Check content
-  const content = campaign.content as { html?: string; text?: string } | undefined;
-  if (!content || !content.html || !content.html.trim()) {
+  const content = campaign.content as { blocks?: unknown[]; html?: string; text?: string } | undefined;
+  const hasBlocks = Array.isArray(content?.blocks) && content.blocks.length > 0;
+  const hasHtml = typeof content?.html === 'string' && content.html.trim().length > 0;
+  if (!content || (!hasBlocks && !hasHtml)) {
     errors.push('Email content cannot be empty');
   }
 

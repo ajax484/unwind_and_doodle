@@ -1,15 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { sanitizeHtml, replacePersonalizationTags } from '@/lib/sanitize-html';
 import { Tabs } from '@/components/Tabs';
+import { CampaignBlock } from '@/types/marketing';
+import { compileCampaignBlocksToHtml } from '@/services/marketing-renderer.service';
 
 export interface EmailPreviewProps {
   senderName: string;
   senderEmail: string;
   subject: string;
   previewText?: string;
-  htmlContent: string;
+  htmlContent?: string;
+  blocks?: CampaignBlock[];
 }
 
 export function EmailPreview({
@@ -18,6 +21,7 @@ export function EmailPreview({
   subject,
   previewText,
   htmlContent,
+  blocks,
 }: EmailPreviewProps) {
   const [viewport, setViewport] = useState<'desktop' | 'mobile'>('desktop');
 
@@ -30,7 +34,15 @@ export function EmailPreview({
 
   const previewSubject = replacePersonalizationTags(subject || '(No subject)', sampleData);
   const previewSnippet = replacePersonalizationTags(previewText || '', sampleData);
-  const sanitizedBody = sanitizeHtml(replacePersonalizationTags(htmlContent || '<p>No content written yet.</p>', sampleData));
+
+  const rawBody = useMemo(() => {
+    if (Array.isArray(blocks) && blocks.length > 0) {
+      return compileCampaignBlocksToHtml(blocks);
+    }
+    return htmlContent || '<p>No content written yet.</p>';
+  }, [blocks, htmlContent]);
+
+  const sanitizedBody = sanitizeHtml(replacePersonalizationTags(rawBody, sampleData));
 
   return (
     <div className="flex flex-col gap-4">

@@ -22,6 +22,7 @@ const ALLOWED_TAGS = new Set([
   's',
   'strike',
   'a',
+  'img',
   'ul',
   'ol',
   'li',
@@ -41,18 +42,24 @@ const ALLOWED_TAGS = new Set([
 ]);
 
 const ALLOWED_ATTRIBUTES: Record<string, Set<string>> = {
-  a: new Set(['href', 'title', 'target', 'rel']),
-  div: new Set(['class', 'style']),
+  a: new Set(['href', 'title', 'target', 'rel', 'class', 'style']),
+  img: new Set(['src', 'alt', 'title', 'width', 'height', 'class', 'style']),
+  div: new Set(['class', 'style', 'align']),
   span: new Set(['class', 'style']),
-  p: new Set(['class', 'style']),
-  h1: new Set(['class', 'style']),
-  h2: new Set(['class', 'style']),
-  h3: new Set(['class', 'style']),
-  h4: new Set(['class', 'style']),
-  table: new Set(['class', 'style', 'border', 'cellpadding', 'cellspacing', 'width']),
-  td: new Set(['class', 'style', 'align', 'valign', 'width']),
-  th: new Set(['class', 'style', 'align', 'valign', 'width']),
+  p: new Set(['class', 'style', 'align']),
+  h1: new Set(['class', 'style', 'align']),
+  h2: new Set(['class', 'style', 'align']),
+  h3: new Set(['class', 'style', 'align']),
+  h4: new Set(['class', 'style', 'align']),
+  h5: new Set(['class', 'style', 'align']),
+  h6: new Set(['class', 'style', 'align']),
+  hr: new Set(['class', 'style']),
+  table: new Set(['class', 'style', 'border', 'cellpadding', 'cellspacing', 'width', 'align', 'role']),
+  tr: new Set(['class', 'style', 'align', 'valign']),
+  td: new Set(['class', 'style', 'align', 'valign', 'width', 'height']),
+  th: new Set(['class', 'style', 'align', 'valign', 'width', 'height']),
 };
+
 
 /**
  * Validates whether an attribute value is safe (e.g. preventing javascript: or vbscript: URLs).

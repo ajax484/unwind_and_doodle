@@ -436,3 +436,114 @@ export class SegmentRuleValidationError extends Error {
     this.name = 'SegmentRuleValidationError';
   }
 }
+
+// ============================================================================
+// 8. MODULAR CAMPAIGN BLOCKS & FIGMA DESIGN SYSTEM PRESETS
+// ============================================================================
+
+export type CampaignBlockType =
+  | 'header'
+  | 'text'
+  | 'image'
+  | 'button'
+  | 'product_card'
+  | 'product_grid'
+  | 'highlight_box'
+  | 'dynamic_recommendation'
+  | 'divider';
+
+export interface BaseCampaignBlock {
+  id: string;
+  type: CampaignBlockType;
+}
+
+export interface HeaderBlock extends BaseCampaignBlock {
+  type: 'header';
+  title: string;
+  subtitle?: string;
+  showLogo?: boolean;
+}
+
+export interface TextBlock extends BaseCampaignBlock {
+  type: 'text';
+  html: string;
+}
+
+export interface ImageBlock extends BaseCampaignBlock {
+  type: 'image';
+  url: string;
+  alt?: string;
+  caption?: string;
+  linkUrl?: string;
+}
+
+export interface ButtonBlock extends BaseCampaignBlock {
+  type: 'button';
+  text: string;
+  url: string;
+  style?: 'primary' | 'secondary' | 'rose' | 'blue';
+  align?: 'left' | 'center' | 'right';
+}
+
+export interface ProductCardBlock extends BaseCampaignBlock {
+  type: 'product_card';
+  productId?: string;
+  title: string;
+  price?: number | string;
+  badge?: string;
+  imageUrl?: string;
+  description?: string;
+  ctaText?: string;
+  ctaUrl?: string;
+}
+
+export interface ProductGridItem {
+  productId?: string;
+  title: string;
+  price?: number | string;
+  imageUrl?: string;
+  url?: string;
+}
+
+export interface ProductGridBlock extends BaseCampaignBlock {
+  type: 'product_grid';
+  heading?: string;
+  columns?: 2 | 3;
+  products: ProductGridItem[];
+}
+
+export interface HighlightBoxBlock extends BaseCampaignBlock {
+  type: 'highlight_box';
+  title?: string;
+  text: string;
+  variant?: 'rose' | 'blue' | 'cream';
+}
+
+export interface DynamicRecommendationBlock extends BaseCampaignBlock {
+  type: 'dynamic_recommendation';
+  heading?: string;
+  recommendationType?: 'product' | 'personalized';
+}
+
+export interface DividerBlock extends BaseCampaignBlock {
+  type: 'divider';
+  spacing?: 'sm' | 'md' | 'lg';
+}
+
+export type CampaignBlock =
+  | HeaderBlock
+  | TextBlock
+  | ImageBlock
+  | ButtonBlock
+  | ProductCardBlock
+  | ProductGridBlock
+  | HighlightBoxBlock
+  | DynamicRecommendationBlock
+  | DividerBlock;
+
+export interface CampaignContentPayload {
+  html?: string;
+  text?: string;
+  blocks?: CampaignBlock[];
+  templateId?: string;
+}

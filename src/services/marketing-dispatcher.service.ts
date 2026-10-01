@@ -12,7 +12,7 @@ import { getSegmentCustomers } from './marketing-segmentation.service';
 import { getMarketingEmailProvider } from './marketing-provider/nodemailer-marketing.provider';
 import { sanitizeHtml, replacePersonalizationTags } from '@/lib/sanitize-html';
 import { resolveMarketingContext } from './marketing-context.service';
-import { renderMarketingTemplate } from './marketing-renderer.service';
+import { renderMarketingTemplate, compileCampaignBlocksToHtml } from './marketing-renderer.service';
 import { MarketingContext } from '@/types/marketing-context';
 import {
   generateMarketingUnsubscribeToken,
@@ -116,8 +116,12 @@ export async function sendTestEmail(
     };
   }
 
-  const content = campaign.content as { html?: string; text?: string } | null;
-  const rawHtml = content?.html || '';
+  const content = campaign.content as { blocks?: unknown[]; html?: string; text?: string } | null;
+  const rawHtml =
+    content?.html ||
+    (Array.isArray(content?.blocks) && content.blocks.length > 0
+      ? compileCampaignBlocksToHtml(content.blocks)
+      : '');
 
   const sampleContext: MarketingContext = {
     firstName: 'Test',
@@ -283,8 +287,12 @@ export async function dispatchCampaign(
 
   const { appUrl } = getConfig();
   const provider = getMarketingEmailProvider();
-  const content = campaign.content as { html?: string; text?: string } | null;
-  const baseHtml = content?.html || '';
+  const content = campaign.content as { blocks?: unknown[]; html?: string; text?: string } | null;
+  const baseHtml =
+    content?.html ||
+    (Array.isArray(content?.blocks) && content.blocks.length > 0
+      ? compileCampaignBlocksToHtml(content.blocks)
+      : '');
   const baseText = content?.text || '';
 
   let sentCount = 0;
