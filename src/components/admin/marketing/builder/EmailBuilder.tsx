@@ -490,10 +490,6 @@ export function EmailBuilder({ initialCampaign }: EmailBuilderProps) {
         <TestSendModal
           isOpen={isTestSendOpen}
           campaignId={campaignId}
-          name={name}
-          subject={subject}
-          previewText={previewText}
-          blocks={blocks}
           onClose={() => setIsTestSendOpen(false)}
         />
       )}

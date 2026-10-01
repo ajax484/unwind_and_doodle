@@ -238,7 +238,7 @@ export function ContextualSettings({
               <Select
                 value={blockData.style || "body"}
                 onChange={(e) =>
-                  onUpdateBlock(selectedBlock.id, { style: e.target.value })
+                  onUpdateBlock(selectedBlock.id, { style: e.target.value as any })
                 }
               >
                 <option value="heading">Heading (22px Bold)</option>
@@ -328,9 +328,8 @@ export function ContextualSettings({
               <Button
                 variant="primary"
                 size="sm"
-                fullWidth
                 onClick={() => setIsMediaModalOpen(true)}
-                className="text-xs font-bold"
+                className="w-full text-xs font-bold"
               >
                 {blockData.url
                   ? "🔄 Replace Image from Media Library"
@@ -472,7 +471,7 @@ export function ContextualSettings({
               <Button
                 variant="outline"
                 size="sm"
-                fullWidth
+                className="w-full"
                 onClick={() =>
                   setProductPickerState({ isOpen: true, mode: "single" })
                 }
@@ -682,7 +681,7 @@ export function ContextualSettings({
               <Select
                 value={blockData.style || "rose"}
                 onChange={(e) =>
-                  onUpdateBlock(selectedBlock.id, { style: e.target.value })
+                  onUpdateBlock(selectedBlock.id, { style: e.target.value as any })
                 }
               >
                 <option value="rose">Brand Rose (Primary Action)</option>
@@ -724,7 +723,7 @@ export function ContextualSettings({
               <Select
                 value={blockData.variant || "rose"}
                 onChange={(e) =>
-                  onUpdateBlock(selectedBlock.id, { variant: e.target.value })
+                  onUpdateBlock(selectedBlock.id, { variant: e.target.value as any })
                 }
               >
                 <option value="rose">Rose (Highlight / Announcement)</option>
@@ -781,7 +780,7 @@ export function ContextualSettings({
             <Select
               value={blockData.spacing || "md"}
               onChange={(e) =>
-                onUpdateBlock(selectedBlock.id, { spacing: e.target.value })
+                onUpdateBlock(selectedBlock.id, { spacing: e.target.value as any })
               }
             >
               <option value="sm">Small (16px)</option>
@@ -796,9 +795,8 @@ export function ContextualSettings({
           <Button
             variant="outline"
             size="sm"
-            fullWidth
             onClick={() => onDeleteBlock(selectedBlock.id)}
-            className="text-status-danger-accent border-status-danger-accent/30 hover:bg-status-danger-bg"
+            className="w-full text-status-danger-accent border-status-danger-accent/30 hover:bg-status-danger-bg"
           >
             🗑️ Delete Block
           </Button>

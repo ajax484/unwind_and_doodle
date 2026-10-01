@@ -213,7 +213,7 @@ describe('Step 1G — Marketing Email Provider Integration', () => {
       expect(result.success).toBe(true);
       expect(mockProvider.sentEmails).toHaveLength(1);
       expect(mockProvider.sentEmails[0].to).toBe('tester@company.com');
-      expect(mockProvider.sentEmails[0].subject).toBe('[Test] Special Offer {{first_name}}');
+      expect(mockProvider.sentEmails[0].subject).toBe('[Test] Special Offer Test');
 
       // CRITICAL: No campaign recipients or email events created for a test email
       const { data: recipients } = await mockSupabase

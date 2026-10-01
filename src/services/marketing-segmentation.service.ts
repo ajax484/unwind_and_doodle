@@ -21,6 +21,7 @@ export const QUALIFYING_PURCHASE_ORDER_STATUSES: readonly string[] = [
   ORDER_STATUS.CONFIRMED,
   ORDER_STATUS.SHIPPED,
   ORDER_STATUS.RECEIVED,
+  'delivered',
 ];
 
 const SUPPORTED_CUSTOMER_FIELDS: readonly SegmentField[] = [

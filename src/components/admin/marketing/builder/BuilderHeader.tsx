@@ -51,14 +51,15 @@ export function BuilderHeader({
             {name.trim() || "Untitled Campaign"}
           </h1>
           <Badge
-            variant={
+            variant="status"
+            statusType={
               status === "sent"
                 ? "success"
                 : status === "scheduled"
                   ? "warning"
                   : status === "sending"
                     ? "info"
-                    : "default"
+                    : "neutral"
             }
             size="sm"
           >
