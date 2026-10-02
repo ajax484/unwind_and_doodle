@@ -13,6 +13,14 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
+        hostname: 'unwind-media-proxy.ubahyusuf484.workers.dev',
+      },
+      {
+        protocol: 'https',
+        hostname: 'media.unwindanddoodle.com',
+      },
+      {
+        protocol: 'https',
         hostname: '*.supabase.co',
         pathname: '/storage/v1/object/public/**',
       },

@@ -43,3 +43,10 @@ storybook-static
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Database & Storage backups
+/supabase/backups/
+*.dump
+
+
+/.agents/*

@@ -114,7 +114,7 @@ export function EmailCanvas({
         {/* Brand Logo Header */}
         <div className="pt-6 pb-2 text-center flex flex-col items-center justify-center">
           <img
-            src="https://pexeuungdxbvcqtktwww.supabase.co/storage/v1/object/public/assets/logo.svg"
+            src="https://xisoofbqjbkoucfwzacb.supabase.co/storage/v1/object/public/assets/logo.svg"
             alt="Unwind & Doodle"
             className="w-12 h-12 object-contain mx-auto mb-1.5"
           />

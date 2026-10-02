@@ -110,7 +110,7 @@ export function compileCampaignBlocksToHtml(
       <tr>
         <td align="center" style="text-align: center; padding: 12px 0 6px 0;">
           <a href="${toAbsoluteUrl('/')}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: inline-block;">
-            <img src="https://pexeuungdxbvcqtktwww.supabase.co/storage/v1/object/public/assets/logo.svg" alt="Unwind &amp; Doodle" width="48" height="48" style="width: 48px; height: 48px; display: block; margin: 0 auto; border: 0;" />
+            <img src="https://xisoofbqjbkoucfwzacb.supabase.co/storage/v1/object/public/assets/logo.svg" alt="Unwind &amp; Doodle" width="48" height="48" style="width: 48px; height: 48px; display: block; margin: 0 auto; border: 0;" />
           </a>
         </td>
       </tr>

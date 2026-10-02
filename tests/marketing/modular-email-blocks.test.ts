@@ -104,7 +104,7 @@ describe('V1 Modular Campaign Email Blocks, Media & Renderer', () => {
     const html = compileCampaignBlocksToHtml(blocks);
 
     // Verify Centered Logo at top with Supabase storage URL
-    expect(html).toContain('https://pexeuungdxbvcqtktwww.supabase.co/storage/v1/object/public/assets/logo.svg');
+    expect(html).toContain('https://xisoofbqjbkoucfwzacb.supabase.co/storage/v1/object/public/assets/logo.svg');
     expect(html).toContain('Unwind &amp; Doodle');
 
     // Verify Text block
@@ -188,7 +188,7 @@ describe('V1 Modular Campaign Email Blocks, Media & Renderer', () => {
     const rendered = renderMarketingTemplate({ blocks }, context);
 
     expect(rendered).toContain('Hi Aisha Bello, your order ORD-5521 for For the Girls A6 Edition is ready.');
-    expect(rendered).toContain('https://pexeuungdxbvcqtktwww.supabase.co/storage/v1/object/public/assets/logo.svg');
+    expect(rendered).toContain('https://xisoofbqjbkoucfwzacb.supabase.co/storage/v1/object/public/assets/logo.svg');
   });
 
   it('validates all V1 template presets (Product Launch, Editorial, Welcome, BlankCanvas)', () => {
@@ -201,7 +201,7 @@ describe('V1 Modular Campaign Email Blocks, Media & Renderer', () => {
 
       const html = compileCampaignBlocksToHtml(preset.blocks);
       expect(html.length).toBeGreaterThan(50);
-      expect(html).toContain('https://pexeuungdxbvcqtktwww.supabase.co/storage/v1/object/public/assets/logo.svg');
+      expect(html).toContain('https://xisoofbqjbkoucfwzacb.supabase.co/storage/v1/object/public/assets/logo.svg');
     }
 
     const launch = V1_EMAIL_TEMPLATES.find((p) => p.id === 'product_launch');
