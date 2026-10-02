@@ -510,4 +510,175 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   scrollbar-width: none;
 }
 
+/* ─── Hero Section Interactive & Motion Tokens ─── */
+.hero-squiggle-path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  opacity: 1;
+}
+
+@keyframes hero-draw-squiggle-loop {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  4% {
+    stroke-dashoffset: 1;
+    opacity: 1;
+  }
+  28% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  92% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  97% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+  100% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+}
+
+@keyframes hero-halo-star-pink {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(0.92);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.12);
+    opacity: 0.95;
+  }
+}
+
+@keyframes hero-halo-star-blue {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(0.92);
+    opacity: 0.35;
+  }
+}
+
+@keyframes hero-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes hero-social-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hero-twinkle-sparkle {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.7;
+  }
+}
+
+@keyframes hero-gentle-rotate {
+  0%, 100% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-squiggle-path {
+    animation: hero-draw-squiggle-loop 4.6s ease-out 0.7s infinite;
+    will-change: stroke-dashoffset, opacity;
+  }
+
+  .hero-halo-pink {
+    animation: hero-halo-star-pink 5s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+
+  .hero-halo-blue {
+    animation: hero-halo-star-blue 6.5s ease-in-out infinite 0.7s;
+    will-change: transform, opacity;
+  }
+
+  .hero-float-left {
+    animation: hero-float 6s ease-in-out infinite;
+    will-change: transform;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .hero-float-right {
+    animation: hero-float 6s ease-in-out 2.5s infinite;
+    will-change: transform;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .hero-float-left:hover,
+  .hero-float-right:hover {
+    animation-play-state: paused;
+    transform: translateY(-4px);
+  }
+
+  .hero-social-proof {
+    animation: hero-social-fade-in 0.8s ease-out 0.9s both;
+    will-change: transform, opacity;
+  }
+
+  .hero-sparkle-1 {
+    animation: hero-twinkle-sparkle 5s ease-in-out infinite 0.2s;
+    will-change: transform, opacity;
+  }
+  .hero-sparkle-2 {
+    animation: hero-twinkle-sparkle 6.5s ease-in-out infinite 1.4s;
+    will-change: transform, opacity;
+  }
+  .hero-sparkle-3 {
+    animation: hero-twinkle-sparkle 4.5s ease-in-out infinite 0.8s;
+    will-change: transform, opacity;
+  }
+  .hero-sparkle-4 {
+    animation: hero-twinkle-sparkle 7s ease-in-out infinite 2s;
+    will-change: transform, opacity;
+  }
+  .hero-sparkle-5 {
+    animation: hero-twinkle-sparkle 5.5s ease-in-out infinite 1.1s;
+    will-change: transform, opacity;
+  }
+
+  .hero-rose-1 {
+    animation: hero-gentle-rotate 7s ease-in-out infinite 0.5s;
+    will-change: transform;
+  }
+  .hero-rose-2 {
+    animation: hero-gentle-rotate 6s ease-in-out infinite 2.2s;
+    will-change: transform;
+  }
+  .hero-rose-3 {
+    animation: hero-gentle-rotate 8s ease-in-out infinite 1.7s;
+    will-change: transform;
+  }
+}
+
+
 
