@@ -9,6 +9,7 @@ import {
   V1ButtonBlock,
   V1CalloutBlock,
   V1DividerBlock,
+  normalizeProductPresentation,
 } from '@/types/marketing-builder';
 import { formatPrice } from '@/lib/format-utils';
 
@@ -113,52 +114,63 @@ export function CanvasImageBlock({ block }: { block: V1ImageBlock }) {
 
 // 3. Product Block
 export function CanvasProductBlock({ block }: { block: V1ProductBlock }) {
-  const {
-    title = 'Featured Product',
-    price,
-    imageUrl,
-    badge,
-    description,
-    ctaText = 'Preorder Now',
-    showPrice = true,
-    showDescription = true,
-    showCta = true,
-  } = block.data || {};
+  const presentation = normalizeProductPresentation(block.data || {});
+  const { image, badge, title, description, price, cta, _catalogSnapshot } = presentation;
+
+  const imageUrl = image?.url || _catalogSnapshot?.imageUrl;
+  const displayTitle = title?.text || _catalogSnapshot?.title || 'Featured Product';
+  const displayPrice = _catalogSnapshot?.price;
+  const displayDescription = description?.text || _catalogSnapshot?.description;
+  const displayBadge = badge?.text;
 
   return (
     <div className="rounded-xl border border-border-default p-4 bg-[#FFFDF7] shadow-sm flex flex-col sm:flex-row items-center gap-4 my-2">
       {imageUrl ? (
         <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-lg overflow-hidden border border-border-default bg-white flex-shrink-0 flex items-center justify-center">
-          <img src={imageUrl} alt={title} className="w-full h-full object-cover" />
+          <img src={imageUrl} alt={displayTitle} className="w-full h-full object-cover" />
         </div>
       ) : (
-        <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-lg border border-border-default bg-bg-subtle flex-shrink-0 flex items-center justify-center text-2xl opacity-40">
-          🎨
+        <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-lg border border-dashed border-border-default bg-bg-subtle flex-shrink-0 flex flex-col items-center justify-center p-2 text-center text-xs text-text-tertiary">
+          <span className="text-xl mb-0.5 opacity-40">🎨</span>
+          <span className="text-[10px]">No image</span>
         </div>
       )}
 
       <div className="flex-1 min-w-0 text-center sm:text-left">
-        {badge && (
+        {badge?.visible && displayBadge && (
           <span className="inline-block px-2 py-0.5 mb-1.5 bg-brand-rose/15 text-brand-rose font-bold text-[11px] rounded-md uppercase tracking-wider">
-            {badge}
+            {displayBadge}
           </span>
         )}
-        <div className="font-bold text-text-primary text-base truncate">{title}</div>
-        {showDescription && description && (
-          <p className="text-xs text-text-secondary line-clamp-2 mt-1 leading-relaxed">
-            {description}
-          </p>
-        )}
-        {showPrice && price !== undefined && (
-          <div className="font-extrabold text-brand-rose text-sm mt-1.5">
-            {formatPrice(price)}
+
+        {title?.visible !== false && (
+          <div className="font-bold text-text-primary text-base truncate">
+            {displayTitle}
           </div>
         )}
-        {showCta && (
+
+        {description?.visible && displayDescription && (
+          <p className="text-xs text-text-secondary line-clamp-2 mt-1 leading-relaxed">
+            {displayDescription}
+          </p>
+        )}
+
+        {price?.visible && displayPrice !== undefined && (
+          <div className="font-extrabold text-brand-rose text-sm mt-1.5">
+            {formatPrice(displayPrice)}
+          </div>
+        )}
+
+        {cta?.visible && (
           <div className="mt-3">
             <span className="inline-block px-4 py-1.5 rounded-lg bg-brand-rose text-white text-xs font-bold shadow-sm">
-              {ctaText}
+              {cta.text || 'Shop now'}
             </span>
+            {cta.destination?.type === 'custom' && cta.destination.url && (
+              <span className="block text-[10px] text-text-tertiary mt-0.5 truncate max-w-[200px]">
+                ↗ {cta.destination.url}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -188,33 +200,63 @@ export function CanvasProductGridBlock({ block }: { block: V1ProductGridBlock })
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3">
-          {products.map((item, idx) => (
-            <div
-              key={idx}
-              className="rounded-xl border border-border-default p-3 bg-white text-center flex flex-col items-center justify-between"
-            >
-              <div className="w-full h-24 rounded-lg bg-bg-subtle overflow-hidden mb-2 flex items-center justify-center border border-border-default">
-                {item.imageUrl ? (
-                  <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-xl opacity-30">🎨</span>
-                )}
-              </div>
-              <div className="w-full">
-                <div className="text-xs font-semibold text-text-primary truncate">
-                  {item.title || 'Product'}
+          {products.map((rawItem, idx) => {
+            const item = normalizeProductPresentation(rawItem);
+            const { image, badge, title, description, price, cta, _catalogSnapshot } = item;
+            const itemImg = image?.url || _catalogSnapshot?.imageUrl;
+            const itemTitle = title?.text || _catalogSnapshot?.title || 'Product';
+            const itemPrice = _catalogSnapshot?.price;
+            const itemDesc = description?.text || _catalogSnapshot?.description;
+            const itemBadge = badge?.text;
+
+            return (
+              <div
+                key={idx}
+                className="rounded-xl border border-border-default p-3 bg-white text-center flex flex-col items-center justify-between"
+              >
+                <div className="w-full h-28 rounded-lg bg-bg-subtle overflow-hidden mb-2 flex items-center justify-center border border-border-default relative">
+                  {itemImg ? (
+                    <img src={itemImg} alt={itemTitle} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xl opacity-30">🎨</span>
+                  )}
+                  {badge?.visible && itemBadge && (
+                    <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-brand-rose/90 text-white text-[9px] font-bold shadow-sm">
+                      {itemBadge}
+                    </span>
+                  )}
                 </div>
-                {item.price !== undefined && (
-                  <div className="text-xs font-bold text-brand-rose mt-0.5">
-                    {formatPrice(item.price)}
-                  </div>
-                )}
-                <span className="inline-block mt-2 px-2.5 py-1 rounded-md bg-brand-rose/10 text-brand-rose text-[11px] font-bold">
-                  View Item
-                </span>
+
+                <div className="w-full space-y-1">
+                  {title?.visible !== false && (
+                    <div className="text-xs font-semibold text-text-primary truncate">
+                      {itemTitle}
+                    </div>
+                  )}
+
+                  {description?.visible && itemDesc && (
+                    <p className="text-[11px] text-text-secondary line-clamp-2 leading-tight">
+                      {itemDesc}
+                    </p>
+                  )}
+
+                  {price?.visible && itemPrice !== undefined && (
+                    <div className="text-xs font-bold text-brand-rose mt-0.5">
+                      {formatPrice(itemPrice)}
+                    </div>
+                  )}
+
+                  {cta?.visible && (
+                    <div className="pt-1">
+                      <span className="inline-block px-3 py-1 rounded-md bg-brand-rose/10 text-brand-rose text-[11px] font-bold">
+                        {cta.text || 'Shop now'}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

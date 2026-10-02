@@ -66,6 +66,7 @@ This directory maintains categorized, per-feature change records following the r
 - [2026-09-25 Manual Orders: Mandatory Delivery Location & Omitting Payment Link for Confirmed Orders](./admin/2026-09-25-manual-order-mandatory-location-and-no-link.md)
 - [2026-10-01 Modular Email Blocks and Figma Template Presets](./admin/2026-10-01-modular-email-blocks-and-figma-templates.md)
 - [2026-10-01 Modular Email Builder Rebuild](./admin/2026-10-01-modular-email-builder-rebuild.md)
+- [2026-10-02 Configurable Commerce Content Blocks](./admin/2026-10-02-configurable-commerce-content-blocks.md)
 
 ---
 

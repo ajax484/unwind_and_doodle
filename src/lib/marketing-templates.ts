@@ -51,15 +51,35 @@ export const V1_EMAIL_TEMPLATES: V1EmailTemplatePreset[] = [
         type: 'product',
         data: {
           productId: 'prod-for-the-girls',
-          title: 'For the Girls — A6 Custom Colouring Book',
-          price: 5500,
-          badge: 'Limited Preorder',
-          description: '30 aesthetic hand-drawn pages + your personalized name printed on the cover.',
-          ctaText: 'Preorder for ₦5,500',
-          ctaUrl: '/products/for-the-girls',
-          showPrice: true,
-          showDescription: true,
-          showCta: true,
+          image: {
+            url: '',
+          },
+          badge: {
+            visible: true,
+            text: 'Limited Preorder',
+          },
+          title: {
+            visible: true,
+            text: 'For the Girls — A6 Custom Colouring Book',
+          },
+          description: {
+            visible: true,
+            text: '30 aesthetic hand-drawn pages + your personalized name printed on the cover.',
+          },
+          price: {
+            visible: true,
+          },
+          cta: {
+            visible: true,
+            text: 'Preorder for ₦5,500',
+            destination: { type: 'product' },
+          },
+          _catalogSnapshot: {
+            title: 'For the Girls — A6 Custom Colouring Book',
+            price: 5500,
+            slug: 'for-the-girls',
+            description: '30 aesthetic hand-drawn pages + your personalized name printed on the cover.',
+          },
         },
       },
       {
@@ -160,15 +180,59 @@ export const V1_EMAIL_TEMPLATES: V1EmailTemplatePreset[] = [
           products: [
             {
               productId: 'prod-general-book',
-              title: 'General Colouring Book',
-              price: 6500,
-              slug: 'general-colouring-book',
+              badge: {
+                visible: true,
+                text: 'Bestseller',
+              },
+              title: {
+                visible: true,
+                text: 'General Colouring Book',
+              },
+              description: {
+                visible: false,
+                text: '',
+              },
+              price: {
+                visible: true,
+              },
+              cta: {
+                visible: true,
+                text: 'View Item',
+                destination: { type: 'product' },
+              },
+              _catalogSnapshot: {
+                title: 'General Colouring Book',
+                price: 6500,
+                slug: 'general-colouring-book',
+              },
             },
             {
               productId: 'prod-vent-to-me',
-              title: 'Vent to Me Journal',
-              price: 8500,
-              slug: 'vent-to-me',
+              badge: {
+                visible: false,
+                text: '',
+              },
+              title: {
+                visible: true,
+                text: 'Vent to Me Journal',
+              },
+              description: {
+                visible: false,
+                text: '',
+              },
+              price: {
+                visible: true,
+              },
+              cta: {
+                visible: true,
+                text: 'View Item',
+                destination: { type: 'product' },
+              },
+              _catalogSnapshot: {
+                title: 'Vent to Me Journal',
+                price: 8500,
+                slug: 'vent-to-me',
+              },
             },
           ],
         },

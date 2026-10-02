@@ -290,17 +290,27 @@ export async function fulfillSuccessfulPayment(
   // 12. Dispatch Meta Conversions API Purchase event asynchronously
   try {
     const shippingAddr = (order.shipping_address as Record<string, unknown>) || {};
+    const appBaseUrl = (
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      'https://unwindanddoodle.com'
+    ).replace(/\/$/, '');
+
     sendMetaConversionEvent({
       eventName: 'Purchase',
       eventId: order.order_number, // Matching deduplication event_id with client
+      eventSourceUrl: `${appBaseUrl}/order/${encodeURIComponent(order.order_number)}`,
+      actionSource: 'website',
       userData: {
-        email: customer?.email || undefined,
-        phone: customer?.phone || undefined,
-        firstName: customer?.first_name || undefined,
-        lastName: customer?.last_name || undefined,
+        email: customer?.email || (shippingAddr.email as string) || undefined,
+        phone: customer?.phone || (shippingAddr.phone as string) || undefined,
+        firstName: customer?.first_name || (shippingAddr.first_name as string) || undefined,
+        lastName: customer?.last_name || (shippingAddr.last_name as string) || undefined,
         city: (shippingAddr.city as string) || undefined,
         state: (shippingAddr.state as string) || undefined,
+        zip: (shippingAddr.postal_code as string) || (shippingAddr.zip as string) || undefined,
         country: 'ng',
+        externalId: order.customer_id || order.id || order.order_number,
       },
       customData: {
         currency: payment.currency || 'NGN',

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { CatalogProductSummary } from '@/types/marketing-builder';
+import { stripHtml } from '@/lib/rich-text';
 import Button from '@/components/Button';
 import TextInput from '@/components/TextInput';
 import Spinner from '@/components/Spinner';
@@ -45,20 +46,52 @@ export function ProductPickerModal({
 
         if (json.success && Array.isArray(json.data)) {
           const mapped: CatalogProductSummary[] = json.data.map((p: any) => {
-            const rawImg =
-              Array.isArray(p.images) && p.images.length > 0
-                ? typeof p.images[0] === 'string'
-                  ? p.images[0]
-                  : p.images[0]?.url
-                : p.image_url || null;
+            const imagesList: any[] = [];
+            if (Array.isArray(p.images) && p.images.length > 0) {
+              p.images.forEach((img: any, i: number) => {
+                if (typeof img === 'string') {
+                  imagesList.push({
+                    id: `img_${i}`,
+                    url: img,
+                    isPrimary: i === 0,
+                  });
+                } else if (img && typeof img === 'object') {
+                  const url = img.imageUrl || img.url || '';
+                  if (url) {
+                    imagesList.push({
+                      id: img.id || `img_${i}`,
+                      url,
+                      altText: img.altText || img.alt || '',
+                      isPrimary: Boolean(img.isPrimary ?? i === 0),
+                    });
+                  }
+                }
+              });
+            } else if (p.primaryImage || p.image_url) {
+              const url = p.primaryImage || p.image_url;
+              imagesList.push({
+                id: 'img_primary',
+                url,
+                isPrimary: true,
+              });
+            }
+
+            const primaryImg =
+              imagesList.find((img) => img.isPrimary)?.url ||
+              imagesList[0]?.url ||
+              p.primaryImage ||
+              p.image_url ||
+              null;
 
             return {
               id: p.id,
               title: p.title || p.name || 'Untitled Product',
               price: Number(p.base_price || p.price || 0),
-              imageUrl: rawImg,
+              imageUrl: primaryImg,
+              images: imagesList,
               slug: p.slug || '',
-              description: p.description || '',
+              description: stripHtml(p.description || ''),
+              badge: p.badge || p.tag || '',
             };
           });
           setProducts(mapped);

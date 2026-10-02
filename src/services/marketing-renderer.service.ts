@@ -1,8 +1,47 @@
 import { MarketingContext, MarketingRecommendation } from '@/types/marketing-context';
 import { sanitizeHtml } from '@/lib/sanitize-html';
+import { stripHtml } from '@/lib/rich-text';
 import { CampaignBlock } from '@/types/marketing';
-import { V1CampaignBlock } from '@/types/marketing-builder';
+import { V1CampaignBlock, normalizeProductPresentation } from '@/types/marketing-builder';
 import { formatPrice } from '@/lib/format-utils';
+
+/**
+ * Resolves the authoritative base URL for absolute email links and assets.
+ */
+export function getBaseSiteUrl(): string {
+  const envUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    process.env.SITE_URL ||
+    process.env.APP_URL;
+
+  if (envUrl && typeof envUrl === 'string') {
+    return envUrl.trim().replace(/\/+$/, '');
+  }
+  return 'https://unwindanddoodle.com';
+}
+
+/**
+ * Converts a relative path or partial link to a fully qualified absolute URL for email clients.
+ */
+export function toAbsoluteUrl(pathOrUrl?: string | null): string {
+  if (!pathOrUrl) return '#';
+  const trimmed = pathOrUrl.trim();
+  if (!trimmed) return '#';
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('mailto:') ||
+    trimmed.startsWith('tel:') ||
+    trimmed.startsWith('#')
+  ) {
+    return trimmed;
+  }
+  const baseUrl = getBaseSiteUrl();
+  const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return `${baseUrl}${cleanPath}`;
+}
 
 /**
  * Escapes unsafe HTML characters in scalar string inputs to prevent XSS.
@@ -65,14 +104,22 @@ export function compileCampaignBlocksToHtml(
 
   const renderedBlocks: string[] = [];
 
-  // Top Centered Brand Logo
+  // Top Centered Brand Logo (hosted on Supabase Storage)
   renderedBlocks.push(`
-    <div style="text-align: center; padding: 20px 0 14px 0;">
-      <a href="https://unwindanddoodle.com" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: inline-block;">
-        <img src="/logo.svg" alt="Unwind &amp; Doodle" width="48" height="48" style="width: 48px; height: 48px; display: block; margin: 0 auto; border: 0;" />
-      </a>
-      <div style="display: inline-block; padding: 4px 12px; background-color: #FBF0F2; color: #9E4D58; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 6px;">Unwind &amp; Doodle</div>
-    </div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 16px 0;">
+      <tr>
+        <td align="center" style="text-align: center; padding: 12px 0 6px 0;">
+          <a href="${toAbsoluteUrl('/')}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: inline-block;">
+            <img src="https://pexeuungdxbvcqtktwww.supabase.co/storage/v1/object/public/assets/logo.svg" alt="Unwind &amp; Doodle" width="48" height="48" style="width: 48px; height: 48px; display: block; margin: 0 auto; border: 0;" />
+          </a>
+        </td>
+      </tr>
+      <tr>
+        <td align="center" style="text-align: center; padding: 0 0 10px 0;">
+          <div style="display: inline-block; padding: 4px 12px; background-color: #FBF0F2; color: #9E4D58; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Unwind &amp; Doodle</div>
+        </td>
+      </tr>
+    </table>
   `);
 
   for (const block of blocks) {
@@ -118,8 +165,9 @@ export function compileCampaignBlocksToHtml(
       }
 
       // 2. Image Block
+      // 2. Image Block
       case 'image': {
-        const url = data.url;
+        const url = data.url ? toAbsoluteUrl(data.url) : '';
         if (url) {
           const alt = escapeHtml(data.altText || data.alt || 'Campaign Image');
           const align = data.align || 'center';
@@ -128,9 +176,10 @@ export function compileCampaignBlocksToHtml(
           const captionTag = data.caption ? `<p style="font-size: 12px; color: ${textSlate}; text-align: ${align}; margin-top: 6px; margin-bottom: 0;">${escapeHtml(data.caption)}</p>` : '';
 
           if (data.linkUrl) {
+            const absoluteLink = toAbsoluteUrl(data.linkUrl);
             renderedBlocks.push(`
               <div style="margin: 20px 0; text-align: ${align};">
-                <a href="${escapeHtml(data.linkUrl)}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: inline-block; width: 100%;">
+                <a href="${escapeHtml(absoluteLink)}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: inline-block; width: 100%;">
                   ${imgTag}
                 </a>
                 ${captionTag}
@@ -151,39 +200,70 @@ export function compileCampaignBlocksToHtml(
       // 3. Product Block (or legacy product_card)
       case 'product':
       case 'product_card': {
-        const title = escapeHtml(data.title || 'Featured Product');
-        const price = data.price;
-        const priceStr = price !== undefined && price !== null
-          ? (typeof price === 'number' ? formatPrice(price) : escapeHtml(String(price)))
+        const item = normalizeProductPresentation(data);
+        const { image, badge, title, description, price, cta, _catalogSnapshot } = item;
+
+        const displayTitle = escapeHtml(title?.text || _catalogSnapshot?.title || 'Featured Product');
+        const displayPrice = _catalogSnapshot?.price ?? data.price;
+        const priceStr =
+          displayPrice !== undefined && displayPrice !== null
+            ? (typeof displayPrice === 'number' ? formatPrice(displayPrice) : escapeHtml(String(displayPrice)))
+            : '';
+
+        const badgeHtml =
+          badge?.visible && badge.text
+            ? `<span style="display: inline-block; padding: 3px 8px; background-color: #FBF0F2; color: #9E4D58; border-radius: 6px; font-size: 11px; font-weight: 700; margin-bottom: 6px;">${escapeHtml(badge.text)}</span>`
+            : '';
+
+        const showTitle = title?.visible !== false;
+        const titleHtml = showTitle
+          ? `<div style="font-size: 16px; font-weight: 700; color: ${textCharcoal}; margin-bottom: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${displayTitle}</div>`
           : '';
-        const badge = data.badge
-          ? `<span style="display: inline-block; padding: 3px 8px; background-color: #FBF0F2; color: #9E4D58; border-radius: 6px; font-size: 11px; font-weight: 700; margin-bottom: 6px;">${escapeHtml(data.badge)}</span>`
+
+        const rawDesc = description?.text || _catalogSnapshot?.description || '';
+        const cleanDesc = stripHtml(rawDesc);
+        const showDesc = description?.visible !== false && Boolean(cleanDesc);
+        const descHtml = showDesc
+          ? `<p style="font-size: 13px; color: ${textSlate}; margin: 0 0 8px 0; line-height: 1.5;">${escapeHtml(cleanDesc)}</p>`
           : '';
-        const showDesc = data.showDescription !== false;
-        const showPrice = data.showPrice !== false;
-        const showCta = data.showCta !== false;
-        const ctaText = escapeHtml(data.ctaText || 'Preorder Now');
-        const ctaUrl = escapeHtml(data.ctaUrl || (data.slug ? `/products/${data.slug}` : '#'));
-        const imageUrl = data.imageUrl;
+
+        const showPrice = price?.visible !== false && Boolean(priceStr);
+        const priceHtml = showPrice
+          ? `<div style="font-size: 15px; font-weight: 800; color: ${brandRose}; margin-bottom: 12px;">${priceStr}</div>`
+          : '';
+
+        const showCta = cta?.visible !== false;
+        const ctaBtnText = escapeHtml(cta?.text || data.ctaText || 'Shop now');
+        let ctaTargetUrl = '#';
+        if (cta?.destination?.type === 'custom' && cta.destination.url) {
+          ctaTargetUrl = toAbsoluteUrl(cta.destination.url);
+        } else if (_catalogSnapshot?.slug || data.slug) {
+          ctaTargetUrl = toAbsoluteUrl(`/products/${_catalogSnapshot?.slug || data.slug}`);
+        } else if (data.ctaUrl) {
+          ctaTargetUrl = toAbsoluteUrl(data.ctaUrl);
+        }
+
+        const ctaHtml = showCta
+          ? `<a href="${escapeHtml(ctaTargetUrl)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: ${brandRose}; color: #ffffff !important; text-decoration: none; padding: 8px 18px; border-radius: 8px; font-size: 12px; font-weight: 700; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${ctaBtnText}</a>`
+          : '';
+
+        const rawImageUrl = image?.url || _catalogSnapshot?.imageUrl || data.imageUrl;
+        const imageUrl = rawImageUrl ? toAbsoluteUrl(rawImageUrl) : '';
 
         renderedBlocks.push(`
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid ${borderSoft}; border-radius: 14px; overflow: hidden; background-color: #FFFDF7; margin: 20px 0;">
             <tr>
               ${imageUrl ? `
                 <td width="140" valign="middle" style="padding: 16px; width: 140px; text-align: center;">
-                  <img src="${escapeHtml(imageUrl)}" alt="${title}" width="120" style="width: 120px; height: auto; max-height: 120px; border-radius: 10px; display: block; object-fit: cover; border: 1px solid ${borderSoft}; margin: 0 auto;" />
+                  <img src="${escapeHtml(imageUrl)}" alt="${displayTitle}" width="120" style="width: 120px; height: auto; max-height: 120px; border-radius: 10px; display: block; object-fit: cover; border: 1px solid ${borderSoft}; margin: 0 auto;" />
                 </td>
               ` : ''}
               <td valign="middle" style="padding: 16px 20px;">
-                ${badge}
-                <div style="font-size: 16px; font-weight: 700; color: ${textCharcoal}; margin-bottom: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${title}</div>
-                ${showDesc && data.description ? `<p style="font-size: 13px; color: ${textSlate}; margin: 0 0 8px 0; line-height: 1.5;">${escapeHtml(data.description)}</p>` : ''}
-                ${showPrice && priceStr ? `<div style="font-size: 15px; font-weight: 800; color: ${brandRose}; margin-bottom: 12px;">${priceStr}</div>` : ''}
-                ${showCta ? `
-                  <a href="${ctaUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: ${brandRose}; color: #ffffff !important; text-decoration: none; padding: 8px 18px; border-radius: 8px; font-size: 12px; font-weight: 700; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                    ${ctaText}
-                  </a>
-                ` : ''}
+                ${badgeHtml}
+                ${titleHtml}
+                ${descHtml}
+                ${priceHtml}
+                ${ctaHtml}
               </td>
             </tr>
           </table>
@@ -196,28 +276,55 @@ export function compileCampaignBlocksToHtml(
         const heading = data.heading
           ? `<h3 style="font-size: 16px; font-weight: 700; color: ${textCharcoal}; margin: 0 0 12px 0; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${escapeHtml(data.heading)}</h3>`
           : '';
-        const items = data.products || [];
+        const rawItems = data.products || [];
 
-        if (items.length > 0) {
+        if (rawItems.length > 0) {
           const rows: string[] = [];
-          for (let i = 0; i < items.length; i += 2) {
-            const pair = items.slice(i, i + 2);
-            const cells = pair.map((item: any) => {
-              const itemTitle = escapeHtml(item.title || 'Product');
-              const itemPrice = item.price !== undefined && item.price !== null
-                ? (typeof item.price === 'number' ? formatPrice(item.price) : escapeHtml(String(item.price)))
-                : '';
-              const itemUrl = escapeHtml(item.url || (item.slug ? `/products/${item.slug}` : '#'));
+          for (let i = 0; i < rawItems.length; i += 2) {
+            const pair = rawItems.slice(i, i + 2);
+            const cells = pair.map((rawItem: any) => {
+              const item = normalizeProductPresentation(rawItem);
+              const { image, badge, title, description, price, cta, _catalogSnapshot } = item;
+
+              const itemTitle = escapeHtml(title?.text || _catalogSnapshot?.title || 'Product');
+              const itemPrice = _catalogSnapshot?.price ?? rawItem.price;
+              const itemPriceStr =
+                itemPrice !== undefined && itemPrice !== null
+                  ? (typeof itemPrice === 'number' ? formatPrice(itemPrice) : escapeHtml(String(itemPrice)))
+                  : '';
+
+              let itemUrl = '#';
+              if (cta?.destination?.type === 'custom' && cta.destination.url) {
+                itemUrl = toAbsoluteUrl(cta.destination.url);
+              } else if (_catalogSnapshot?.slug || rawItem.slug) {
+                itemUrl = toAbsoluteUrl(`/products/${_catalogSnapshot?.slug || rawItem.slug}`);
+              } else if (rawItem.url) {
+                itemUrl = toAbsoluteUrl(rawItem.url);
+              }
+
+              const rawImg = image?.url || _catalogSnapshot?.imageUrl || rawItem.imageUrl;
+              const itemImg = rawImg ? toAbsoluteUrl(rawImg) : '';
+              const itemBadge = badge?.visible && badge.text ? escapeHtml(badge.text) : '';
+              const rawItemDesc = description?.text || _catalogSnapshot?.description || '';
+              const cleanItemDesc = stripHtml(rawItemDesc);
+              const itemDesc = description?.visible && cleanItemDesc ? escapeHtml(cleanItemDesc) : '';
+              const showItemPrice = price?.visible !== false && Boolean(itemPriceStr);
+              const showItemCta = cta?.visible !== false;
+              const itemCtaText = escapeHtml(cta?.text || 'View Item');
 
               return `
                 <td width="50%" valign="top" style="padding: 8px; width: 50%;">
                   <div style="border: 1px solid ${borderSoft}; border-radius: 12px; padding: 12px; background-color: #ffffff; text-align: center; height: 100%;">
-                    ${item.imageUrl ? `<img src="${escapeHtml(item.imageUrl)}" alt="${itemTitle}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; display: block;" />` : ''}
-                    <div style="font-size: 13px; font-weight: 700; color: ${textCharcoal}; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${itemTitle}</div>
-                    ${itemPrice ? `<div style="font-size: 13px; font-weight: 800; color: ${brandRose}; margin-bottom: 8px;">${itemPrice}</div>` : ''}
-                    <a href="${itemUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #FBF0F2; color: #9E4D58 !important; text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 700;">
-                      View Item
-                    </a>
+                    ${itemBadge ? `<div style="text-align: left; margin-bottom: 6px;"><span style="display: inline-block; padding: 2px 6px; background-color: #FBF0F2; color: #9E4D58; border-radius: 4px; font-size: 10px; font-weight: 700;">${itemBadge}</span></div>` : ''}
+                    ${itemImg ? `<img src="${escapeHtml(itemImg)}" alt="${itemTitle}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; display: block;" />` : ''}
+                    ${title?.visible !== false ? `<div style="font-size: 13px; font-weight: 700; color: ${textCharcoal}; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${itemTitle}</div>` : ''}
+                    ${itemDesc ? `<p style="font-size: 11px; color: ${textSlate}; margin: 0 0 6px 0; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${itemDesc}</p>` : ''}
+                    ${showItemPrice ? `<div style="font-size: 13px; font-weight: 800; color: ${brandRose}; margin-bottom: 8px;">${itemPriceStr}</div>` : ''}
+                    ${showItemCta ? `
+                      <a href="${escapeHtml(itemUrl)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #FBF0F2; color: #9E4D58 !important; text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 700;">
+                        ${itemCtaText}
+                      </a>
+                    ` : ''}
                   </div>
                 </td>
               `;
@@ -245,7 +352,7 @@ export function compileCampaignBlocksToHtml(
       // 5. Button Block
       case 'button': {
         const text = escapeHtml(data.text || 'Shop Now');
-        const url = escapeHtml(data.url || '#');
+        const url = escapeHtml(toAbsoluteUrl(data.url || '#'));
         const align = data.align || 'center';
         const isBlue = data.style === 'blue' || data.style === 'secondary';
         const btnBg = isBlue ? brandBlue : brandRose;
@@ -339,7 +446,22 @@ export function compileCampaignBlocksToHtml(
     }
   }
 
-  return renderedBlocks.join('\n');
+  const innerContentHtml = renderedBlocks.join('\n');
+
+  return `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100% !important; min-width: 100%; background-color: #F8F9FA; margin: 0; padding: 24px 0 32px 0;">
+  <tr>
+    <td align="center" valign="top" style="padding: 0 12px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #FFFFFF; border-radius: 16px; border: 1px solid #EDF3F7; overflow: hidden; margin: 0 auto; text-align: left; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);">
+        <tr>
+          <td style="padding: 24px 24px 32px 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            ${innerContentHtml}
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>`.trim();
 }
 
 /**

@@ -66,14 +66,29 @@ function createDefaultBlock(type: V1CampaignBlockType): V1CampaignBlock {
         type: 'product',
         data: {
           productId: '',
-          title: 'Select a Product',
-          price: 0,
-          badge: '',
-          description: '',
-          ctaText: 'Preorder Now',
-          showPrice: true,
-          showDescription: true,
-          showCta: true,
+          image: {
+            url: '',
+          },
+          badge: {
+            visible: false,
+            text: '',
+          },
+          title: {
+            visible: true,
+            text: 'Select a Product',
+          },
+          description: {
+            visible: true,
+            text: '',
+          },
+          price: {
+            visible: true,
+          },
+          cta: {
+            visible: true,
+            text: 'Shop now',
+            destination: { type: 'product' },
+          },
         },
       } as V1ProductBlock;
 

@@ -12,6 +12,8 @@ import {
   V1DividerBlock,
   CatalogProductSummary,
   MediaAsset,
+  ProductPresentationConfig,
+  normalizeProductPresentation,
 } from "@/types/marketing-builder";
 import { MarketingSegment } from "@/types/marketing";
 import TextInput from "@/components/TextInput";
@@ -21,7 +23,9 @@ import Spinner from "@/components/Spinner";
 import { PersonalizationChipInserter } from "../modals/PersonalizationChipInserter";
 import { ProductPickerModal } from "../modals/ProductPickerModal";
 import { MediaLibraryModal } from "../modals/MediaLibraryModal";
+import { ProductPresentationInspector } from "./ProductPresentationInspector";
 import { formatPrice } from "@/lib/format-utils";
+import { stripHtml } from "@/lib/rich-text";
 
 export interface ContextualSettingsProps {
   selectedBlock: V1CampaignBlock | null;
@@ -63,10 +67,16 @@ export function ContextualSettings({
   onDeleteBlock,
 }: ContextualSettingsProps) {
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
+  const [activeGridIndex, setActiveGridIndex] = useState<number | null>(null);
   const [productPickerState, setProductPickerState] = useState<{
     isOpen: boolean;
     mode: "single" | "multiple";
   }>({ isOpen: false, mode: "single" });
+
+  // Reset active grid item index if block selection changes
+  React.useEffect(() => {
+    setActiveGridIndex(null);
+  }, [selectedBlock?.id]);
 
   // --------------------------------------------------------------------------
   // 1. CAMPAIGN / EMAIL SETTINGS (When no block is selected)
@@ -458,190 +468,205 @@ export function ContextualSettings({
 
         {/* PRODUCT BLOCK SETTINGS */}
         {blockType === "product" && (
-          <>
-            <div className="p-3 rounded-xl bg-bg-subtle border border-border-default space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-text-primary">
-                  Catalog Link
-                </span>
-                <span className="text-[10px] text-brand-rose font-semibold">
-                  Authoritative
-                </span>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() =>
-                  setProductPickerState({ isOpen: true, mode: "single" })
-                }
-              >
-                🎨{" "}
-                {blockData.productId ? "Change Product" : "Select from Catalog"}
-              </Button>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-text-primary">
-                Badge Override
-              </label>
-              <TextInput
-                placeholder="e.g. Limited Preorder"
-                value={blockData.badge || ""}
-                onChange={(e) =>
-                  onUpdateBlock(selectedBlock.id, { badge: e.target.value })
-                }
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-text-primary">
-                Description Override
-              </label>
-              <textarea
-                rows={3}
-                value={blockData.description || ""}
-                onChange={(e) =>
-                  onUpdateBlock(selectedBlock.id, {
-                    description: e.target.value,
-                  })
-                }
-                placeholder="Custom product blurb..."
-                className="w-full text-xs p-2.5 rounded-xl border border-border-default focus:border-brand-rose outline-none resize-none leading-relaxed"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-text-primary">
-                CTA Button Text
-              </label>
-              <TextInput
-                placeholder="Preorder Now"
-                value={blockData.ctaText || ""}
-                onChange={(e) =>
-                  onUpdateBlock(selectedBlock.id, { ctaText: e.target.value })
-                }
-              />
-            </div>
-
-            <div className="space-y-2 pt-2 border-t border-border-default/70">
-              <label className="text-xs font-semibold text-text-primary block">
-                Display Options
-              </label>
-              <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={blockData.showPrice !== false}
-                  onChange={(e) =>
-                    onUpdateBlock(selectedBlock.id, {
-                      showPrice: e.target.checked,
-                    })
-                  }
-                  className="rounded text-brand-rose focus:ring-brand-rose"
-                />
-                Show catalog price
-              </label>
-              <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={blockData.showDescription !== false}
-                  onChange={(e) =>
-                    onUpdateBlock(selectedBlock.id, {
-                      showDescription: e.target.checked,
-                    })
-                  }
-                  className="rounded text-brand-rose focus:ring-brand-rose"
-                />
-                Show description
-              </label>
-              <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={blockData.showCta !== false}
-                  onChange={(e) =>
-                    onUpdateBlock(selectedBlock.id, {
-                      showCta: e.target.checked,
-                    })
-                  }
-                  className="rounded text-brand-rose focus:ring-brand-rose"
-                />
-                Show CTA button
-              </label>
-            </div>
-          </>
+          <ProductPresentationInspector
+            presentation={blockData}
+            onChange={(updated) => onUpdateBlock(selectedBlock.id, updated)}
+            onChangeProductClick={() =>
+              setProductPickerState({ isOpen: true, mode: "single" })
+            }
+            isGridItem={false}
+          />
         )}
 
         {/* PRODUCT GRID SETTINGS */}
         {blockType === "product_grid" && (
           <>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-text-primary">
-                Grid Heading
-              </label>
-              <TextInput
-                placeholder="e.g. Community Favorites"
-                value={blockData.heading || ""}
-                onChange={(e) =>
-                  onUpdateBlock(selectedBlock.id, { heading: e.target.value })
-                }
-              />
-            </div>
+            {activeGridIndex !== null && blockData.products?.[activeGridIndex] ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-border-default">
+                  <button
+                    type="button"
+                    onClick={() => setActiveGridIndex(null)}
+                    className="text-xs text-brand-rose font-bold hover:underline flex items-center gap-1"
+                  >
+                    ← Back to Products List
+                  </button>
+                  <span className="text-[11px] text-text-tertiary">
+                    Item {activeGridIndex + 1} of {(blockData.products || []).length}
+                  </span>
+                </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-text-primary">
-                  Selected Items
-                </label>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setProductPickerState({ isOpen: true, mode: "multiple" })
-                  }
-                  className="text-xs text-brand-rose font-bold hover:underline"
-                >
-                  + Add Products
-                </button>
+                <ProductPresentationInspector
+                  presentation={blockData.products[activeGridIndex]}
+                  onChange={(updatedItem) => {
+                    const next = [...(blockData.products || [])];
+                    next[activeGridIndex] = updatedItem;
+                    onUpdateBlock(selectedBlock.id, { products: next });
+                  }}
+                  isGridItem={true}
+                />
               </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-text-primary">
+                    Grid Heading
+                  </label>
+                  <TextInput
+                    placeholder="e.g. Community Favorites"
+                    value={blockData.heading || ""}
+                    onChange={(e) =>
+                      onUpdateBlock(selectedBlock.id, { heading: e.target.value })
+                    }
+                  />
+                </div>
 
-              {(blockData.products || []).length === 0 ? (
-                <div className="p-4 border border-dashed border-border-default rounded-xl text-center text-xs text-text-tertiary">
-                  No products in grid yet. Click above to add.
-                </div>
-              ) : (
                 <div className="space-y-2">
-                  {(blockData.products || []).map((item: any, idx: number) => (
-                    <div
-                      key={item.productId || idx}
-                      className="p-2.5 rounded-xl border border-border-default bg-bg-subtle/50 flex items-center justify-between gap-2"
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-text-primary">
+                      Grid Products ({(blockData.products || []).length})
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setProductPickerState({ isOpen: true, mode: "multiple" })
+                      }
+                      className="text-xs text-brand-rose font-bold hover:underline"
                     >
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-semibold text-text-primary truncate">
-                          {item.title}
-                        </div>
-                        <div className="text-[11px] font-bold text-brand-rose">
-                          {formatPrice(item.price || 0)}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {/* Remove */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const next = [...(blockData.products || [])];
-                            next.splice(idx, 1);
-                            onUpdateBlock(selectedBlock.id, { products: next });
-                          }}
-                          className="p-1 hover:text-status-danger-accent text-xs"
-                          title="Remove item"
-                        >
-                          ✕
-                        </button>
-                      </div>
+                      + Add Products
+                    </button>
+                  </div>
+
+                  {(blockData.products || []).length === 0 ? (
+                    <div className="p-4 border border-dashed border-border-default rounded-xl text-center text-xs text-text-tertiary bg-bg-subtle/30 space-y-2">
+                      <p>No products in grid yet.</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setProductPickerState({ isOpen: true, mode: "multiple" })
+                        }
+                        className="text-xs"
+                      >
+                        🎨 Select from Catalog
+                      </Button>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="space-y-2">
+                      {(blockData.products || []).map((rawItem: any, idx: number) => {
+                        const item = normalizeProductPresentation(rawItem);
+                        const itemImg = item.image?.url || item._catalogSnapshot?.imageUrl;
+                        const itemTitle = item.title?.text || item._catalogSnapshot?.title || "Product";
+                        const itemPrice = item._catalogSnapshot?.price ?? 0;
+
+                        return (
+                          <div
+                            key={item.productId || idx}
+                            className="p-2.5 rounded-xl border border-border-default bg-bg-surface hover:bg-bg-subtle/40 transition-colors flex items-center justify-between gap-2.5"
+                          >
+                            {/* Thumbnail */}
+                            <div className="w-10 h-10 rounded-lg bg-bg-subtle border border-border-default overflow-hidden flex-shrink-0 flex items-center justify-center">
+                              {itemImg ? (
+                                <img
+                                  src={itemImg}
+                                  alt={itemTitle}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-xs opacity-40">🎨</span>
+                              )}
+                            </div>
+
+                            {/* Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-semibold text-text-primary truncate">
+                                {itemTitle}
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[11px] text-text-secondary">
+                                <span className="font-bold text-brand-rose">
+                                  {formatPrice(itemPrice)}
+                                </span>
+                                {item.badge?.visible && item.badge?.text && (
+                                  <span className="px-1 py-0.2 rounded bg-brand-rose/10 text-brand-rose text-[9px] font-bold">
+                                    {item.badge.text}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-1">
+                              {/* Move Up */}
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => {
+                                  if (idx === 0) return;
+                                  const next = [...(blockData.products || [])];
+                                  const temp = next[idx - 1];
+                                  next[idx - 1] = next[idx];
+                                  next[idx] = temp;
+                                  onUpdateBlock(selectedBlock.id, { products: next });
+                                }}
+                                className="p-1 text-text-tertiary hover:text-text-primary disabled:opacity-20 text-xs rounded hover:bg-bg-subtle"
+                                title="Move up"
+                              >
+                                ↑
+                              </button>
+
+                              {/* Move Down */}
+                              <button
+                                type="button"
+                                disabled={idx === (blockData.products || []).length - 1}
+                                onClick={() => {
+                                  if (idx === (blockData.products || []).length - 1) return;
+                                  const next = [...(blockData.products || [])];
+                                  const temp = next[idx + 1];
+                                  next[idx + 1] = next[idx];
+                                  next[idx] = temp;
+                                  onUpdateBlock(selectedBlock.id, { products: next });
+                                }}
+                                className="p-1 text-text-tertiary hover:text-text-primary disabled:opacity-20 text-xs rounded hover:bg-bg-subtle"
+                                title="Move down"
+                              >
+                                ↓
+                              </button>
+
+                              {/* Configure / Edit Presentation */}
+                              <button
+                                type="button"
+                                onClick={() => setActiveGridIndex(idx)}
+                                className="p-1 px-1.5 text-xs font-bold text-brand-rose bg-brand-rose/10 hover:bg-brand-rose/20 rounded-md"
+                                title="Customize presentation"
+                              >
+                                ✎ Edit
+                              </button>
+
+                              {/* Remove */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const next = [...(blockData.products || [])];
+                                  next.splice(idx, 1);
+                                  onUpdateBlock(selectedBlock.id, { products: next });
+                                  if (activeGridIndex === idx) {
+                                    setActiveGridIndex(null);
+                                  }
+                                }}
+                                className="p-1 text-text-tertiary hover:text-status-danger-accent text-xs rounded hover:bg-bg-subtle"
+                                title="Remove item"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </>
         )}
 
@@ -818,23 +843,103 @@ export function ContextualSettings({
           onSelect={(selected: CatalogProductSummary[]) => {
             if (productPickerState.mode === "single" && selected[0]) {
               const p = selected[0];
+              const primaryImg =
+                p.images?.find((img) => img.isPrimary) || p.images?.[0];
               onUpdateBlock(selectedBlock.id, {
                 productId: p.id,
-                title: p.title,
-                price: p.price,
-                imageUrl: p.imageUrl || undefined,
-                slug: p.slug,
-                description: blockData.description || p.description,
-              });
-            } else if (productPickerState.mode === "multiple") {
-              onUpdateBlock(selectedBlock.id, {
-                products: selected.map((p) => ({
-                  productId: p.id,
+                image: {
+                  imageId: primaryImg?.id,
+                  url: primaryImg?.url || p.imageUrl || "",
+                },
+                badge: {
+                  visible: Boolean(p.badge),
+                  text: p.badge || "",
+                },
+                title: {
+                  visible: true,
+                  text: p.title,
+                },
+                description: {
+                  visible: true,
+                  text: stripHtml(p.description || ""),
+                },
+                price: {
+                  visible: true,
+                },
+                cta: {
+                  visible: true,
+                  text: "Shop now",
+                  destination: { type: "product" },
+                },
+                _catalogSnapshot: {
                   title: p.title,
                   price: p.price,
-                  imageUrl: p.imageUrl || undefined,
                   slug: p.slug,
-                })),
+                  imageUrl: p.imageUrl,
+                  images: p.images,
+                  description: stripHtml(p.description || ""),
+                },
+              });
+            } else if (productPickerState.mode === "multiple") {
+              const currentProducts = blockData.products || [];
+              const existingMap = new Map(
+                currentProducts.map((item: any) => [item.productId, item])
+              );
+              const updatedProducts = selected.map((p) => {
+                const existing = existingMap.get(p.id) as any;
+                if (existing) {
+                  return {
+                    ...existing,
+                    _catalogSnapshot: {
+                      title: p.title,
+                      price: p.price,
+                      slug: p.slug,
+                      imageUrl: p.imageUrl,
+                      images: p.images,
+                      description: stripHtml(p.description || ""),
+                    },
+                  };
+                }
+                const primaryImg =
+                  p.images?.find((img) => img.isPrimary) || p.images?.[0];
+                return {
+                  productId: p.id,
+                  image: {
+                    imageId: primaryImg?.id,
+                    url: primaryImg?.url || p.imageUrl || "",
+                  },
+                  badge: {
+                    visible: Boolean(p.badge),
+                    text: p.badge || "",
+                  },
+                  title: {
+                    visible: true,
+                    text: p.title,
+                  },
+                  description: {
+                    visible: false,
+                    text: stripHtml(p.description || ""),
+                  },
+                  price: {
+                    visible: true,
+                  },
+                  cta: {
+                    visible: true,
+                    text: "Shop now",
+                    destination: { type: "product" },
+                  },
+                  _catalogSnapshot: {
+                    title: p.title,
+                    price: p.price,
+                    slug: p.slug,
+                    imageUrl: p.imageUrl,
+                    images: p.images,
+                    description: stripHtml(p.description || ""),
+                  },
+                };
+              });
+              onUpdateBlock(selectedBlock.id, {
+                products: updatedProducts,
               });
             }
           }}

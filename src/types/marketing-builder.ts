@@ -1,4 +1,5 @@
 import { Database, Json } from '@/lib/supabase/types';
+import { stripHtml } from '@/lib/rich-text';
 
 // ============================================================================
 // 1. DISCRIMINATED CAMPAIGN BLOCK TYPES (7 V1 BLOCKS)
@@ -57,34 +58,75 @@ export interface V1ImageBlock {
   };
 }
 
+export type ProductCtaDestination =
+  | { type: 'product' }
+  | { type: 'custom'; url: string };
+
+export interface ProductImageConfig {
+  imageId?: string;
+  url?: string;
+}
+
+export interface ProductBadgeConfig {
+  visible: boolean;
+  text?: string;
+}
+
+export interface ProductTitleConfig {
+  visible: boolean;
+  text?: string;
+}
+
+export interface ProductDescriptionConfig {
+  visible: boolean;
+  text?: string;
+}
+
+export interface ProductPriceConfig {
+  visible: boolean;
+}
+
+export interface ProductCtaConfig {
+  visible: boolean;
+  text: string;
+  destination: ProductCtaDestination;
+}
+
+export interface ProductPresentationConfig {
+  productId: string;
+  image?: ProductImageConfig;
+  badge?: ProductBadgeConfig;
+  title?: ProductTitleConfig;
+  description?: ProductDescriptionConfig;
+  price?: ProductPriceConfig;
+  cta?: ProductCtaConfig;
+  // Catalog snapshots for offline rendering / fallback
+  _catalogSnapshot?: {
+    title?: string;
+    price?: number;
+    slug?: string;
+    imageUrl?: string | null;
+    images?: CatalogProductSummaryImage[];
+    description?: string;
+  };
+  // Legacy / fallback fields
+  imageUrl?: string;
+  badgeText?: string;
+  ctaText?: string;
+  ctaUrl?: string;
+  showPrice?: boolean;
+  showDescription?: boolean;
+  showCta?: boolean;
+  slug?: string;
+}
+
 export interface V1ProductBlock {
   id: string;
   type: 'product';
-  data: {
-    productId: string;
-    // Snapshot fields for resilience / offline rendering
-    title?: string;
-    price?: number;
-    imageUrl?: string;
-    slug?: string;
-    // Presentation overrides
-    badge?: string;
-    description?: string;
-    ctaText?: string;
-    ctaUrl?: string;
-    showPrice?: boolean;
-    showDescription?: boolean;
-    showCta?: boolean;
-  };
+  data: ProductPresentationConfig;
 }
 
-export interface V1ProductGridItem {
-  productId: string;
-  title?: string;
-  price?: number;
-  imageUrl?: string;
-  slug?: string;
-}
+export type V1ProductGridItem = ProductPresentationConfig;
 
 export interface V1ProductGridBlock {
   id: string;
@@ -233,14 +275,137 @@ export const TEST_PERSONAS: TestPersona[] = [
 ];
 
 // ============================================================================
-// 3. CATALOG PRODUCT SUMMARY INTERFACE
+// 3. CATALOG PRODUCT SUMMARY INTERFACE & NORMALIZATION
 // ============================================================================
+
+export interface CatalogProductSummaryImage {
+  id: string;
+  url: string;
+  altText?: string;
+  isPrimary?: boolean;
+}
 
 export interface CatalogProductSummary {
   id: string;
   title: string;
   price: number;
   imageUrl?: string | null;
+  images?: CatalogProductSummaryImage[];
   slug?: string;
   description?: string;
+  badge?: string;
 }
+
+/**
+ * Normalizes any ProductPresentationConfig (or legacy flat block shape) into
+ * a strictly typed, complete presentation object with safe defaults.
+ */
+export function normalizeProductPresentation(
+  raw: Partial<ProductPresentationConfig> | any = {}
+): ProductPresentationConfig {
+  const productId = raw.productId || '';
+
+  // 1. Image
+  const imageId = raw.image?.imageId;
+  const imageUrl = raw.image?.url || raw.imageUrl || raw._catalogSnapshot?.imageUrl || '';
+
+  // 2. Badge
+  const badgeVisible =
+    raw.badge?.visible !== undefined
+      ? raw.badge.visible
+      : raw.badge !== undefined && typeof raw.badge === 'string'
+      ? !!raw.badge.trim()
+      : raw.badgeText !== undefined
+      ? !!raw.badgeText.trim()
+      : false;
+  const badgeText =
+    raw.badge?.text ??
+    (typeof raw.badge === 'string' ? raw.badge : raw.badgeText ?? '');
+
+  // 3. Title
+  const titleVisible =
+    raw.title?.visible !== undefined
+      ? raw.title.visible
+      : true;
+  const titleText =
+    raw.title?.text ??
+    (typeof raw.title === 'string' ? raw.title : raw._catalogSnapshot?.title ?? '');
+
+  // 4. Description
+  const descriptionVisible =
+    raw.description?.visible !== undefined
+      ? raw.description.visible
+      : raw.showDescription !== undefined
+      ? raw.showDescription
+      : true;
+  const rawDescriptionText =
+    raw.description?.text ??
+    (typeof raw.description === 'string' ? raw.description : raw._catalogSnapshot?.description ?? '');
+  const descriptionText = stripHtml(rawDescriptionText);
+
+  // 5. Price
+  const priceVisible =
+    raw.price?.visible !== undefined
+      ? raw.price.visible
+      : raw.showPrice !== undefined
+      ? raw.showPrice
+      : true;
+
+  // 6. CTA
+  const ctaVisible =
+    raw.cta?.visible !== undefined
+      ? raw.cta.visible
+      : raw.showCta !== undefined
+      ? raw.showCta
+      : true;
+  const ctaText =
+    raw.cta?.text ??
+    raw.ctaText ??
+    'Shop now';
+
+  let destination: ProductCtaDestination = { type: 'product' };
+  if (raw.cta?.destination) {
+    destination = raw.cta.destination;
+  } else if (raw.ctaUrl && !raw.ctaUrl.startsWith('/products/')) {
+    destination = { type: 'custom', url: raw.ctaUrl };
+  } else {
+    destination = { type: 'product' };
+  }
+
+  return {
+    productId,
+    image: {
+      imageId,
+      url: imageUrl,
+    },
+    badge: {
+      visible: badgeVisible,
+      text: badgeText,
+    },
+    title: {
+      visible: titleVisible,
+      text: titleText,
+    },
+    description: {
+      visible: descriptionVisible,
+      text: descriptionText,
+    },
+    price: {
+      visible: priceVisible,
+    },
+    cta: {
+      visible: ctaVisible,
+      text: ctaText,
+      destination,
+    },
+    _catalogSnapshot: raw._catalogSnapshot || {
+      title: typeof raw.title === 'string' ? raw.title : titleText,
+      price: raw.price && typeof raw.price === 'number' ? raw.price : raw._catalogSnapshot?.price,
+      slug: raw.slug || raw._catalogSnapshot?.slug,
+      imageUrl: raw.imageUrl || raw._catalogSnapshot?.imageUrl,
+      images: raw._catalogSnapshot?.images,
+      description: typeof raw.description === 'string' ? raw.description : descriptionText,
+    },
+  };
+}
+
