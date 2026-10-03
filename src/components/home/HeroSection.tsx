@@ -2,8 +2,8 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 
-const LEFT_IMAGE_SRC = '/images/ChatGPT Image Oct 2, 2026, 03_42_13 PM.png';
-const RIGHT_IMAGE_SRC = '/images/IMG_3364.JPG.jpeg';
+const LEFT_IMAGE_SRC = '/images/ChatGPT Image Oct 2, 2026, 03_42_13 PM.webp';
+const RIGHT_IMAGE_SRC = '/images/IMG_3364.JPG.webp';
 const LEFT_IMAGE_ALT = 'Mindful coloring book showcase';
 const RIGHT_IMAGE_ALT = 'Personalized creative keepsakes';
 

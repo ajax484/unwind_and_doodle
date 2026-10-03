@@ -11,12 +11,12 @@ export default function BrandPhilosophySection() {
         <div className="flex justify-center md:justify-end">
           <div className="relative w-full max-w-sm sm:max-w-md aspect-square rounded-3xl overflow-hidden border-2 border-border-default shadow-xs bg-bg-default">
             <Image
-              src="/images/brand-philosophy.png"
+              src="/images/brand-philosophy.webp"
               alt="Mindful coloring illustration"
               width={512}
               height={512}
               className="w-full h-full object-cover object-center"
-              priority={false}
+              loading="lazy"
             />
           </div>
         </div>
