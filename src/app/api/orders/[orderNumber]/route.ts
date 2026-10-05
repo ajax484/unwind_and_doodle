@@ -251,11 +251,25 @@ export async function GET(
               id: cust.id,
               notes: ((cust as Record<string, unknown>).notes as string | null) ?? null,
               status: cust.status,
-              assets: custAssetList.map((a) => ({
-                id: a.id,
-                assetUrl: ((a as Record<string, unknown>).asset_url as string) || a.storage_path || '',
-                fileType: ((a as Record<string, unknown>).file_type as string) || a.mime_type || 'image/jpeg',
-              })),
+              assets: custAssetList.map((a) => {
+                const rawPath = a.storage_path || '';
+                const assetUrl =
+                  ((a as Record<string, unknown>).asset_url as string) ||
+                  (rawPath.startsWith('http://') || rawPath.startsWith('https://') || rawPath.startsWith('data:')
+                    ? rawPath
+                    : rawPath
+                    ? supabase.storage.from('customizations').getPublicUrl(
+                        rawPath.startsWith('customizations/')
+                          ? rawPath.slice('customizations/'.length)
+                          : rawPath
+                      ).data.publicUrl
+                    : '');
+                return {
+                  id: a.id,
+                  assetUrl,
+                  fileType: ((a as Record<string, unknown>).file_type as string) || a.mime_type || 'image/jpeg',
+                };
+              }),
             }
           : null,
         themeCustomization: themeCustRecord

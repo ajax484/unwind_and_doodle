@@ -368,6 +368,31 @@ describe('Phase 6B: Admin Dashboard & Order Management', () => {
         getAdminOrderDetail(mockSupabase, 'ord-org-b-01', orgA)
       ).rejects.toThrow(/Forbidden|unauthorized|not found/i);
     });
+
+    it('resolves relative storage paths to full public URLs for customization images', async () => {
+      // Insert asset with only relative storage_path (no asset_url override)
+      mockSupabase._store.customization_assets = [
+        {
+          id: 'asset-raw-1',
+          customization_id: 'cust-entry-1',
+          storage_path: 'uploads/customer-uploaded-photo.png',
+          original_filename: 'my_photo.png',
+          mime_type: 'image/png',
+          processed_storage_path: 'processed/lineart-output.png',
+        },
+      ];
+
+      const detail = await getAdminOrderDetail(mockSupabase, 'ord-today-pending', orgA);
+      const customAssets = detail.items[0]?.customization?.assets;
+
+      expect(customAssets).toBeDefined();
+      expect(customAssets?.length).toBe(1);
+      expect(customAssets?.[0].assetUrl).toMatch(/^https?:\/\//);
+      expect(customAssets?.[0].assetUrl).toContain('uploads/customer-uploaded-photo.png');
+      expect(customAssets?.[0].originalFilename).toBe('my_photo.png');
+      expect(customAssets?.[0].processedUrl).toMatch(/^https?:\/\//);
+      expect(customAssets?.[0].processedUrl).toContain('processed/lineart-output.png');
+    });
   });
 
   describe('4. Order State Machine Transitions', () => {

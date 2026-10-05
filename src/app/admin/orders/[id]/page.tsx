@@ -48,6 +48,14 @@ export default function AdminOrderDetailPage({
   const [confirmingManualPayment, setConfirmingManualPayment] = useState(false);
   const [manualPaymentNote, setManualPaymentNote] = useState("");
 
+  // Customization Photo Preview Modal State
+  const [previewImage, setPreviewImage] = useState<{
+    url: string;
+    title: string;
+    filename?: string | null;
+    processedUrl?: string | null;
+  } | null>(null);
+
   // Modal form inputs
   const [trackingNumber, setTrackingNumber] = useState("");
   const [carrier, setCarrier] = useState("GIG Logistics");
@@ -567,13 +575,21 @@ export default function AdminOrderDetailPage({
                   {/* Photo & Dedication Customization Details */}
                   {item.customization && (
                     <div className="p-3.5 bg-brand-rose-subtle rounded-xl border border-border-accent/40 space-y-2.5 text-xs">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
                         <span className="font-semibold text-text-accent flex items-center gap-1.5 font-heading">
                           <span>✨</span> Custom Keepsake Artwork
                         </span>
-                        <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-brand-rose-light text-text-accent">
-                          {item.customization.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/admin/customizations/${item.customization.id}`}
+                            className="text-[11px] font-bold text-text-accent hover:underline inline-flex items-center gap-1 bg-bg-surface px-2.5 py-0.5 rounded-full border border-border-accent/30 shadow-2xs"
+                          >
+                            Studio Workspace ↗
+                          </Link>
+                          <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-brand-rose-light text-text-accent">
+                            {item.customization.status}
+                          </span>
+                        </div>
                       </div>
 
                       {item.customization.notes && (
@@ -596,24 +612,66 @@ export default function AdminOrderDetailPage({
                             </span>
                             <div className="flex flex-wrap gap-2.5">
                               {item.customization.assets.map((asset, idx) => (
-                                <a
+                                <div
                                   key={asset.id}
-                                  href={asset.assetUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="group relative inline-flex items-center gap-2 p-1.5 rounded-xl bg-bg-surface border border-border-default text-text-secondary hover:text-action-primary hover:border-border-accent text-xs font-semibold shadow-2xs transition-all"
+                                  className="group relative inline-flex items-center gap-2.5 p-1.5 rounded-xl bg-bg-surface border border-border-default hover:border-border-accent text-xs font-semibold shadow-2xs transition-all"
                                 >
-                                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-bg-subtle flex-shrink-0 border border-border-default">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPreviewImage({
+                                        url: asset.assetUrl,
+                                        title: `Photo #${idx + 1}`,
+                                        filename: asset.originalFilename,
+                                        processedUrl: asset.processedUrl,
+                                      })
+                                    }
+                                    className="w-12 h-12 rounded-lg overflow-hidden bg-bg-subtle flex-shrink-0 border border-border-default cursor-pointer block relative group/btn"
+                                    title="Click to zoom / preview"
+                                  >
                                     <img
                                       src={asset.assetUrl}
-                                      alt={`Custom Photo ${idx + 1}`}
-                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                      alt={asset.originalFilename || `Custom Photo ${idx + 1}`}
+                                      className="w-full h-full object-cover group-hover/btn:scale-105 transition-transform"
                                     />
+                                    <span className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover/btn:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
+                                      🔍
+                                    </span>
+                                  </button>
+
+                                  <div className="pr-1.5 flex flex-col justify-center gap-0.5 text-left">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPreviewImage({
+                                          url: asset.assetUrl,
+                                          title: `Photo #${idx + 1}`,
+                                          filename: asset.originalFilename,
+                                          processedUrl: asset.processedUrl,
+                                        })
+                                      }
+                                      className="text-text-primary hover:text-action-primary font-bold text-xs cursor-pointer text-left"
+                                    >
+                                      Photo #{idx + 1}
+                                    </button>
+                                    {asset.originalFilename && (
+                                      <span
+                                        className="text-[10px] text-text-tertiary truncate max-w-[110px]"
+                                        title={asset.originalFilename}
+                                      >
+                                        {asset.originalFilename}
+                                      </span>
+                                    )}
+                                    <a
+                                      href={asset.assetUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-[10px] text-action-primary hover:underline inline-flex items-center gap-0.5 font-medium"
+                                    >
+                                      Full Size ↗
+                                    </a>
                                   </div>
-                                  <span className="pr-1.5">
-                                    Photo #{idx + 1} ↗
-                                  </span>
-                                </a>
+                                </div>
                               ))}
                             </div>
                           </div>
@@ -1323,6 +1381,76 @@ export default function AdminOrderDetailPage({
           />
         </div>
       </Modal>
+
+      {/* 8. Photo Preview Modal */}
+      {previewImage && (
+        <Modal
+          isOpen={true}
+          onClose={() => setPreviewImage(null)}
+          title={previewImage.title}
+          description={previewImage.filename || "Uploaded Customer Reference Artwork"}
+          size="lg"
+          footer={
+            <div className="flex items-center justify-between w-full pt-2">
+              <span className="text-xs text-text-tertiary">
+                {previewImage.filename || ""}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  onClick={() => setPreviewImage(null)}
+                >
+                  Close
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  href={previewImage.url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open Original in New Tab ↗
+                </Button>
+              </div>
+            </div>
+          }
+        >
+          <div className="space-y-4">
+            <div className="relative rounded-2xl overflow-hidden bg-bg-subtle border border-border-default max-h-[65vh] flex items-center justify-center p-2">
+              <img
+                src={previewImage.url}
+                alt={previewImage.title}
+                className="max-h-[60vh] w-auto max-w-full object-contain rounded-xl"
+              />
+            </div>
+
+            {previewImage.processedUrl && (
+              <div className="p-3 bg-status-success-bg border border-status-success-border rounded-xl space-y-2 text-xs">
+                <div className="font-heading font-bold text-status-success-text flex items-center justify-between">
+                  <span>🎨 Processed Line-Art Output</span>
+                  <a
+                    href={previewImage.processedUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline text-[11px] font-bold"
+                  >
+                    View Full Size ↗
+                  </a>
+                </div>
+                <div className="relative rounded-xl overflow-hidden bg-white border border-border-default max-h-48 flex items-center justify-center p-2">
+                  <img
+                    src={previewImage.processedUrl}
+                    alt="Processed Coloring Line Art"
+                    className="max-h-44 w-auto object-contain rounded-lg"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

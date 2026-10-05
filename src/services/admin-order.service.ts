@@ -560,6 +560,22 @@ export async function getAdminOrderDetail(
     });
   }
 
+  const resolveCustomizationUrl = (rawPath: string | null | undefined, assetUrlOverride?: string): string => {
+    if (assetUrlOverride) return assetUrlOverride;
+    if (!rawPath) return '';
+    if (rawPath.startsWith('http://') || rawPath.startsWith('https://') || rawPath.startsWith('data:')) {
+      return rawPath;
+    }
+    const cleanPath = rawPath.startsWith('customizations/')
+      ? rawPath.slice('customizations/'.length)
+      : rawPath;
+    try {
+      return supabase.storage.from('customizations').getPublicUrl(cleanPath).data.publicUrl;
+    } catch {
+      return rawPath;
+    }
+  };
+
   const detailedItems: AdminOrderDetailItem[] = (orderItems || []).map((item) => {
     const product = productMap.get(item.product_id);
     const itemAddons = addonsByItem.get(item.id) || [];
@@ -585,8 +601,13 @@ export async function getAdminOrderDetail(
             status: cust.status,
             assets: assets.map((a) => ({
               id: a.id,
-              assetUrl: ((a as Record<string, unknown>).asset_url as string) || a.storage_path,
+              assetUrl: resolveCustomizationUrl(
+                a.storage_path,
+                ((a as Record<string, unknown>).asset_url as string) || undefined
+              ),
               fileType: ((a as Record<string, unknown>).file_type as string) || a.mime_type || 'image/png',
+              originalFilename: a.original_filename || null,
+              processedUrl: a.processed_storage_path ? resolveCustomizationUrl(a.processed_storage_path) : null,
             })),
           }
         : null,

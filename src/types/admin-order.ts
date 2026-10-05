@@ -111,6 +111,8 @@ export interface AdminOrderDetailItem {
       id: string;
       assetUrl: string;
       fileType: string;
+      originalFilename?: string | null;
+      processedUrl?: string | null;
     }[];
   } | null;
   themeCustomization?: {
