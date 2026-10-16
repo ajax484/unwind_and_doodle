@@ -54,6 +54,10 @@ export default function CartPage() {
     if (!file) return;
 
     setModalError(null);
+    if (modalAssetUrls.length >= 30) {
+      setModalError('You can only upload up to 30 images in total');
+      return;
+    }
     if (file.size > 10 * 1024 * 1024) {
       setModalError('File must be under 10MB');
       return;

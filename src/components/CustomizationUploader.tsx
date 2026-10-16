@@ -89,7 +89,7 @@ export interface CustomizationUploaderProps
   multiple?: boolean;
   /** Whether the additional notes textarea is rendered (maps to Figma 'Show Notes Field'). */
   showNotes?: boolean;
-  /** Maximum number of files permitted when multiple is enabled (default 5). */
+  /** Maximum number of files permitted when multiple is enabled (default 30). */
   maxFiles?: number;
   /** Maximum allowable single file size in bytes (default 10MB = 10 * 1024 * 1024). */
   maxSizeBytes?: number;
@@ -132,7 +132,7 @@ export const CustomizationUploader = forwardRef<HTMLDivElement, CustomizationUpl
       size = 'md',
       multiple = true,
       showNotes = true,
-      maxFiles = 5,
+      maxFiles = 30,
       maxSizeBytes = 10 * 1024 * 1024,
       label,
       description = "Add images you'd like us to use for your personalized product.",

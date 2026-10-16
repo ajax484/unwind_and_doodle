@@ -66,7 +66,7 @@ const meta = {
     size: 'md',
     multiple: true,
     showNotes: true,
-    maxFiles: 5,
+    maxFiles: 30,
     disabled: false,
     onCustomizationChange: fn(),
   },
