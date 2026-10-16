@@ -17,6 +17,8 @@ import Skeleton from "@/components/Skeleton";
 import OrderStatusBadge from "@/components/OrderStatusBadge";
 import Badge from "@/components/Badge";
 import { Pagination } from "@/components/Pagination";
+import { Checkbox } from "@/components/Checkbox";
+import Modal from "@/components/Modal";
 
 function OrdersListContent() {
   const router = useRouter();
@@ -33,6 +35,15 @@ function OrdersListContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(searchParam);
+
+  // Bulk selection state
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState<{
+    type: "success" | "warning" | "danger";
+    message: string;
+  } | null>(null);
 
   const updateFilters = useCallback(
     (newParams: Record<string, string | number | undefined>) => {
@@ -138,6 +149,86 @@ function OrdersListContent() {
   const hasActiveFilters = Boolean(
     statusParam || paymentParam || searchParam || sortParam !== "newest",
   );
+
+  const isOrderEligibleForConfirm = (order: AdminOrderListItem) => {
+    return (
+      order.status === "pending" &&
+      order.paymentStatus?.toLowerCase() === "successful"
+    );
+  };
+
+  const eligibleOrdersOnPage = orders.filter(isOrderEligibleForConfirm);
+  const allEligibleSelected =
+    eligibleOrdersOnPage.length > 0 &&
+    eligibleOrdersOnPage.every((o) => selectedOrderIds.includes(o.id));
+  const someEligibleSelected =
+    eligibleOrdersOnPage.some((o) => selectedOrderIds.includes(o.id));
+  const isIndeterminate = someEligibleSelected && !allEligibleSelected;
+
+  const handleToggleSelectAll = () => {
+    if (allEligibleSelected) {
+      const eligibleIdsSet = new Set(eligibleOrdersOnPage.map((o) => o.id));
+      setSelectedOrderIds((prev) => prev.filter((id) => !eligibleIdsSet.has(id)));
+    } else {
+      const eligibleIds = eligibleOrdersOnPage.map((o) => o.id);
+      setSelectedOrderIds((prev) => Array.from(new Set([...prev, ...eligibleIds])));
+    }
+  };
+
+  const handleToggleSelectOrder = (id: string) => {
+    setSelectedOrderIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  };
+
+  const handleBulkConfirm = async () => {
+    if (selectedOrderIds.length === 0) return;
+    try {
+      setConfirming(true);
+      setActionFeedback(null);
+
+      const res = await fetch("/api/admin/orders/bulk-confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderIds: selectedOrderIds }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Failed to confirm orders");
+      }
+
+      const result = json.data;
+      if (result.failedCount > 0) {
+        const failedDetails = result.failed
+          .map(
+            (f: { orderNumber?: string; reason: string }) =>
+              `${f.orderNumber || "Order"}: ${f.reason}`,
+          )
+          .join("; ");
+        setActionFeedback({
+          type: result.confirmedCount > 0 ? "warning" : "danger",
+          message: `Confirmed ${result.confirmedCount} orders. Failed ${result.failedCount}: ${failedDetails}`,
+        });
+      } else {
+        setActionFeedback({
+          type: "success",
+          message: `Confirmed ${result.confirmedCount} ${result.confirmedCount === 1 ? "order" : "orders"}`,
+        });
+      }
+
+      setSelectedOrderIds([]);
+      setIsConfirmModalOpen(false);
+      fetchOrders();
+    } catch (err: unknown) {
+      setActionFeedback({
+        type: "danger",
+        message: err instanceof Error ? err.message : "Error confirming orders",
+      });
+    } finally {
+      setConfirming(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -260,6 +351,17 @@ function OrdersListContent() {
         )}
       </div>
 
+      {actionFeedback && (
+        <AlertBanner
+          variant={actionFeedback.type}
+          size="sm"
+          description={actionFeedback.message}
+          dismissible
+          onDismiss={() => setActionFeedback(null)}
+          role="alert"
+        />
+      )}
+
       {error && (
         <AlertBanner
           variant="danger"
@@ -311,6 +413,15 @@ function OrdersListContent() {
               <table className="w-full text-left text-xs text-text-secondary">
                 <thead className="bg-bg-subtle/80 text-[10px] font-bold uppercase tracking-wider text-text-tertiary border-b border-border-default">
                   <tr>
+                    <th className="py-3.5 px-4 w-10">
+                      <Checkbox
+                        checked={allEligibleSelected}
+                        indeterminate={isIndeterminate}
+                        disabled={eligibleOrdersOnPage.length === 0}
+                        onChange={handleToggleSelectAll}
+                        aria-label="Select all eligible orders"
+                      />
+                    </th>
                     <th className="py-3.5 px-4 font-semibold">Order</th>
                     <th className="py-3.5 px-4 font-semibold">Customer</th>
                     <th className="py-3.5 px-4 font-semibold">Status</th>
@@ -324,127 +435,151 @@ function OrdersListContent() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-default">
-                  {orders.map((order: AdminOrderListItem) => (
-                    <tr
-                      key={order.id}
-                      className="hover:bg-bg-subtle/60 transition-colors"
-                    >
-                      <td className="py-3.5 px-4 font-mono font-bold text-text-primary">
-                        <Link
-                          href={`/admin/orders/${order.id}`}
-                          className="hover:text-action-primary transition-colors"
-                        >
-                          {order.orderNumber}
-                        </Link>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-semibold text-text-primary">
-                            {order.customer.name}
-                          </span>
-                          {order.isAddressPending && (
-                            <Badge variant="status" statusType="warning" size="sm">
-                              Address Pending
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-text-tertiary truncate max-w-[180px]">
-                          {order.customer.email}
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <OrderStatusBadge status={order.status} />
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <OrderStatusBadge
-                          status={order.paymentStatus}
-                          type="payment"
-                        />
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-text-secondary">
-                        {order.itemCount}{" "}
-                        {order.itemCount === 1 ? "item" : "items"}
-                      </td>
-                      <td className="py-3.5 px-4 font-heading font-bold text-text-primary">
-                        {formatCurrency(order.totalAmount)}
-                      </td>
-                      <td className="py-3.5 px-4 text-text-tertiary whitespace-nowrap">
-                        {formatDate(order.createdAt)}
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <Button
-                          href={`/admin/orders/${order.id}`}
-                          variant="outline"
-                          size="sm"
-                          className="rounded-xl font-semibold shadow-2xs py-1 px-3 min-h-0 text-xs"
-                        >
-                          View →
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                  {orders.map((order: AdminOrderListItem) => {
+                    const isEligible = isOrderEligibleForConfirm(order);
+                    const isSelected = selectedOrderIds.includes(order.id);
+                    return (
+                      <tr
+                        key={order.id}
+                        className={`hover:bg-bg-subtle/60 transition-colors ${isSelected ? "bg-bg-subtle/40" : ""}`}
+                      >
+                        <td className="py-3.5 px-4 w-10" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={isSelected}
+                            disabled={!isEligible}
+                            onChange={() => handleToggleSelectOrder(order.id)}
+                            aria-label={`Select order ${order.orderNumber}`}
+                          />
+                        </td>
+                        <td className="py-3.5 px-4 font-mono font-bold text-text-primary">
+                          <Link
+                            href={`/admin/orders/${order.id}`}
+                            className="hover:text-action-primary transition-colors"
+                          >
+                            {order.orderNumber}
+                          </Link>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-semibold text-text-primary">
+                              {order.customer.name}
+                            </span>
+                            {order.isAddressPending && (
+                              <Badge variant="status" statusType="warning" size="sm">
+                                Address Pending
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-text-tertiary truncate max-w-[180px]">
+                            {order.customer.email}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <OrderStatusBadge status={order.status} />
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <OrderStatusBadge
+                            status={order.paymentStatus}
+                            type="payment"
+                          />
+                        </td>
+                        <td className="py-3.5 px-4 font-semibold text-text-secondary">
+                          {order.itemCount}{" "}
+                          {order.itemCount === 1 ? "item" : "items"}
+                        </td>
+                        <td className="py-3.5 px-4 font-heading font-bold text-text-primary">
+                          {formatCurrency(order.totalAmount)}
+                        </td>
+                        <td className="py-3.5 px-4 text-text-tertiary whitespace-nowrap">
+                          {formatDate(order.createdAt)}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <Button
+                            href={`/admin/orders/${order.id}`}
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl font-semibold shadow-2xs py-1 px-3 min-h-0 text-xs"
+                          >
+                            View →
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
 
             {/* Mobile Cards View */}
             <div className="md:hidden divide-y divide-border-default p-3 space-y-3">
-              {orders.map((order: AdminOrderListItem) => (
-                <div
-                  key={order.id}
-                  className="p-4 rounded-2xl bg-bg-subtle/60 border border-border-default space-y-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <Link
-                      href={`/admin/orders/${order.id}`}
-                      className="font-mono font-bold text-xs text-action-primary"
-                    >
-                      {order.orderNumber}
-                    </Link>
-                    <span className="font-heading font-bold text-sm text-text-primary">
-                      {formatCurrency(order.totalAmount)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <OrderStatusBadge status={order.status} />
-                    <OrderStatusBadge
-                      status={order.paymentStatus}
-                      type="payment"
-                    />
-                    {order.isAddressPending && (
-                      <Badge variant="status" statusType="warning" size="sm">
-                        Address Pending
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="text-xs text-text-secondary flex justify-between items-center">
-                    <div>
-                      <div className="font-semibold text-text-primary">
-                        {order.customer.name}
+              {orders.map((order: AdminOrderListItem) => {
+                const isEligible = isOrderEligibleForConfirm(order);
+                const isSelected = selectedOrderIds.includes(order.id);
+                return (
+                  <div
+                    key={order.id}
+                    className={`p-4 rounded-2xl bg-bg-subtle/60 border border-border-default space-y-3 ${isSelected ? "ring-1 ring-border-focus" : ""}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={isSelected}
+                          disabled={!isEligible}
+                          onChange={() => handleToggleSelectOrder(order.id)}
+                          aria-label={`Select order ${order.orderNumber}`}
+                        />
+                        <Link
+                          href={`/admin/orders/${order.id}`}
+                          className="font-mono font-bold text-xs text-action-primary"
+                        >
+                          {order.orderNumber}
+                        </Link>
                       </div>
-                      <div className="text-[11px] text-text-tertiary">
-                        {order.customer.email}
-                      </div>
+                      <span className="font-heading font-bold text-sm text-text-primary">
+                        {formatCurrency(order.totalAmount)}
+                      </span>
                     </div>
-                    <span className="text-[11px] text-text-tertiary">
-                      {formatDate(order.createdAt)}
-                    </span>
-                  </div>
 
-                  <div className="pt-2 border-t border-border-default flex justify-end">
-                    <Button
-                      href={`/admin/orders/${order.id}`}
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-center rounded-xl bg-bg-surface font-semibold text-text-primary shadow-2xs"
-                    >
-                      View Order Details →
-                    </Button>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <OrderStatusBadge status={order.status} />
+                      <OrderStatusBadge
+                        status={order.paymentStatus}
+                        type="payment"
+                      />
+                      {order.isAddressPending && (
+                        <Badge variant="status" statusType="warning" size="sm">
+                          Address Pending
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="text-xs text-text-secondary flex justify-between items-center">
+                      <div>
+                        <div className="font-semibold text-text-primary">
+                          {order.customer.name}
+                        </div>
+                        <div className="text-[11px] text-text-tertiary">
+                          {order.customer.email}
+                        </div>
+                      </div>
+                      <span className="text-[11px] text-text-tertiary">
+                        {formatDate(order.createdAt)}
+                      </span>
+                    </div>
+
+                    <div className="pt-2 border-t border-border-default flex justify-end">
+                      <Button
+                        href={`/admin/orders/${order.id}`}
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-center rounded-xl bg-bg-surface font-semibold text-text-primary shadow-2xs"
+                      >
+                        View Order Details →
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </>
         )}
@@ -473,6 +608,53 @@ function OrdersListContent() {
           </div>
         )}
       </div>
+
+      {/* Floating Bulk Action Bar */}
+      {selectedOrderIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-bg-surface/95 backdrop-blur-md border border-border-default shadow-xl rounded-2xl px-5 py-3 flex items-center gap-4 transition-all animate-in fade-in slide-in-from-bottom-4">
+          <span className="text-xs font-semibold text-text-primary whitespace-nowrap">
+            {selectedOrderIds.length} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsConfirmModalOpen(true)}
+            >
+              Confirm Orders ({selectedOrderIds.length})
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedOrderIds([])}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Confirm Confirmation Modal */}
+      <Modal
+        isOpen={isConfirmModalOpen}
+        onClose={() => !confirming && setIsConfirmModalOpen(false)}
+        title="Confirm Orders"
+        primaryAction={{
+          label: "Confirm",
+          onClick: handleBulkConfirm,
+          loading: confirming,
+        }}
+        secondaryAction={{
+          label: "Cancel",
+          onClick: () => setIsConfirmModalOpen(false),
+          disabled: confirming,
+        }}
+      >
+        <p className="text-sm text-text-secondary">
+          Are you sure you want to confirm {selectedOrderIds.length}{" "}
+          {selectedOrderIds.length === 1 ? "order" : "orders"}?
+        </p>
+      </Modal>
     </div>
   );
 }

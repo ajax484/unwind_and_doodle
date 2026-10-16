@@ -7,6 +7,7 @@ import {
   AdminOrderDetail,
   AdminOrderDetailItem,
   AdminDashboardMetricsResponse,
+  BulkConfirmOrdersResponse,
 } from '../types/admin-order';
 import { transitionOrderStatus } from './order-state-machine.service';
 import { getPaymentProvider, PaymentProvider } from './payment';
@@ -846,3 +847,122 @@ export async function refundAdminOrder(
     transitionResult,
   };
 }
+
+export interface BulkConfirmOrdersParams {
+  orderIds: string[];
+  organizationId: string;
+  userId?: string | null;
+}
+
+/**
+ * Bulk confirms pending orders with verified successful payments for an organization.
+ */
+export async function bulkConfirmOrders(
+  supabase: SupabaseClient<Database>,
+  params: BulkConfirmOrdersParams
+): Promise<BulkConfirmOrdersResponse> {
+  const { orderIds, organizationId, userId } = params;
+
+  if (!orderIds || orderIds.length === 0) {
+    return {
+      totalRequested: 0,
+      confirmedCount: 0,
+      failedCount: 0,
+      confirmed: [],
+      failed: [],
+    };
+  }
+
+  // 1. Fetch matching orders for this organization
+  const { data: orders, error: ordersErr } = await supabase
+    .from('orders')
+    .select('id, order_number, status, organization_id')
+    .in('id', orderIds)
+    .eq('organization_id', organizationId);
+
+  if (ordersErr) {
+    throw new Error(`Failed to query orders for confirmation: ${ordersErr.message}`);
+  }
+
+  const orderMap = new Map((orders || []).map((o) => [o.id, o]));
+
+  // 2. Fetch payments for all queried orders
+  const { data: payments, error: paymentsErr } = await supabase
+    .from('payments')
+    .select('id, order_id, status')
+    .in('order_id', orderIds);
+
+  if (paymentsErr) {
+    throw new Error(`Failed to query payments: ${paymentsErr.message}`);
+  }
+
+  const paidOrderIds = new Set<string>();
+  for (const p of payments || []) {
+    if (p.status?.toLowerCase() === 'successful') {
+      paidOrderIds.add(p.order_id);
+    }
+  }
+
+  const confirmed: Array<{ orderId: string; orderNumber: string }> = [];
+  const failed: Array<{ orderId: string; orderNumber?: string; reason: string }> = [];
+
+  for (const orderId of orderIds) {
+    const order = orderMap.get(orderId);
+    if (!order) {
+      failed.push({
+        orderId,
+        reason: 'Order not found or does not belong to organization',
+      });
+      continue;
+    }
+
+    if (order.status !== ORDER_STATUS.PENDING) {
+      failed.push({
+        orderId,
+        orderNumber: order.order_number,
+        reason: `Order is not in pending status (current status: ${order.status})`,
+      });
+      continue;
+    }
+
+    if (!paidOrderIds.has(order.id)) {
+      failed.push({
+        orderId,
+        orderNumber: order.order_number,
+        reason: 'Order payment is not successful',
+      });
+      continue;
+    }
+
+    try {
+      await transitionOrderStatus({
+        supabase,
+        orderId: order.id,
+        targetStatus: ORDER_STATUS.CONFIRMED,
+        userId: userId || null,
+        note: 'Bulk confirmed by admin',
+      });
+
+      confirmed.push({
+        orderId: order.id,
+        orderNumber: order.order_number,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown transition error';
+      failed.push({
+        orderId: order.id,
+        orderNumber: order.order_number,
+        reason: msg,
+      });
+    }
+  }
+
+  return {
+    totalRequested: orderIds.length,
+    confirmedCount: confirmed.length,
+    failedCount: failed.length,
+    confirmed,
+    failed,
+  };
+}
+

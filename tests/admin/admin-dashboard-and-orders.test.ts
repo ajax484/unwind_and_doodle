@@ -5,6 +5,7 @@ import {
   listAdminOrders,
   getAdminOrderDetail,
   refundAdminOrder,
+  bulkConfirmOrders,
 } from '@/services/admin-order.service';
 import { transitionOrderStatus } from '@/services/order-state-machine.service';
 import { ORDER_STATUS } from '@/lib/constants';
@@ -550,4 +551,85 @@ describe('Phase 6B: Admin Dashboard & Order Management', () => {
       ).rejects.toThrow(/Forbidden|unauthorized|not found/i);
     });
   });
+
+  describe('bulkConfirmOrders', () => {
+    it('successfully confirms eligible pending orders with successful payment', async () => {
+      const result = await bulkConfirmOrders(mockSupabase, {
+        orderIds: ['ord-today-pending'],
+        organizationId: orgA,
+        userId: adminUserA,
+      });
+
+      expect(result.totalRequested).toBe(1);
+      expect(result.confirmedCount).toBe(1);
+      expect(result.failedCount).toBe(0);
+      expect(result.confirmed[0].orderId).toBe('ord-today-pending');
+
+      const updatedOrder = mockSupabase._store.orders.find((o) => o.id === 'ord-today-pending');
+      expect(updatedOrder?.status).toBe(ORDER_STATUS.CONFIRMED);
+      expect(updatedOrder?.confirmed_at).toBeDefined();
+    });
+
+    it('rejects orders that are not pending or not paid', async () => {
+      // ord-today-confirmed is already confirmed
+      const result = await bulkConfirmOrders(mockSupabase, {
+        orderIds: ['ord-today-confirmed'],
+        organizationId: orgA,
+        userId: adminUserA,
+      });
+
+      expect(result.totalRequested).toBe(1);
+      expect(result.confirmedCount).toBe(0);
+      expect(result.failedCount).toBe(1);
+      expect(result.failed[0].reason).toMatch(/not in pending status/i);
+    });
+
+    it('enforces tenant isolation during bulk confirmation', async () => {
+      // ord-org-b-01 belongs to orgB
+      const result = await bulkConfirmOrders(mockSupabase, {
+        orderIds: ['ord-org-b-01'],
+        organizationId: orgA,
+        userId: adminUserA,
+      });
+
+      expect(result.confirmedCount).toBe(0);
+      expect(result.failedCount).toBe(1);
+      expect(result.failed[0].reason).toMatch(/not found or does not belong to organization/i);
+    });
+
+    it('handles mixed batches with partial success and reporting', async () => {
+      // Add a pending order with unpaid status
+      mockSupabase._store.orders.push({
+        id: 'ord-unpaid-pending',
+        order_number: 'UAD-1004',
+        organization_id: orgA,
+        customer_id: 'cust-chidi',
+        status: ORDER_STATUS.PENDING,
+        total: 8000,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      mockSupabase._store.payments.push({
+        id: 'pay-failed',
+        order_id: 'ord-unpaid-pending',
+        amount: 8000,
+        status: 'failed',
+        provider: 'paystack',
+      });
+
+      const result = await bulkConfirmOrders(mockSupabase, {
+        orderIds: ['ord-today-pending', 'ord-unpaid-pending'],
+        organizationId: orgA,
+        userId: adminUserA,
+      });
+
+      expect(result.totalRequested).toBe(2);
+      expect(result.confirmedCount).toBe(1);
+      expect(result.failedCount).toBe(1);
+      expect(result.confirmed[0].orderId).toBe('ord-today-pending');
+      expect(result.failed[0].orderId).toBe('ord-unpaid-pending');
+      expect(result.failed[0].reason).toMatch(/payment is not successful/i);
+    });
+  });
 });
+
