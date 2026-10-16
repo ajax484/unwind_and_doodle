@@ -60,6 +60,38 @@ export function CanvasTextBlock({ block }: { block: V1TextBlock }) {
     );
   }
 
+  if (content.trim() === '{{itemsTable}}') {
+    return (
+      <div className="my-2 border border-border-default rounded-xl overflow-hidden bg-bg-surface text-xs">
+        <div className="bg-bg-subtle px-3 py-2 border-b border-border-default flex items-center justify-between font-semibold text-text-secondary text-[11px]">
+          <span>Order Items (Dynamic Section)</span>
+          <span className="text-brand-rose font-mono text-[10px]">{"{{itemsTable}}"}</span>
+        </div>
+        <table className="w-full text-left text-xs">
+          <thead>
+            <tr className="border-b border-border-default text-text-tertiary">
+              <th className="p-2.5 font-medium">Item</th>
+              <th className="p-2.5 font-medium">Qty</th>
+              <th className="p-2.5 font-medium text-right">Price</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border-default text-text-primary">
+            <tr>
+              <td className="p-2.5">Bleed-resistant Sketchbook A4</td>
+              <td className="p-2.5">2</td>
+              <td className="p-2.5 text-right font-semibold">₦15,000</td>
+            </tr>
+            <tr>
+              <td className="p-2.5">Pastel Watercolor Palette</td>
+              <td className="p-2.5">1</td>
+              <td className="p-2.5 text-right font-semibold">₦12,500</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
   return (
     <div className={`text-sm text-text-primary leading-relaxed ${alignClass} py-1 whitespace-pre-wrap`}>
       {renderTextWithTokenHighlights(content)}

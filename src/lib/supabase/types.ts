@@ -2766,6 +2766,60 @@ export type Database = {
           },
         ];
       };
+      service_email_templates: {
+        Row: {
+          id: string;
+          organization_id: string;
+          template_key: string;
+          subject: string;
+          body_html: string;
+          body_text: string | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          template_key: string;
+          subject: string;
+          body_html: string;
+          body_text?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          template_key?: string;
+          subject?: string;
+          body_html?: string;
+          body_text?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "service_email_templates_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "service_email_templates_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;

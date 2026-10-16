@@ -185,6 +185,7 @@ export default function AdminLayoutClient({
         { label: "Delivery Zones", href: "/admin/settings/delivery" },
         { label: "Locations", href: "/admin/settings/locations" },
         { label: "Warehouses", href: "/admin/settings/warehouses" },
+        { label: "Service Emails", href: "/admin/settings/service-emails" },
         { label: "Team Members", href: "/admin/settings/team", permission: "team.read" },
         { label: "Audit Logs", href: "/admin/audit-logs", permission: "organization.manage" },
       ],
@@ -259,6 +260,8 @@ export default function AdminLayoutClient({
       return "Marketing Campaigns";
     if (pathname.startsWith("/admin/marketing/segments"))
       return "Customer Segments";
+    if (pathname.startsWith("/admin/settings/service-emails"))
+      return "Service Emails";
     if (pathname.startsWith("/admin/settings")) return "Store Settings";
     return "Admin Console";
   };

@@ -8,6 +8,14 @@ import { createInAppNotification } from './in-app-notification.service';
 import { getServiceSupabaseClient } from '../lib/supabase/client';
 import { formatPrice } from '../lib/format-utils';
 import { EmailNotificationTemplate } from '../types/notification';
+import {
+  renderServiceEmail,
+  getServiceEmailOverride,
+  getCachedOverride,
+  baseHtmlWrapper,
+} from './service-email.service';
+import { ServiceEmailTemplateOverride } from '../types/service-email';
+export { baseHtmlWrapper };
 
 export interface EmailNotificationPayload {
   to: string;
@@ -16,6 +24,7 @@ export interface EmailNotificationPayload {
   data: Record<string, unknown>;
   html?: string;
   text?: string;
+  organizationId?: string;
 }
 
 // In-memory audit/sent register for idempotency in runtime session
@@ -84,367 +93,40 @@ export async function getAdminNotificationRecipients(
 
 /**
  * Renders HTML and plain-text body for a given notification template.
+ * Supports organization-specific database overrides while preserving full backward compatibility.
  */
 export function renderEmailTemplate(
   template: EmailNotificationPayload['template'],
   data: Record<string, unknown>,
-  subject: string
-): { html: string; text: string } {
-  const brandName = 'Unwind and Doodle';
-  const brandColor = '#4F46E5';
-
-  const baseHtmlWrapper = (title: string, bodyContent: string) => `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; margin: 0; padding: 24px; color: #1f2937; }
-    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border: 1px solid #e5e7eb; }
-    .header { background: #111827; padding: 24px 32px; text-align: center; color: #ffffff; }
-    .header h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.025em; }
-    .content { padding: 32px; font-size: 15px; line-height: 1.6; }
-    .btn { display: inline-block; background-color: ${brandColor}; color: #ffffff !important; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; margin: 20px 0; text-align: center; }
-    .footer { padding: 20px 32px; background: #f3f4f6; text-align: center; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
-    .item-table { width: 100%; border-collapse: collapse; margin: 16px 0; }
-    .item-table th { text-align: left; padding: 8px; border-bottom: 2px solid #e5e7eb; font-size: 13px; color: #4b5563; }
-    .item-table td { padding: 8px; border-bottom: 1px solid #f3f4f6; font-size: 14px; }
-    .highlight-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 16px 0; color: #166534; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>${brandName}</h1>
-    </div>
-    <div class="content">
-      ${bodyContent}
-    </div>
-    <div class="footer">
-      <p>&copy; ${new Date().getFullYear()} ${brandName}. All rights reserved.</p>
-      <p>If you have any questions, reply directly to this email.</p>
-    </div>
-  </div>
-</body>
-</html>
-  `.trim();
-
-  switch (template) {
-    case 'order_confirmation': {
-      const orderNumber = String(data.orderNumber || '');
-      const customerName = String(data.customerName || 'Valued Customer');
-      const total = data.total ? formatPrice(Number(data.total)) : '';
-      const trackingUrl = String(data.trackingUrl || '#');
-      const items = (data.items as Array<{ name?: string; product_name?: string; quantity: number; unit_price?: number; price?: number }>) || [];
-
-      const itemsHtml = items.length > 0
-        ? `
-          <table class="item-table">
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Qty</th>
-                <th style="text-align: right;">Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${items.map(item => `
-                <tr>
-                  <td>${item.product_name || item.name || 'Item'}</td>
-                  <td>${item.quantity}</td>
-                  <td style="text-align: right;">${item.unit_price || item.price ? formatPrice(item.unit_price || item.price) : '—'}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `
-        : '';
-
-      const body = `
-        <h2>Order Confirmed! 🎉</h2>
-        <p>Hello <strong>${customerName}</strong>,</p>
-        <p>Thank you for your order! We've received your order <strong>#${orderNumber}</strong> and are preparing it with care.</p>
-        ${total ? `<p><strong>Total Amount:</strong> ${total}</p>` : ''}
-        ${itemsHtml}
-        <div style="text-align: center;">
-          <a href="${trackingUrl}" class="btn">View Order & Track Status</a>
-        </div>
-        <p style="font-size: 13px; color: #6b7280;">You can access your order status anytime using the link above.</p>
-      `;
-
-      const text = `
-Order Confirmed: #${orderNumber}
-Hello ${customerName},
-
-Thank you for your order! We have received order #${orderNumber} and are preparing it.
-${total ? `Total: ${total}\n` : ''}
-Track your order status here:
-${trackingUrl}
-
-— Unwind and Doodle
-      `.trim();
-
-      return { html: baseHtmlWrapper(subject, body), text };
-    }
-
-    case 'order_shipped': {
-      const orderNumber = String(data.orderNumber || '');
-      const trackingUrl = String(data.trackingUrl || '#');
-      const deliveryAddress = data.deliveryAddress ? JSON.stringify(data.deliveryAddress, null, 2) : '';
-
-      const body = `
-        <h2>Your Order is on its Way! 🚚</h2>
-        <p>Great news! Your order <strong>#${orderNumber}</strong> has been shipped and is heading to your destination.</p>
-        ${deliveryAddress ? `<div class="highlight-box"><strong>Delivery Destination:</strong><br><pre style="margin: 4px 0; font-family: inherit;">${deliveryAddress}</pre></div>` : ''}
-        <div style="text-align: center;">
-          <a href="${trackingUrl}" class="btn">Track Shipment</a>
-        </div>
-      `;
-
-      const text = `
-Your Order #${orderNumber} Has Shipped!
-Your package is on its way.
-
-Track your shipment:
-${trackingUrl}
-
-— Unwind and Doodle
-      `.trim();
-
-      return { html: baseHtmlWrapper(subject, body), text };
-    }
-
-    case 'stock_alert': {
-      const productUrl = String(data.productUrl || '#');
-
-      const body = `
-        <h2>Back in Stock! 🎨</h2>
-        <p>Good news! An item on your wishlist is now back in stock and ready to order.</p>
-        <p>Stock is limited, so grab yours before it runs out again!</p>
-        <div style="text-align: center;">
-          <a href="${productUrl}" class="btn">View Product</a>
-        </div>
-      `;
-
-      const text = `
-Back in Stock!
-An item you were watching is back in stock.
-
-Order now:
-${productUrl}
-
-— Unwind and Doodle
-      `.trim();
-
-      return { html: baseHtmlWrapper(subject, body), text };
-    }
-
-    case 'team_invitation': {
-      const inviteUrl = String(data.inviteUrl || '#');
-      const orgName = String(data.organizationName || 'our store');
-      const role = String(data.role || 'staff');
-      const invitedBy = String(data.invitedBy || 'An administrator');
-      const expiresAt = data.expiresAt ? new Date(String(data.expiresAt)).toLocaleDateString() : '7 days';
-
-      const body = `
-        <h2>You're Invited! 🤝</h2>
-        <p>Hello,</p>
-        <p><strong>${invitedBy}</strong> has invited you to join the team at <strong>${orgName}</strong> as a <strong>${role}</strong> member.</p>
-        <div style="text-align: center;">
-          <a href="${inviteUrl}" class="btn">Accept Invitation & Join Team</a>
-        </div>
-        <p style="font-size: 13px; color: #6b7280;">This invitation link will expire on <strong>${expiresAt}</strong>.</p>
-      `;
-
-      const text = `
-You've been invited to join ${orgName}!
-${invitedBy} has invited you to join the team as a ${role}.
-
-Accept your invitation here:
-${inviteUrl}
-
-This link expires on ${expiresAt}.
-
-— Unwind and Doodle
-      `.trim();
-
-      return { html: baseHtmlWrapper(subject, body), text };
-    }
-
-    case 'review_request': {
-      const orderNumber = String(data.orderNumber || '');
-      const reviewUrl = String(data.reviewUrl || '#');
-
-      const body = `
-        <h2>How was your experience? ⭐</h2>
-        <p>We hope you are loving your items from order <strong>#${orderNumber}</strong>!</p>
-        <p>Your feedback helps us create better doodle kits and crafting experiences for everyone.</p>
-        <div style="text-align: center;">
-          <a href="${reviewUrl}" class="btn">Leave a Review</a>
-        </div>
-      `;
-
-      const text = `
-How was your experience with Order #${orderNumber}?
-We'd love to hear your feedback!
-
-Leave a review:
-${reviewUrl}
-
-— Unwind and Doodle
-      `.trim();
-
-      return { html: baseHtmlWrapper(subject, body), text };
-    }
-
-    case 'admin_new_order': {
-      const orderNumber = String(data.orderNumber || '');
-      const customerName = String(data.customerName || 'Customer');
-      const customerEmail = String(data.customerEmail || 'N/A');
-      const total = data.total ? formatPrice(Number(data.total)) : 'N/A';
-      const orderSource = String(data.orderSource || 'online');
-      const adminUrl = String(data.adminUrl || '#');
-      const items = (data.items as Array<{ name?: string; product_name?: string; quantity: number; unit_price?: number; price?: number }>) || [];
-
-      const itemsHtml = items.length > 0
-        ? `
-          <table class="item-table">
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Qty</th>
-                <th style="text-align: right;">Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${items.map(item => `
-                <tr>
-                  <td>${item.product_name || item.name || 'Item'}</td>
-                  <td>${item.quantity}</td>
-                  <td style="text-align: right;">${item.unit_price || item.price ? formatPrice(item.unit_price || item.price) : '—'}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `
-        : '';
-
-      const body = `
-        <h2>New Order Received! 🛒</h2>
-        <p>A new <strong>${orderSource}</strong> order <strong>#${orderNumber}</strong> has been placed.</p>
-        <div class="highlight-box">
-          <p style="margin: 0;"><strong>Customer:</strong> ${customerName} (${customerEmail})</p>
-          <p style="margin: 4px 0 0;"><strong>Total Value:</strong> ${total}</p>
-        </div>
-        ${itemsHtml}
-        <div style="text-align: center;">
-          <a href="${adminUrl}" class="btn">View in Admin Console</a>
-        </div>
-      `;
-
-      const text = `
-New Order Received: #${orderNumber}
-Customer: ${customerName} (${customerEmail})
-Order Source: ${orderSource}
-Total: ${total}
-
-View in Admin Orders:
-${adminUrl}
-
-— Unwind and Doodle Admin
-      `.trim();
-
-      return { html: baseHtmlWrapper(subject, body), text };
-    }
-
-    case 'admin_order_cancelled': {
-      const orderNumber = String(data.orderNumber || '');
-      const note = data.note ? String(data.note) : 'No reason specified';
-      const previousStatus = String(data.previousStatus || 'N/A');
-      const adminUrl = String(data.adminUrl || '#');
-
-      const body = `
-        <h2>Order Cancelled ⚠️</h2>
-        <p>Order <strong>#${orderNumber}</strong> has been cancelled.</p>
-        <div class="highlight-box" style="background: #fef2f2; border-color: #fecaca; color: #991b1b;">
-          <p style="margin: 0;"><strong>Previous Status:</strong> ${previousStatus}</p>
-          <p style="margin: 4px 0 0;"><strong>Reason / Note:</strong> ${note}</p>
-        </div>
-        <div style="text-align: center;">
-          <a href="${adminUrl}" class="btn" style="background-color: #dc2626;">Review in Admin Orders</a>
-        </div>
-      `;
-
-      const text = `
-Order Cancelled: #${orderNumber}
-Previous Status: ${previousStatus}
-Reason / Note: ${note}
-
-Review in Admin Orders:
-${adminUrl}
-
-— Unwind and Doodle Admin
-      `.trim();
-
-      return { html: baseHtmlWrapper(subject, body), text };
-    }
-
-    case 'admin_low_stock': {
-      const productName = String(data.productName || 'Product');
-      const sku = data.sku ? `(SKU: ${data.sku})` : '';
-      const warehouseName = String(data.warehouseName || 'Main Warehouse');
-      const availableQuantity = Number(data.availableQuantity ?? 0);
-      const threshold = Number(data.threshold ?? 5);
-      const isOutOfStock = Boolean(data.isOutOfStock || availableQuantity <= 0);
-      const adminUrl = String(data.adminUrl || '#');
-
-      const body = `
-        <h2>${isOutOfStock ? 'Product Out of Stock! 🚨' : 'Low Stock Warning ⚠️'}</h2>
-        <p>
-          Inventory level for <strong>${productName}</strong> ${sku} has fallen to
-          <strong style="color: ${isOutOfStock ? '#dc2626' : '#d97706'}; font-size: 16px;">${availableQuantity} unit(s)</strong>
-          in <strong>${warehouseName}</strong>.
-        </p>
-        <div class="highlight-box" style="background: ${isOutOfStock ? '#fef2f2' : '#fffbeb'}; border-color: ${isOutOfStock ? '#fecaca' : '#fde68a'}; color: ${isOutOfStock ? '#991b1b' : '#92400e'};">
-          <p style="margin: 0;"><strong>Safety Threshold:</strong> ${threshold} units</p>
-          <p style="margin: 4px 0 0;"><strong>Status:</strong> ${isOutOfStock ? 'OUT OF STOCK' : 'LOW STOCK'}</p>
-        </div>
-        <div style="text-align: center;">
-          <a href="${adminUrl}" class="btn" style="background-color: ${isOutOfStock ? '#dc2626' : '#d97706'};">Restock / Manage Inventory</a>
-        </div>
-      `;
-
-      const text = `
-${isOutOfStock ? 'OUT OF STOCK ALERT' : 'LOW STOCK WARNING'}: ${productName} ${sku}
-Remaining Units: ${availableQuantity}
-Warehouse: ${warehouseName}
-Safety Threshold: ${threshold}
-
-Manage Inventory:
-${adminUrl}
-
-— Unwind and Doodle Admin
-      `.trim();
-
-      return { html: baseHtmlWrapper(subject, body), text };
-    }
-
-    default: {
-      const body = `<p>${subject}</p>`;
-      return { html: baseHtmlWrapper(subject, body), text: subject };
+  subject: string,
+  override?: ServiceEmailTemplateOverride | null
+): { html: string; text: string; subject: string } {
+  let activeOverride = override;
+  if (!activeOverride) {
+    const orgId = (data?.organizationId as string) || (data?.organization_id as string);
+    if (orgId) {
+      const cached = getCachedOverride(orgId, template);
+      if (cached && cached.isActive) {
+        activeOverride = cached;
+      }
     }
   }
+
+  return renderServiceEmail(template, data, {
+    override: activeOverride,
+    customSubject: subject,
+  });
 }
 
 /**
  * Dispatches an asynchronous transactional notification via Nodemailer.
  * Integrates with email infrastructure without coupling to the DB transaction.
+ * Resolves active organization overrides when an organization context is provided.
  */
 export async function dispatchTransactionalEmail(
   payload: EmailNotificationPayload,
-  idempotencyKey?: string
+  idempotencyKey?: string,
+  customSupabase?: SupabaseClient<Database>
 ): Promise<{ success: boolean; messageId: string; error?: string }> {
   if (idempotencyKey && sentNotifications.has(idempotencyKey)) {
     console.info(`[notification.idempotent_skip] key=${idempotencyKey}`);
@@ -454,13 +136,40 @@ export async function dispatchTransactionalEmail(
   const { smtp } = getConfig();
   const transporter = getTransporter();
 
-  const { html, text } = renderEmailTemplate(payload.template, payload.data, payload.subject);
+  // 1. Resolve organization override if organizationId is present
+  const orgId =
+    payload.organizationId ||
+    (payload.data?.organizationId as string) ||
+    (payload.data?.organization_id as string);
+
+  let override: ServiceEmailTemplateOverride | null = null;
+  if (orgId) {
+    try {
+      const supabase = getServiceSupabaseClient(customSupabase);
+      override = await getServiceEmailOverride(supabase, orgId, payload.template);
+    } catch (err) {
+      console.warn('[notification.override_lookup_failed]', err);
+    }
+  }
+
+  // 2. Render template (with override fallback)
+  const { html, text, subject: renderedSubject } = renderEmailTemplate(
+    payload.template,
+    payload.data,
+    payload.subject,
+    override
+  );
+
+  const finalSubject =
+    override && override.isActive && override.subject
+      ? renderedSubject
+      : (payload.subject || renderedSubject);
 
   try {
     const info = await transporter.sendMail({
       from: smtp?.from || 'Unwind and Doodle <no-reply@unwindanddoodle.com>',
       to: payload.to,
-      subject: payload.subject,
+      subject: finalSubject,
       text: payload.text || text,
       html: payload.html || html,
     });
@@ -468,7 +177,7 @@ export async function dispatchTransactionalEmail(
     const messageId = info.messageId || `msg_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
     console.info(
-      `[notification.email_dispatched] to=${payload.to} template=${payload.template} subject="${payload.subject}" messageId=${messageId}`
+      `[notification.email_dispatched] to=${payload.to} template=${payload.template} subject="${finalSubject}" messageId=${messageId}`
     );
 
     if (idempotencyKey) {

@@ -61,7 +61,7 @@ describe('V1 Modular Campaign Email Blocks, Media & Renderer', () => {
           showPrice: true,
           showDescription: true,
           showCta: true,
-        },
+        } as any,
       },
       {
         id: 'blk-grid',
@@ -81,7 +81,7 @@ describe('V1 Modular Campaign Email Blocks, Media & Renderer', () => {
               price: 8500,
               slug: 'vent-to-me',
             },
-          ],
+          ] as any,
         },
       },
       {
@@ -374,7 +374,7 @@ describe('V1 Modular Campaign Email Blocks, Media & Renderer', () => {
         showPrice: true,
         showDescription: true,
         showCta: true,
-      },
+      } as any,
     };
 
     const html = compileCampaignBlocksToHtml([block]);
