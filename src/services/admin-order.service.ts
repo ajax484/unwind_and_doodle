@@ -916,11 +916,11 @@ export async function bulkConfirmOrders(
       continue;
     }
 
-    if (order.status !== ORDER_STATUS.PENDING) {
+    if (order.status !== ORDER_STATUS.PENDING && order.status !== ORDER_STATUS.CREATED) {
       failed.push({
         orderId,
         orderNumber: order.order_number,
-        reason: `Order is not in pending status (current status: ${order.status})`,
+        reason: `Order is not in pending or created status (current status: ${order.status})`,
       });
       continue;
     }
@@ -935,6 +935,16 @@ export async function bulkConfirmOrders(
     }
 
     try {
+      if (order.status === ORDER_STATUS.CREATED) {
+        await transitionOrderStatus({
+          supabase,
+          orderId: order.id,
+          targetStatus: ORDER_STATUS.PENDING,
+          userId: userId || null,
+          note: 'Transitioned to pending prior to confirmation',
+        });
+      }
+
       await transitionOrderStatus({
         supabase,
         orderId: order.id,

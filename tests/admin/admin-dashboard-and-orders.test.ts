@@ -570,7 +570,42 @@ describe('Phase 6B: Admin Dashboard & Order Management', () => {
       expect(updatedOrder?.confirmed_at).toBeDefined();
     });
 
-    it('rejects orders that are not pending or not paid', async () => {
+    it('successfully confirms eligible created orders with successful payment', async () => {
+      mockSupabase._store.orders.push({
+        id: 'ord-today-created',
+        order_number: 'UAD-1005',
+        organization_id: orgA,
+        customer_id: 'cust-chidi',
+        status: ORDER_STATUS.CREATED,
+        total: 12000,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      mockSupabase._store.payments.push({
+        id: 'pay-created-ok',
+        order_id: 'ord-today-created',
+        amount: 12000,
+        status: 'successful',
+        provider: 'paystack',
+      });
+
+      const result = await bulkConfirmOrders(mockSupabase, {
+        orderIds: ['ord-today-created'],
+        organizationId: orgA,
+        userId: adminUserA,
+      });
+
+      expect(result.totalRequested).toBe(1);
+      expect(result.confirmedCount).toBe(1);
+      expect(result.failedCount).toBe(0);
+      expect(result.confirmed[0].orderId).toBe('ord-today-created');
+
+      const updatedOrder = mockSupabase._store.orders.find((o) => o.id === 'ord-today-created');
+      expect(updatedOrder?.status).toBe(ORDER_STATUS.CONFIRMED);
+      expect(updatedOrder?.confirmed_at).toBeDefined();
+    });
+
+    it('rejects orders that are not pending or created, or not paid', async () => {
       // ord-today-confirmed is already confirmed
       const result = await bulkConfirmOrders(mockSupabase, {
         orderIds: ['ord-today-confirmed'],
@@ -581,7 +616,7 @@ describe('Phase 6B: Admin Dashboard & Order Management', () => {
       expect(result.totalRequested).toBe(1);
       expect(result.confirmedCount).toBe(0);
       expect(result.failedCount).toBe(1);
-      expect(result.failed[0].reason).toMatch(/not in pending status/i);
+      expect(result.failed[0].reason).toMatch(/not in pending or created status/i);
     });
 
     it('enforces tenant isolation during bulk confirmation', async () => {

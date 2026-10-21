@@ -131,6 +131,7 @@ function OrdersListContent() {
 
   const statusTabs: TabItem[] = [
     { id: "", label: "All Orders" },
+    { id: "created", label: "Created" },
     { id: "pending", label: "Pending Review" },
     { id: "confirmed", label: "Confirmed" },
     { id: "shipped", label: "Shipped" },
@@ -152,7 +153,7 @@ function OrdersListContent() {
 
   const isOrderEligibleForConfirm = (order: AdminOrderListItem) => {
     return (
-      order.status === "pending" &&
+      (order.status === "pending" || order.status === "created") &&
       order.paymentStatus?.toLowerCase() === "successful"
     );
   };
