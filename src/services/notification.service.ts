@@ -220,8 +220,14 @@ export function initializeNotificationEventHandlers(): void {
 
     let email = (payload.email as string) || (payload.customerEmail as string) || '';
     let items = (payload.items as Array<{ name?: string; product_name?: string; quantity: number; unit_price?: number; price?: number }>) || [];
-    let total = typeof payload.total === 'number' ? payload.total : (typeof payload.amount === 'number' ? payload.amount : undefined);
-    let customerName = (payload.firstName as string) || (payload.customerName as string) || '';
+    let total = typeof payload.total === 'number'
+      ? payload.total
+      : typeof payload.totalAmount === 'number'
+        ? payload.totalAmount
+        : typeof payload.amount === 'number'
+          ? payload.amount
+          : undefined;
+    let customerName = (payload.customerName as string) || (payload.firstName as string) || '';
     let customerId = (payload.customerId as string) || (payload.customer_id as string) || null;
     let orgId = (payload.organizationId as string) || (payload.organization_id as string);
     const orderSource = (payload.orderSource as string) || (payload.order_source as string) || 'online';
@@ -351,6 +357,7 @@ export function initializeNotificationEventHandlers(): void {
     }
   };
 
+  registerDomainEventHandler('order.created', handleOrderConfirmation);
   registerDomainEventHandler('order.pending', handleOrderConfirmation);
   registerDomainEventHandler('payment.completed', handleOrderConfirmation);
 
@@ -401,7 +408,7 @@ export function initializeNotificationEventHandlers(): void {
     }
   });
 
-  // 3. Order Cancelled Notification (Admin in-app & Email)
+  // 3. Order Cancelled Notification (Admin & Customer in-app & Email)
   registerDomainEventHandler('order.cancelled', async (event) => {
     const payload = event.payload as Record<string, unknown>;
     const orderNumber = (payload.orderNumber as string) || event.aggregateId;
@@ -412,6 +419,7 @@ export function initializeNotificationEventHandlers(): void {
       const supabase = getServiceSupabaseClient();
       const orgId = (payload.organizationId as string) || (payload.organization_id as string);
 
+      // Admin in-app notification
       await createInAppNotification(supabase, {
         recipientType: 'admin',
         title: `Order #${orderNumber} Cancelled ⚠️`,
@@ -422,6 +430,7 @@ export function initializeNotificationEventHandlers(): void {
         metadata: { orderNumber, note, previousStatus },
       });
 
+      // Admin email alerts
       const adminRecipients = await getAdminNotificationRecipients(supabase, orgId);
       for (const adminEmail of adminRecipients) {
         await dispatchTransactionalEmail(
@@ -437,6 +446,77 @@ export function initializeNotificationEventHandlers(): void {
             },
           },
           `notif_admin_cancel_${orderNumber}_${adminEmail}_${event.id}`
+        );
+      }
+
+      // Customer enrichment & cancellation notification
+      let customerEmail = (payload.email as string) || (payload.customerEmail as string) || '';
+      let customerName = (payload.customerName as string) || (payload.firstName as string) || '';
+      let customerId = (payload.customerId as string) || (payload.customer_id as string) || null;
+
+      if (!customerEmail || !customerName || !customerId) {
+        try {
+          const orderIdToLookup = (payload.orderId as string) || (event.aggregateType === 'order' ? event.aggregateId : null);
+          let orderRow: any = null;
+          if (orderIdToLookup) {
+            const { data } = await supabase.from('orders').select('*').eq('id', orderIdToLookup).maybeSingle();
+            orderRow = data;
+          } else if (orderNumber) {
+            const { data } = await supabase.from('orders').select('*').eq('order_number', orderNumber).maybeSingle();
+            orderRow = data;
+          }
+
+          if (orderRow) {
+            if (!customerId) customerId = orderRow.customer_id;
+          }
+
+          if (customerId) {
+            const { data: dbCustomer } = await supabase.from('customers').select('*').eq('id', customerId).maybeSingle();
+            if (dbCustomer) {
+              if (!customerEmail) customerEmail = dbCustomer.email || '';
+              if (!customerName) {
+                customerName = `${dbCustomer.first_name || ''} ${dbCustomer.last_name || ''}`.trim() || dbCustomer.first_name || 'Valued Customer';
+              }
+            }
+          }
+        } catch (enrichErr) {
+          console.warn('[notification.order_cancel_enrich_failed]', enrichErr);
+        }
+      }
+
+      const effectiveCustomerName = customerName || 'Valued Customer';
+
+      // Customer in-app notification
+      if (customerId) {
+        await createInAppNotification(supabase, {
+          recipientType: 'customer',
+          recipientId: customerId,
+          title: `Order #${orderNumber} Cancelled`,
+          message: note ? `Your order was cancelled: ${note}` : `Your order #${orderNumber} has been cancelled.`,
+          type: 'warning',
+          category: 'order',
+          link: `/order/${orderNumber}`,
+          metadata: { orderNumber, note, previousStatus },
+        });
+      }
+
+      // Customer cancellation email
+      if (customerEmail) {
+        await dispatchTransactionalEmail(
+          {
+            to: customerEmail,
+            subject: `Your Order #${orderNumber} Has Been Cancelled — Unwind and Doodle`,
+            template: 'order_cancelled',
+            data: {
+              orderNumber,
+              customerName: effectiveCustomerName,
+              note,
+              previousStatus,
+              storeUrl: appUrl,
+              supportUrl: `${appUrl}/contact`,
+            },
+          },
+          `notif_customer_cancel_${orderNumber}_${customerEmail}_${event.id}`
         );
       }
     } catch (err) {

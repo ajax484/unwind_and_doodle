@@ -71,11 +71,12 @@ describe('Service Email Templates Feature', () => {
   });
 
   describe('1. Default Template Registry and Canonical Rendering', () => {
-    it('contains all 8 canonical transactional email templates with valid definitions', () => {
+    it('contains all 9 canonical transactional email templates with valid definitions', () => {
       const keys = Object.keys(SERVICE_EMAIL_REGISTRY);
-      expect(keys).toHaveLength(8);
+      expect(keys).toHaveLength(9);
       expect(keys).toContain('order_confirmation');
       expect(keys).toContain('order_shipped');
+      expect(keys).toContain('order_cancelled');
       expect(keys).toContain('review_request');
       expect(keys).toContain('stock_alert');
       expect(keys).toContain('team_invitation');
@@ -321,7 +322,7 @@ describe('Service Email Templates Feature', () => {
 
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
-      expect(json.data).toHaveLength(8);
+      expect(json.data).toHaveLength(9);
     });
 
     it('rejects PUT updates from staff members without admin role', async () => {
@@ -441,7 +442,7 @@ describe('Service Email Templates Feature', () => {
       } = await import('@/lib/service-email-blocks');
 
       const templateKeys = Object.keys(SERVICE_EMAIL_REGISTRY) as (keyof typeof SERVICE_EMAIL_REGISTRY)[];
-      expect(templateKeys).toHaveLength(8);
+      expect(templateKeys).toHaveLength(9);
 
       for (const key of templateKeys) {
         const blocks = getDefaultBlocksForTemplate(key);

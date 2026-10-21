@@ -221,6 +221,61 @@ Track your shipment:
     },
   },
 
+  order_cancelled: {
+    key: 'order_cancelled',
+    name: 'Order Cancelled (Customer)',
+    description: 'Sent to customers when their order has been cancelled.',
+    category: 'order',
+    defaultSubject: 'Your Order #{{orderNumber}} Has Been Cancelled — Unwind and Doodle',
+    defaultBodyHtml: `
+<h2>Order Cancelled</h2>
+<p>Hello <strong>{{customerName}}</strong>,</p>
+<p>We're writing to let you know that your order <strong>#{{orderNumber}}</strong> has been cancelled.</p>
+{{#if note}}
+<div class="highlight-box" style="background: #fef2f2; border-color: #fecaca; color: #991b1b;">
+  <p style="margin: 0;"><strong>Reason:</strong> {{note}}</p>
+</div>
+{{/if}}
+<p>If you have already made payment for this order, your refund is being processed to your original payment method. Please allow 3–5 business days for it to reflect in your account.</p>
+<div style="text-align: center;">
+  <a href="{{storeUrl}}" class="btn">Return to Store</a>
+</div>
+<p style="font-size: 13px; color: #6b7280;">If you have any questions or believe this was a mistake, please reply directly to this email or visit our <a href="{{supportUrl}}">help center</a>.</p>
+    `.trim(),
+    defaultBodyText: `
+Order Cancelled: #{{orderNumber}}
+Hello {{customerName}},
+
+We're writing to let you know that your order #{{orderNumber}} has been cancelled.
+{{#if note}}Reason: {{note}}
+{{/if}}
+
+If you have already made payment for this order, your refund is being processed to your original payment method. Please allow 3–5 business days for it to reflect in your account.
+
+Return to our store:
+{{storeUrl}}
+
+If you have any questions, reply directly to this email or contact support:
+{{supportUrl}}
+
+— Unwind and Doodle
+    `.trim(),
+    variables: [
+      { key: 'orderNumber', label: 'Order Number', description: 'Cancelled order identifier', example: 'ORD-98210', type: 'string' },
+      { key: 'customerName', label: 'Customer Name', description: 'Customer full or first name', example: 'Amina Bello', type: 'string' },
+      { key: 'note', label: 'Cancellation Reason', description: 'Reason for cancellation', example: 'Item out of stock', type: 'string' },
+      { key: 'storeUrl', label: 'Store URL', description: 'Link to store homepage', example: 'https://unwindanddoodle.com', type: 'string' },
+      { key: 'supportUrl', label: 'Support URL', description: 'Link to customer support', example: 'https://unwindanddoodle.com/contact', type: 'string' },
+    ],
+    sampleData: {
+      orderNumber: 'ORD-98210',
+      customerName: 'Amina Bello',
+      note: 'Requested by customer before fulfillment',
+      storeUrl: 'https://unwindanddoodle.com',
+      supportUrl: 'https://unwindanddoodle.com/contact',
+    },
+  },
+
   review_request: {
     key: 'review_request',
     name: 'Review Request',
@@ -962,6 +1017,46 @@ ${trackingUrl}
       `.trim();
 
       const subject = customSubject || `Your Order #${orderNumber} Has Shipped! 🚚 — Unwind and Doodle`;
+      return { html: baseHtmlWrapper(subject, body), text, subject };
+    }
+
+    case 'order_cancelled': {
+      const orderNumber = String(data.orderNumber || '');
+      const customerName = String(data.customerName || 'Customer');
+      const note = data.note ? String(data.note) : '';
+      const storeUrl = String(data.storeUrl || 'https://unwindanddoodle.com');
+      const supportUrl = String(data.supportUrl || `${storeUrl}/contact`);
+
+      const body = `
+        <h2>Order Cancelled</h2>
+        <p>Hello <strong>${customerName}</strong>,</p>
+        <p>We're writing to let you know that your order <strong>#${orderNumber}</strong> has been cancelled.</p>
+        ${note ? `<div class="highlight-box" style="background: #fef2f2; border-color: #fecaca; color: #991b1b;"><p style="margin: 0;"><strong>Reason:</strong> ${note}</p></div>` : ''}
+        <p>If you have already made payment for this order, your refund is being processed to your original payment method. Please allow 3–5 business days for it to reflect in your account.</p>
+        <div style="text-align: center;">
+          <a href="${storeUrl}" class="btn">Return to Store</a>
+        </div>
+        <p style="font-size: 13px; color: #6b7280;">If you have any questions or believe this was a mistake, reply directly to this email or visit our <a href="${supportUrl}">help center</a>.</p>
+      `;
+
+      const text = `
+Order Cancelled: #${orderNumber}
+Hello ${customerName},
+
+We're writing to let you know that your order #${orderNumber} has been cancelled.
+${note ? `Reason: ${note}\n` : ''}
+If you have already made payment for this order, your refund is being processed to your original payment method. Please allow 3–5 business days for it to reflect in your account.
+
+Return to our store:
+${storeUrl}
+
+If you have any questions, reply directly to this email or contact support:
+${supportUrl}
+
+— Unwind and Doodle
+      `.trim();
+
+      const subject = customSubject || `Your Order #${orderNumber} Has Been Cancelled — Unwind and Doodle`;
       return { html: baseHtmlWrapper(subject, body), text, subject };
     }
 

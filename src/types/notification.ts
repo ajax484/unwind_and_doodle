@@ -13,6 +13,7 @@ export type NotificationCategory =
 export type EmailNotificationTemplate =
   | 'order_confirmation'
   | 'order_shipped'
+  | 'order_cancelled'
   | 'review_request'
   | 'stock_alert'
   | 'team_invitation'

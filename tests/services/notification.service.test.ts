@@ -310,5 +310,79 @@ describe('Notification Service with Nodemailer', () => {
         })
       );
     });
+
+    it('dispatches confirmation and admin email when order.created event is processed', async () => {
+      const sendMailMock = vi.fn().mockResolvedValue({ messageId: 'evt_order_created_msg' });
+      setTransporter({ sendMail: sendMailMock } as any);
+
+      initializeNotificationEventHandlers();
+
+      await publishDomainEvent(mockSupabase as any, {
+        eventType: 'order.created',
+        aggregateType: 'order',
+        aggregateId: 'ORD-CREATE-999',
+        payload: {
+          orderNumber: 'ORD-CREATE-999',
+          customerEmail: 'newbuyer@example.com',
+          customerName: 'Tariq',
+          totalAmount: 18000,
+          items: [{ name: 'Sketchbook', quantity: 1, unit_price: 18000 }],
+        },
+      });
+
+      await processPendingDomainEvents(mockSupabase as any);
+
+      expect(sendMailMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'newbuyer@example.com',
+          subject: expect.stringContaining('ORD-CREATE-999'),
+        })
+      );
+
+      expect(sendMailMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: expect.stringContaining('@'),
+          subject: expect.stringContaining('ORD-CREATE-999'),
+        })
+      );
+    });
+
+    it('dispatches customer and admin cancellation emails when order.cancelled event is processed', async () => {
+      const sendMailMock = vi.fn().mockResolvedValue({ messageId: 'evt_order_cancelled_msg' });
+      setTransporter({ sendMail: sendMailMock } as any);
+
+      initializeNotificationEventHandlers();
+
+      await publishDomainEvent(mockSupabase as any, {
+        eventType: 'order.cancelled',
+        aggregateType: 'order',
+        aggregateId: 'ORD-CANCEL-888',
+        payload: {
+          orderNumber: 'ORD-CANCEL-888',
+          customerEmail: 'cancelbuyer@example.com',
+          customerName: 'Fatima',
+          note: 'Customer requested cancellation',
+          previousStatus: 'pending',
+        },
+      });
+
+      await processPendingDomainEvents(mockSupabase as any);
+
+      // Customer cancellation email
+      expect(sendMailMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'cancelbuyer@example.com',
+          subject: expect.stringContaining('Cancelled'),
+        })
+      );
+
+      // Admin cancellation email
+      expect(sendMailMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: expect.stringContaining('@'),
+          subject: expect.stringContaining('ORD-CANCEL-888 Cancelled — Unwind and Doodle Admin'),
+        })
+      );
+    });
   });
 });

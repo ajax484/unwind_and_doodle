@@ -108,6 +108,55 @@ export const SERVICE_EMAIL_DEFAULT_BLOCKS: Record<EmailNotificationTemplate, V1C
     } as V1ButtonBlock,
   ],
 
+  order_cancelled: [
+    {
+      id: 'blk_cncl_h1',
+      type: 'text',
+      data: {
+        content: 'Order Cancelled',
+        style: 'heading',
+        align: 'left',
+      },
+    } as V1TextBlock,
+    {
+      id: 'blk_cncl_body',
+      type: 'text',
+      data: {
+        content: "Hello {{customerName}},\n\nWe're writing to let you know that your order #{{orderNumber}} has been cancelled.",
+        style: 'body',
+        align: 'left',
+      },
+    } as V1TextBlock,
+    {
+      id: 'blk_cncl_reason',
+      type: 'callout',
+      data: {
+        title: 'Cancellation Details',
+        message: 'Reason: {{note}}',
+        variant: 'rose',
+      },
+    } as V1CalloutBlock,
+    {
+      id: 'blk_cncl_refund',
+      type: 'text',
+      data: {
+        content: 'If you have already made payment for this order, your refund is being processed to your original payment method. Please allow 3–5 business days for it to reflect in your account.',
+        style: 'body',
+        align: 'left',
+      },
+    } as V1TextBlock,
+    {
+      id: 'blk_cncl_btn',
+      type: 'button',
+      data: {
+        text: 'Return to Store',
+        url: '{{storeUrl}}',
+        align: 'center',
+        style: 'rose',
+      },
+    } as V1ButtonBlock,
+  ],
+
   review_request: [
     {
       id: 'blk_rev_h1',
