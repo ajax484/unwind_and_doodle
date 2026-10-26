@@ -152,9 +152,10 @@ function OrdersListContent() {
   );
 
   const isOrderEligibleForConfirm = (order: AdminOrderListItem) => {
+    const paymentStatus = order.paymentStatus?.toLowerCase();
     return (
       (order.status === "pending" || order.status === "created") &&
-      order.paymentStatus?.toLowerCase() === "successful"
+      (paymentStatus === "successful" || paymentStatus === "pending")
     );
   };
 

@@ -605,6 +605,41 @@ describe('Phase 6B: Admin Dashboard & Order Management', () => {
       expect(updatedOrder?.confirmed_at).toBeDefined();
     });
 
+    it('successfully confirms eligible pending orders with pending payment', async () => {
+      mockSupabase._store.orders.push({
+        id: 'ord-pending-pay',
+        order_number: 'UAD-1006',
+        organization_id: orgA,
+        customer_id: 'cust-chidi',
+        status: ORDER_STATUS.PENDING,
+        total: 15000,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      mockSupabase._store.payments.push({
+        id: 'pay-pending-ok',
+        order_id: 'ord-pending-pay',
+        amount: 15000,
+        status: 'pending',
+        provider: 'paystack',
+      });
+
+      const result = await bulkConfirmOrders(mockSupabase, {
+        orderIds: ['ord-pending-pay'],
+        organizationId: orgA,
+        userId: adminUserA,
+      });
+
+      expect(result.totalRequested).toBe(1);
+      expect(result.confirmedCount).toBe(1);
+      expect(result.failedCount).toBe(0);
+      expect(result.confirmed[0].orderId).toBe('ord-pending-pay');
+
+      const updatedOrder = mockSupabase._store.orders.find((o) => o.id === 'ord-pending-pay');
+      expect(updatedOrder?.status).toBe(ORDER_STATUS.CONFIRMED);
+      expect(updatedOrder?.confirmed_at).toBeDefined();
+    });
+
     it('rejects orders that are not pending or created, or not paid', async () => {
       // ord-today-confirmed is already confirmed
       const result = await bulkConfirmOrders(mockSupabase, {

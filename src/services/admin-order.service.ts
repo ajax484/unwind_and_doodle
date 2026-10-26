@@ -855,7 +855,7 @@ export interface BulkConfirmOrdersParams {
 }
 
 /**
- * Bulk confirms pending orders with verified successful payments for an organization.
+ * Bulk confirms pending orders with verified successful or pending payments for an organization.
  */
 export async function bulkConfirmOrders(
   supabase: SupabaseClient<Database>,
@@ -898,7 +898,8 @@ export async function bulkConfirmOrders(
 
   const paidOrderIds = new Set<string>();
   for (const p of payments || []) {
-    if (p.status?.toLowerCase() === 'successful') {
+    const status = p.status?.toLowerCase();
+    if (status === 'successful' || status === 'pending') {
       paidOrderIds.add(p.order_id);
     }
   }
@@ -929,7 +930,7 @@ export async function bulkConfirmOrders(
       failed.push({
         orderId,
         orderNumber: order.order_number,
-        reason: 'Order payment is not successful',
+        reason: 'Order payment is not successful or pending',
       });
       continue;
     }
