@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   dispatchTransactionalEmail,
   renderEmailTemplate,
@@ -12,6 +12,7 @@ import {
   processPendingDomainEvents,
 } from '@/services/events.service';
 import { createMockSupabaseClient } from '@tests/mocks/supabase.mock';
+import { setServiceSupabaseClient } from '@/lib/supabase/client';
 
 describe('Notification Service with Nodemailer', () => {
   let mockSupabase: ReturnType<typeof createMockSupabaseClient>;
@@ -24,7 +25,15 @@ describe('Notification Service with Nodemailer', () => {
     mockSupabase = createMockSupabaseClient({
       domain_events: [],
       orders: [],
+      customers: [],
+      organization_members: [],
+      in_app_notifications: [],
     });
+    setServiceSupabaseClient(mockSupabase as any);
+  });
+
+  afterEach(() => {
+    setServiceSupabaseClient(null);
   });
 
   describe('1. Email Template Rendering', () => {
@@ -381,6 +390,33 @@ describe('Notification Service with Nodemailer', () => {
         expect.objectContaining({
           to: expect.stringContaining('@'),
           subject: expect.stringContaining('ORD-CANCEL-888 Cancelled — Unwind and Doodle Admin'),
+        })
+      );
+    });
+
+    it('dispatches review request email when order.received event is processed', async () => {
+      const sendMailMock = vi.fn().mockResolvedValue({ messageId: 'evt_order_received_msg' });
+      setTransporter({ sendMail: sendMailMock } as any);
+
+      initializeNotificationEventHandlers();
+
+      await publishDomainEvent(mockSupabase as any, {
+        eventType: 'order.received',
+        aggregateType: 'order',
+        aggregateId: 'ORD-REC-777',
+        payload: {
+          orderNumber: 'ORD-REC-777',
+          email: 'happycustomer@example.com',
+          customerName: 'Aisha',
+        },
+      });
+
+      await processPendingDomainEvents(mockSupabase as any);
+
+      expect(sendMailMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'happycustomer@example.com',
+          subject: expect.stringContaining('How was your experience with Order #ORD-REC-777?'),
         })
       );
     });

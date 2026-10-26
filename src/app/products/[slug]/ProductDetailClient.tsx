@@ -14,6 +14,8 @@ import { Tabs } from '@/components/Tabs';
 import { toast } from 'sonner';
 import { RichTextContent } from '@/components/RichTextContent';
 import { trackViewContent, trackAddToCart } from '@/lib/meta-pixel';
+import TestimonialCard from '@/components/TestimonialCard';
+import RatingStars from '@/components/RatingStars';
 
 export default function ProductDetailClient({ initialSlug }: { initialSlug?: string }) {
   const params = useParams();
@@ -38,6 +40,16 @@ export default function ProductDetailClient({ initialSlug }: { initialSlug?: str
   const [addingToCart, setAddingToCart] = useState(false);
   const [addedSuccess, setAddedSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<Array<{
+    id: string;
+    body?: string | null;
+    title?: string | null;
+    rating: number;
+    customerName?: string;
+    isVerified?: boolean;
+    productName?: string;
+    source?: string | null;
+  }>>([]);
 
   useEffect(() => {
     async function loadProduct() {
@@ -91,6 +103,19 @@ export default function ProductDetailClient({ initialSlug }: { initialSlug?: str
                 relatedJson.data.filter((p: CatalogProductItem) => p.id !== json.data.id).slice(0, 4)
               );
             }
+          }
+
+          // Fetch product reviews
+          try {
+            const reviewsRes = await fetch(`/api/reviews?productId=${json.data.id}`);
+            if (reviewsRes.ok) {
+              const reviewsJson = await reviewsRes.json();
+              if (reviewsJson.success && Array.isArray(reviewsJson.data)) {
+                setReviews(reviewsJson.data);
+              }
+            }
+          } catch {
+            // Keep fallback testimonials if review fetch fails
           }
         }
       } catch (err: unknown) {
@@ -789,45 +814,83 @@ export default function ProductDetailClient({ initialSlug }: { initialSlug?: str
             </h2>
           </div>
           <div className="flex items-center gap-2 text-xs font-heading font-semibold text-text-secondary">
-            <span className="text-brand-rose">★★★★★</span>
-            <span>5.0 out of 5.0 (24 reviews)</span>
+            <RatingStars
+              rating={
+                reviews.length > 0
+                  ? Math.round(reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length)
+                  : 5
+              }
+              size="sm"
+            />
+            <span>
+              {reviews.length > 0
+                ? `${(reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)} out of 5.0 (${reviews.length} ${reviews.length === 1 ? 'review' : 'reviews'})`
+                : '5.0 out of 5.0 (24 reviews)'}
+            </span>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            {
-              author: 'Dr. Halima Y.',
-              location: 'Abuja',
-              date: '2 weeks ago',
-              text: 'The paper thickness is incredible! I use heavy shading with Prismacolors and there is zero bleed. Truly a mindful escape.',
-            },
-            {
-              author: 'Emeka N.',
-              location: 'Lagos',
-              date: '1 month ago',
-              text: 'I ordered the custom photo coloring book for my partner. Seeing our engagement picture rendered into line art brought tears of joy.',
-            },
-            {
-              author: 'Zainab M.',
-              location: 'Kano',
-              date: '3 weeks ago',
-              text: 'Prompt delivery and beautiful packaging. The pencils are velvety soft and blend like a dream.',
-            },
-          ].map((rev, i) => (
-            <div key={i} className="card-soft p-6 space-y-4 bg-bg-surface border border-border-default">
-              <div className="flex text-brand-rose text-sm">★★★★★</div>
-              <p className="text-xs sm:text-sm text-text-secondary italic leading-relaxed">
-                "{rev.text}"
-              </p>
-              <div className="pt-3 border-t border-border-default flex items-center justify-between text-xs">
-                <span className="font-heading font-bold text-text-primary">{rev.author}</span>
-                <span className="text-[11px] text-text-tertiary">
-                  {rev.location} • {rev.date}
-                </span>
-              </div>
-            </div>
-          ))}
+          {reviews.length > 0
+            ? reviews.map((rev) => (
+                <TestimonialCard
+                  key={rev.id}
+                  quote={rev.body || rev.title || 'Wonderful experience with this product!'}
+                  rating={rev.rating}
+                  author={{
+                    name: rev.customerName || 'Verified Customer',
+                    initials: (rev.customerName || 'VC')
+                      .split(' ')
+                      .map((n) => n[0])
+                      .join('')
+                      .slice(0, 2)
+                      .toUpperCase(),
+                    roleOrStatus: rev.isVerified ? 'Verified Purchaser' : 'Verified Review',
+                    productContext: product?.name,
+                    location: rev.source ? `via ${rev.source}` : undefined,
+                  }}
+                  size="md"
+                />
+              ))
+            : [
+                {
+                  name: 'Dr. Halima Y.',
+                  location: 'Abuja',
+                  quote:
+                    'The paper thickness is incredible! I use heavy shading with Prismacolors and there is zero bleed. Truly a mindful escape.',
+                },
+                {
+                  name: 'Emeka N.',
+                  location: 'Lagos',
+                  quote:
+                    'I ordered the custom photo coloring book for my partner. Seeing our engagement picture rendered into line art brought tears of joy.',
+                },
+                {
+                  name: 'Zainab M.',
+                  location: 'Kano',
+                  quote:
+                    'Prompt delivery and beautiful packaging. The pencils are velvety soft and blend like a dream.',
+                },
+              ].map((fallback, i) => (
+                <TestimonialCard
+                  key={i}
+                  quote={fallback.quote}
+                  rating={5}
+                  author={{
+                    name: fallback.name,
+                    initials: fallback.name
+                      .split(' ')
+                      .map((n) => n[0])
+                      .join('')
+                      .slice(0, 2)
+                      .toUpperCase(),
+                    roleOrStatus: 'Verified Purchaser',
+                    productContext: product?.name,
+                    location: fallback.location,
+                  }}
+                  size="md"
+                />
+              ))}
         </div>
       </section>
 

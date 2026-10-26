@@ -6,6 +6,7 @@ import {
   AdminReviewListItem,
   AdminReviewDetail,
   AdminReviewImageItem,
+  CreateManualReviewInput,
 } from '@/types/admin-review-customization';
 import { publishDomainEvent } from './events.service';
 
@@ -67,8 +68,8 @@ export async function listAdminReviews(
   }
 
   // 3. Fetch related customers, orders, and images
-  const customerIds = Array.from(new Set(allReviews.map((r) => r.customer_id)));
-  const orderIds = Array.from(new Set(allReviews.map((r) => r.order_id)));
+  const customerIds = Array.from(new Set(allReviews.map((r) => r.customer_id).filter(Boolean))) as string[];
+  const orderIds = Array.from(new Set(allReviews.map((r) => r.order_id).filter(Boolean))) as string[];
   const reviewIds = allReviews.map((r) => r.id);
 
   const [{ data: customers }, { data: orders }, { data: images }] = await Promise.all([
@@ -94,12 +95,12 @@ export async function listAdminReviews(
   // 4. Map reviews
   const mappedList: AdminReviewListItem[] = allReviews.map((r) => {
     const prod = orgProductMap.get(r.product_id);
-    const cust = customerMap.get(r.customer_id);
-    const ord = orderMap.get(r.order_id);
+    const cust = r.customer_id ? customerMap.get(r.customer_id) : null;
+    const ord = r.order_id ? orderMap.get(r.order_id) : null;
 
-    const custName = cust
+    const custName = r.reviewer_name || (cust
       ? `${cust.first_name || ''} ${cust.last_name || ''}`.trim() || cust.email
-      : 'Unknown Customer';
+      : 'Unknown Customer');
 
     return {
       id: r.id,
@@ -110,7 +111,7 @@ export async function listAdminReviews(
       productName: prod?.name || 'Unknown Product',
       productSlug: prod?.slug || '',
       orderId: r.order_id,
-      orderNumber: ord?.order_number || r.order_id.substring(0, 8).toUpperCase(),
+      orderNumber: ord?.order_number || (r.order_id ? r.order_id.substring(0, 8).toUpperCase() : null),
       rating: r.rating,
       title: r.title,
       body: r.body,
@@ -118,6 +119,8 @@ export async function listAdminReviews(
       imagesCount: imageCountMap.get(r.id) || 0,
       publishedAt: r.published_at,
       createdAt: r.created_at,
+      isManual: r.is_manual ?? false,
+      source: r.source ?? null,
     };
   });
 
@@ -226,25 +229,29 @@ export async function getAdminReviewDetail(
 
   // 3. Fetch customer, order, and review images
   const [{ data: customer }, { data: order }, { data: images }] = await Promise.all([
-    supabase
-      .from('customers')
-      .select('id, first_name, last_name, email')
-      .eq('id', review.customer_id)
-      .single(),
-    supabase
-      .from('orders')
-      .select('id, order_number, status')
-      .eq('id', review.order_id)
-      .single(),
+    review.customer_id
+      ? supabase
+          .from('customers')
+          .select('id, first_name, last_name, email')
+          .eq('id', review.customer_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    review.order_id
+      ? supabase
+          .from('orders')
+          .select('id, order_number, status')
+          .eq('id', review.order_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
     supabase
       .from('review_images')
       .select('id, storage_path, created_at')
       .eq('review_id', review.id),
   ]);
 
-  const customerName = customer
+  const customerName = review.reviewer_name || (customer
     ? `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || customer.email
-    : 'Unknown Customer';
+    : 'Unknown Customer');
 
   const imageItems: AdminReviewImageItem[] = (images || []).map((img) => ({
     id: img.id,
@@ -264,7 +271,7 @@ export async function getAdminReviewDetail(
     productName: product.name,
     productSlug: product.slug,
     orderId: review.order_id,
-    orderNumber: order?.order_number || review.order_id.substring(0, 8).toUpperCase(),
+    orderNumber: order?.order_number || (review.order_id ? review.order_id.substring(0, 8).toUpperCase() : 'N/A'),
     orderStatus: order?.status || 'N/A',
     rating: review.rating,
     title: review.title,
@@ -273,6 +280,8 @@ export async function getAdminReviewDetail(
     publishedAt: review.published_at,
     createdAt: review.created_at,
     images: imageItems,
+    isManual: review.is_manual ?? false,
+    source: review.source ?? null,
   };
 }
 
@@ -374,4 +383,123 @@ export async function deleteReviewImage(
   } as unknown as Database['public']['Tables']['audit_logs']['Insert']);
 
   return { success: true };
+}
+
+/**
+ * Creates a manual review entered by an administrator.
+ */
+export async function createManualReview(
+  supabase: SupabaseClient<Database>,
+  input: CreateManualReviewInput,
+  adminUserId: string,
+  organizationId: string
+): Promise<AdminReviewDetail> {
+  // 1. Verify product belongs to this organization
+  const { data: product, error: prodErr } = await supabase
+    .from('products')
+    .select('id, name, slug, organization_id')
+    .eq('id', input.productId)
+    .single();
+
+  if (prodErr || !product || product.organization_id !== organizationId) {
+    throw new Error('Forbidden: Selected product does not belong to your organization');
+  }
+
+  // 2. If orderId is provided, verify order belongs to this organization
+  let resolvedCustomerId = input.customerId || null;
+  if (input.orderId) {
+    const { data: order, error: ordErr } = await supabase
+      .from('orders')
+      .select('id, customer_id, organization_id')
+      .eq('id', input.orderId)
+      .maybeSingle();
+
+    if (ordErr || !order || order.organization_id !== organizationId) {
+      throw new Error('Invalid or unauthorized order ID');
+    }
+    if (!resolvedCustomerId && order.customer_id) {
+      resolvedCustomerId = order.customer_id;
+    }
+  }
+
+  // 3. Prepare status & publication timestamp
+  const status = input.status || 'approved';
+  const publishedAt = status === 'approved' ? new Date().toISOString() : null;
+  const createdAt = input.createdAt ? new Date(input.createdAt).toISOString() : new Date().toISOString();
+
+  // 4. Insert review
+  const { data: inserted, error: insertErr } = await supabase
+    .from('reviews')
+    .insert({
+      product_id: input.productId,
+      customer_id: resolvedCustomerId,
+      order_id: input.orderId || null,
+      rating: input.rating,
+      title: input.title?.trim() || null,
+      body: input.body.trim(),
+      status,
+      reviewer_name: input.reviewerName.trim(),
+      is_manual: true,
+      source: input.source?.trim() || null,
+      created_at: createdAt,
+      published_at: publishedAt,
+    } as Database['public']['Tables']['reviews']['Insert'])
+    .select()
+    .single();
+
+  if (insertErr || !inserted) {
+    throw new Error(`Failed to create manual review: ${insertErr?.message}`);
+  }
+
+  // 5. Insert images if any
+  const images = input.images || [];
+  for (const img of images) {
+    await supabase
+      .from('review_images')
+      .insert({
+        review_id: inserted.id,
+        storage_path: img.storagePath,
+      } as Database['public']['Tables']['review_images']['Insert']);
+  }
+
+  // 6. Record audit log
+  await supabase.from('audit_logs').insert({
+    organization_id: organizationId,
+    actor_id: adminUserId,
+    user_id: adminUserId,
+    action: 'review.manual_created' as any,
+    entity_type: 'review',
+    entity_id: inserted.id,
+    before_data: null,
+    after_data: {
+      reviewId: inserted.id,
+      productId: inserted.product_id,
+      rating: inserted.rating,
+      status: inserted.status,
+      reviewerName: input.reviewerName,
+      isManual: true,
+      source: input.source || null,
+    } as Json,
+  } as unknown as Database['public']['Tables']['audit_logs']['Insert']);
+
+  // 7. Emit domain event
+  await publishDomainEvent(supabase, {
+    eventType: status === 'approved' ? 'review.moderated' : 'review.created',
+    aggregateType: 'review',
+    aggregateId: inserted.id,
+    organizationId,
+    payload: {
+      reviewId: inserted.id,
+      productId: inserted.product_id,
+      customerId: resolvedCustomerId,
+      rating: inserted.rating,
+      status: inserted.status,
+      isManual: true,
+      source: input.source || null,
+      moderatedBy: adminUserId,
+      organizationId,
+    },
+  });
+
+  return getAdminReviewDetail(supabase, inserted.id, organizationId);
 }

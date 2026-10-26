@@ -359,7 +359,7 @@ export default function CustomerOrderDetailPage() {
 
                   {/* Review Action */}
                   <div className="pt-2">
-                    {item.canReview ? (
+                    {(item.canReview || (order.status === 'received' && !item.hasReviewed)) ? (
                       <button
                         type="button"
                         onClick={() =>

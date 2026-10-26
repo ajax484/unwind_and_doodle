@@ -33,6 +33,7 @@ export default function AdminOrderDetailPage({
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [revalidating, setRevalidating] = useState(false);
+  const [requestingReview, setRequestingReview] = useState(false);
 
   // Manual payment confirmation state
   const [manualPaymentToConfirm, setManualPaymentToConfirm] = useState<{
@@ -230,6 +231,30 @@ export default function AdminOrderDetailPage({
     }
   };
 
+  const handleRequestReview = async () => {
+    try {
+      setRequestingReview(true);
+      setError(null);
+      setActionSuccess(null);
+
+      const res = await fetch(`/api/admin/orders/${orderId}/review-request`, {
+        method: "POST",
+      });
+
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setActionSuccess("Review request sent successfully.");
+        await fetchOrderDetail();
+      } else {
+        throw new Error(json.error || "Failed to send review request");
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error sending review request");
+    } finally {
+      setRequestingReview(false);
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-NG", {
       style: "currency",
@@ -300,6 +325,7 @@ export default function AdminOrderDetailPage({
   const isPending = currentStatus === "pending";
   const isConfirmed = currentStatus === "confirmed";
   const isShipped = currentStatus === "shipped";
+  const isReceived = currentStatus === "received";
   const isEligibleForCancellation = [
     "created",
     "pending",
@@ -389,6 +415,24 @@ export default function AdminOrderDetailPage({
               >
                 📦 Mark as Received
               </Button>
+            )}
+
+            {isReceived && (
+              order.reviewRequestedAt ? (
+                <span className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  Review Requested ({formatDate(order.reviewRequestedAt)})
+                </span>
+              ) : (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleRequestReview}
+                  disabled={actionLoading || requestingReview}
+                  loading={requestingReview}
+                >
+                  Request Review
+                </Button>
+              )
             )}
 
             {isEligibleForCancellation && (

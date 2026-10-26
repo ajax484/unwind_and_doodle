@@ -101,6 +101,7 @@ export interface AdminOrderListItem {
   createdAt: string;
   updatedAt: string;
   isAddressPending?: boolean;
+  reviewRequestedAt?: string | null;
 }
 
 export interface AdminOrderListResponse {
@@ -171,6 +172,7 @@ export interface AdminOrderDetail {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+  reviewRequestedAt: string | null;
   customer: {
     id: string;
     email: string;

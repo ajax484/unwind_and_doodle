@@ -12,6 +12,9 @@ import {
 import { transitionOrderStatus } from './order-state-machine.service';
 import { getPaymentProvider, PaymentProvider } from './payment';
 import { ORDER_STATUS } from '../lib/constants';
+import { dispatchTransactionalEmail } from './notification.service';
+import { createInAppNotification } from './in-app-notification.service';
+import { publishDomainEvent } from './events.service';
 
 /**
  * Lists and filters orders for admin management with search, status filtering, payment filtering, sorting, and pagination.
@@ -259,6 +262,7 @@ export async function listAdminOrders(
       createdAt: o.created_at,
       updatedAt: o.updated_at,
       isAddressPending,
+      reviewRequestedAt: o.review_requested_at || null,
     };
   });
 
@@ -661,6 +665,7 @@ export async function getAdminOrderDetail(
     notes: null,
     createdAt: order.created_at,
     updatedAt: order.updated_at,
+    reviewRequestedAt: order.review_requested_at || null,
     customer: {
       id: order.customer_id || '',
       email: order.email || customer?.email || '',
@@ -976,4 +981,150 @@ export async function bulkConfirmOrders(
     failed,
   };
 }
+
+/**
+ * Dispatches a review request email & notification for an eligible received order
+ * and records the review_requested_at timestamp, audit log, and domain event.
+ */
+export async function requestOrderReview(
+  supabase: SupabaseClient<Database>,
+  orderId: string,
+  adminUserId: string,
+  organizationId: string
+): Promise<{ success: boolean; reviewRequestedAt: string; message: string }> {
+  // 1. Fetch order and verify organization
+  const { data: order, error: ordErr } = await supabase
+    .from('orders')
+    .select('id, order_number, status, email, first_name, last_name, customer_id, organization_id, review_requested_at')
+    .eq('id', orderId)
+    .maybeSingle();
+
+  if (ordErr || !order) {
+    throw new Error(`Order not found: ${orderId}`);
+  }
+
+  if (order.organization_id !== organizationId) {
+    throw new Error('Forbidden: Order does not belong to your organization');
+  }
+
+  // 2. Validate lifecycle status: must be 'received'
+  if (order.status !== ORDER_STATUS.RECEIVED) {
+    throw new Error(`Review requests can only be sent for received orders. Current status is '${order.status}'.`);
+  }
+
+  // 3. Validate that a review email has not already been sent
+  if (order.review_requested_at) {
+    throw new Error(`A review request was already sent for this order on ${new Date(order.review_requested_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}.`);
+  }
+
+  // 4. Resolve customer details
+  let customerEmail = order.email;
+  let customerName = `${order.first_name || ''} ${order.last_name || ''}`.trim();
+  if (order.customer_id) {
+    const { data: customer } = await supabase
+      .from('customers')
+      .select('email, first_name, last_name')
+      .eq('id', order.customer_id)
+      .maybeSingle();
+
+    if (customer) {
+      if (!customerEmail && customer.email) customerEmail = customer.email;
+      if (!customerName) customerName = `${customer.first_name || ''} ${customer.last_name || ''}`.trim();
+    }
+  }
+
+  if (!customerEmail) {
+    throw new Error('Order does not have a customer email address associated with it.');
+  }
+
+  const effectiveCustomerName = customerName || 'Valued Customer';
+  const effectiveOrderNumber = order.order_number;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://unwindanddoodle.com';
+  const reviewUrl = `${appUrl}/account/orders/${effectiveOrderNumber}`;
+  const now = new Date().toISOString();
+
+  // 5. Dispatch review_request transactional email
+  await dispatchTransactionalEmail(
+    {
+      to: customerEmail,
+      subject: `How was your experience with Order #${effectiveOrderNumber}? ⭐ — Unwind and Doodle`,
+      template: 'review_request',
+      data: {
+        orderNumber: effectiveOrderNumber,
+        customerName: effectiveCustomerName,
+        reviewUrl,
+        organizationId,
+      },
+      organizationId,
+    },
+    `manual_review_request_${effectiveOrderNumber}_${customerEmail}_${Date.now()}`,
+    supabase
+  );
+
+  // 6. Dispatch in-app notification if customer account exists
+  if (order.customer_id) {
+    try {
+      await createInAppNotification(supabase, {
+        organizationId,
+        recipientType: 'customer',
+        recipientId: order.customer_id,
+        title: `How was your order #${effectiveOrderNumber}? ⭐`,
+        message: 'Your order has arrived! Leave a product review and share your feedback.',
+        type: 'info',
+        category: 'review',
+        link: `/account/orders/${effectiveOrderNumber}`,
+        metadata: { orderNumber: effectiveOrderNumber, reviewUrl },
+      });
+    } catch (inAppErr) {
+      console.warn('[notification.in_app_review_request_skipped]', inAppErr);
+    }
+  }
+
+  // 7. Update orders.review_requested_at
+  const { error: updateErr } = await supabase
+    .from('orders')
+    .update({ review_requested_at: now } as Database['public']['Tables']['orders']['Update'])
+    .eq('id', orderId);
+
+  if (updateErr) {
+    console.error('Failed to update review_requested_at on order:', updateErr.message);
+  }
+
+  // 8. Record audit log
+  await supabase.from('audit_logs').insert({
+    organization_id: organizationId,
+    actor_id: adminUserId,
+    action: 'order.review_requested' as any,
+    entity_type: 'order',
+    entity_id: orderId,
+    before_data: { review_requested_at: null },
+    after_data: {
+      review_requested_at: now,
+      recipient: customerEmail,
+      orderNumber: effectiveOrderNumber,
+    } as Json,
+  } as unknown as Database['public']['Tables']['audit_logs']['Insert']);
+
+  // 9. Publish domain event
+  await publishDomainEvent(supabase, {
+    eventType: 'order.review_requested',
+    aggregateType: 'order',
+    aggregateId: orderId,
+    organizationId,
+    payload: {
+      orderId,
+      orderNumber: effectiveOrderNumber,
+      customerEmail,
+      requestedBy: adminUserId,
+      requestedAt: now,
+    },
+  });
+
+  return {
+    success: true,
+    reviewRequestedAt: now,
+    message: `Review request sent to ${customerEmail}`,
+  };
+}
+
 

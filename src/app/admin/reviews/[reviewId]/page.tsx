@@ -168,6 +168,11 @@ export default function AdminReviewDetailPage({
             >
               {data.status.toUpperCase()}
             </span>
+            {data.isManual && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                {data.source ? `Manual (${data.source})` : 'Manual Review'}
+              </span>
+            )}
           </div>
 
           <div className="text-xs text-slate-500">
@@ -215,13 +220,19 @@ export default function AdminReviewDetailPage({
           <span className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">
             Customer / Reviewer
           </span>
-          <Link
-            href={`/admin/customers/${data.customerId}`}
-            className="font-bold text-slate-900 hover:text-rose-500 block text-sm"
-          >
-            {data.customerName}
-          </Link>
-          <span className="text-[11px] text-slate-400 block truncate">{data.customerEmail}</span>
+          {data.customerId ? (
+            <Link
+              href={`/admin/customers/${data.customerId}`}
+              className="font-bold text-slate-900 hover:text-rose-500 block text-sm"
+            >
+              {data.customerName}
+            </Link>
+          ) : (
+            <span className="font-bold text-slate-900 block text-sm">{data.customerName}</span>
+          )}
+          <span className="text-[11px] text-slate-400 block truncate">
+            {data.customerEmail || (data.isManual ? 'External Reviewer' : '—')}
+          </span>
         </div>
 
         {/* Order Card */}
@@ -229,13 +240,24 @@ export default function AdminReviewDetailPage({
           <span className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">
             Verified Order
           </span>
-          <Link
-            href={`/admin/orders/${data.orderId}`}
-            className="font-bold text-slate-900 hover:text-rose-500 block font-mono text-sm"
-          >
-            #{data.orderNumber}
-          </Link>
-          <span className="text-[11px] text-slate-400">Order Status: {data.orderStatus}</span>
+          {data.orderId ? (
+            <>
+              <Link
+                href={`/admin/orders/${data.orderId}`}
+                className="font-bold text-slate-900 hover:text-rose-500 block font-mono text-sm"
+              >
+                #{data.orderNumber}
+              </Link>
+              <span className="text-[11px] text-slate-400">Order Status: {data.orderStatus}</span>
+            </>
+          ) : (
+            <>
+              <span className="font-bold text-slate-500 block text-sm">
+                Not linked to order
+              </span>
+              <span className="text-[11px] text-slate-400">Manual review</span>
+            </>
+          )}
         </div>
       </div>
 

@@ -420,15 +420,19 @@ export function initializeNotificationEventHandlers(): void {
       const orgId = (payload.organizationId as string) || (payload.organization_id as string);
 
       // Admin in-app notification
-      await createInAppNotification(supabase, {
-        recipientType: 'admin',
-        title: `Order #${orderNumber} Cancelled ⚠️`,
-        message: note ? `Order #${orderNumber} was cancelled: ${note}` : `Order #${orderNumber} has been cancelled.`,
-        type: 'warning',
-        category: 'order',
-        link: '/admin/orders',
-        metadata: { orderNumber, note, previousStatus },
-      });
+      try {
+        await createInAppNotification(supabase, {
+          recipientType: 'admin',
+          title: `Order #${orderNumber} Cancelled ⚠️`,
+          message: note ? `Order #${orderNumber} was cancelled: ${note}` : `Order #${orderNumber} has been cancelled.`,
+          type: 'warning',
+          category: 'order',
+          link: '/admin/orders',
+          metadata: { orderNumber, note, previousStatus },
+        });
+      } catch (inAppErr) {
+        console.warn('[notification.in_app_cancel_skipped]', inAppErr);
+      }
 
       // Admin email alerts
       const adminRecipients = await getAdminNotificationRecipients(supabase, orgId);
@@ -488,16 +492,20 @@ export function initializeNotificationEventHandlers(): void {
 
       // Customer in-app notification
       if (customerId) {
-        await createInAppNotification(supabase, {
-          recipientType: 'customer',
-          recipientId: customerId,
-          title: `Order #${orderNumber} Cancelled`,
-          message: note ? `Your order was cancelled: ${note}` : `Your order #${orderNumber} has been cancelled.`,
-          type: 'warning',
-          category: 'order',
-          link: `/order/${orderNumber}`,
-          metadata: { orderNumber, note, previousStatus },
-        });
+        try {
+          await createInAppNotification(supabase, {
+            recipientType: 'customer',
+            recipientId: customerId,
+            title: `Order #${orderNumber} Cancelled`,
+            message: note ? `Your order was cancelled: ${note}` : `Your order #${orderNumber} has been cancelled.`,
+            type: 'warning',
+            category: 'order',
+            link: `/order/${orderNumber}`,
+            metadata: { orderNumber, note, previousStatus },
+          });
+        } catch (inAppErr) {
+          console.warn('[notification.in_app_customer_cancel_skipped]', inAppErr);
+        }
       }
 
       // Customer cancellation email
@@ -521,6 +529,108 @@ export function initializeNotificationEventHandlers(): void {
       }
     } catch (err) {
       console.warn('[notification.order_cancelled_skipped]', err);
+    }
+  });
+
+  // 4. Order Received Notification (Customer Review Request & in-app)
+  registerDomainEventHandler('order.received', async (event) => {
+    const payload = (event.payload && typeof event.payload === 'object' ? event.payload : {}) as Record<string, unknown>;
+    const orderNumber = (payload.orderNumber as string) || (payload.order_number as string) || (event.aggregateType === 'order' ? event.aggregateId : '');
+
+    let customerEmail = (payload.email as string) || (payload.customerEmail as string) || '';
+    let customerName = (payload.customerName as string) || (payload.firstName as string) || '';
+    let customerId = (payload.customerId as string) || (payload.customer_id as string) || null;
+    let orgId = (payload.organizationId as string) || (payload.organization_id as string);
+
+    // Enrich missing fields from Supabase if needed
+    if (!customerEmail || !customerName || !customerId || !orgId) {
+      try {
+        const supabase = getServiceSupabaseClient();
+        const orderIdToLookup = (payload.orderId as string) || (event.aggregateType === 'order' ? event.aggregateId : null);
+
+        let orderRow: any = null;
+        if (orderIdToLookup) {
+          const { data } = await supabase.from('orders').select('*').eq('id', orderIdToLookup).maybeSingle();
+          orderRow = data;
+        } else if (orderNumber) {
+          const { data } = await supabase.from('orders').select('*').eq('order_number', orderNumber).maybeSingle();
+          orderRow = data;
+        }
+
+        if (orderRow) {
+          if (!customerId) customerId = orderRow.customer_id;
+          if (!orgId) orgId = orderRow.organization_id;
+
+          if (customerId) {
+            const { data: dbCustomer } = await supabase.from('customers').select('*').eq('id', customerId).maybeSingle();
+            if (dbCustomer) {
+              if (!customerEmail) customerEmail = dbCustomer.email || '';
+              if (!customerName) {
+                customerName = `${dbCustomer.first_name || ''} ${dbCustomer.last_name || ''}`.trim() || dbCustomer.first_name || 'Valued Customer';
+              }
+            }
+          }
+        }
+      } catch (enrichErr) {
+        console.warn('[notification.order_received_enrich_failed]', enrichErr);
+      }
+    }
+
+    const effectiveCustomerName = customerName || 'Valued Customer';
+    const effectiveOrderNumber = orderNumber || event.aggregateId;
+    const reviewUrl = `${appUrl}/account/orders/${effectiveOrderNumber}`;
+
+    // Customer review request email
+    if (customerEmail) {
+      try {
+        await dispatchTransactionalEmail(
+          {
+            to: customerEmail,
+            subject: `How was your experience with Order #${effectiveOrderNumber}? ⭐ — Unwind and Doodle`,
+            template: 'review_request',
+            data: {
+              orderNumber: effectiveOrderNumber,
+              customerName: effectiveCustomerName,
+              reviewUrl,
+              organizationId: orgId,
+            },
+            organizationId: orgId,
+          },
+          `notif_review_request_${effectiveOrderNumber}_${customerEmail}_${event.id}`
+        );
+
+        // Update review_requested_at on order
+        try {
+          const supabase = getServiceSupabaseClient();
+          await supabase
+            .from('orders')
+            .update({ review_requested_at: new Date().toISOString() } as any)
+            .eq('id', event.aggregateId);
+        } catch (dbErr) {
+          console.warn('[notification.order_review_requested_at_update_failed]', dbErr);
+        }
+      } catch (emailErr) {
+        console.error('[notification.order_received_email_failed]', emailErr);
+      }
+    }
+
+    // Customer in-app notification
+    if (customerId) {
+      try {
+        const supabase = getServiceSupabaseClient();
+        await createInAppNotification(supabase, {
+          recipientType: 'customer',
+          recipientId: customerId,
+          title: `How was your order #${effectiveOrderNumber}? ⭐`,
+          message: 'Your order has arrived! Leave a product review and share your feedback.',
+          type: 'info',
+          category: 'review',
+          link: `/account/orders/${effectiveOrderNumber}`,
+          metadata: { orderNumber: effectiveOrderNumber, reviewUrl },
+        });
+      } catch (inAppErr) {
+        console.warn('[notification.in_app_review_request_skipped]', inAppErr);
+      }
     }
   });
 

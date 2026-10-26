@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminReviewListItem, AdminReviewSummaryKPIs } from '@/types/admin-review-customization';
 import { toast } from 'sonner';
+import { CreateManualReviewModal } from '@/components/admin/reviews/CreateManualReviewModal';
 
 export default function AdminReviewsPage() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function AdminReviewsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [moderatingId, setModeratingId] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
@@ -157,6 +159,14 @@ export default function AdminReviewsPage() {
             Review customer feedback, approve verified ratings for the storefront, and remove inappropriate content.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => setIsCreateModalOpen(true)}
+          className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors shrink-0 self-start sm:self-auto"
+        >
+          <span>+</span>
+          <span>Add Review</span>
+        </button>
       </div>
 
       {/* 2. Summary KPI Cards */}
@@ -320,21 +330,34 @@ export default function AdminReviewsPage() {
                           {r.productName}
                         </Link>
                         <span className="text-[10px] text-slate-400 font-mono block">
-                          Order #{r.orderNumber}
+                          {r.orderNumber ? `Order #${r.orderNumber}` : r.isManual ? 'Manual Testimonial' : '—'}
                         </span>
                       </td>
 
                       {/* Customer */}
                       <td className="py-3.5 px-4">
-                        <Link
-                          href={`/admin/customers/${r.customerId}`}
-                          className="font-semibold text-slate-800 hover:text-rose-500 block"
-                        >
-                          {r.customerName}
-                        </Link>
-                        <span className="text-[11px] text-slate-400 block truncate max-w-xs">
-                          {r.customerEmail}
-                        </span>
+                        {r.customerId ? (
+                          <Link
+                            href={`/admin/customers/${r.customerId}`}
+                            className="font-semibold text-slate-800 hover:text-rose-500 block"
+                          >
+                            {r.customerName}
+                          </Link>
+                        ) : (
+                          <span className="font-semibold text-slate-800 block">
+                            {r.customerName}
+                          </span>
+                        )}
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {r.isManual && (
+                            <span className="inline-block px-1.5 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded text-[9px] font-semibold">
+                              {r.source || 'Manual'}
+                            </span>
+                          )}
+                          <span className="text-[11px] text-slate-400 block truncate max-w-xs">
+                            {r.customerEmail || (r.isManual ? 'External' : '—')}
+                          </span>
+                        </div>
                       </td>
 
                       {/* Rating & Review */}
@@ -439,6 +462,11 @@ export default function AdminReviewsPage() {
                   <div className="flex items-center gap-2">
                     {renderStars(r.rating)}
                     <span className="text-slate-400">• {r.customerName}</span>
+                    {r.isManual && (
+                      <span className="px-1.5 py-0.2 bg-purple-50 text-purple-700 border border-purple-200 rounded text-[9px] font-semibold">
+                        {r.source || 'Manual'}
+                      </span>
+                    )}
                   </div>
 
                   {r.title && <div className="font-bold text-slate-800">{r.title}</div>}
@@ -503,6 +531,15 @@ export default function AdminReviewsPage() {
           </>
         )}
       </div>
+
+      <CreateManualReviewModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={() => {
+          fetchReviews();
+          toast.success('Review created');
+        }}
+      />
     </div>
   );
 }

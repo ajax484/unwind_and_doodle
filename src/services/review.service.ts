@@ -16,14 +16,18 @@ export interface SubmitReviewInput {
 
 export interface ReviewDetail {
   id: string;
-  orderId: string;
+  orderId: string | null;
   productId: string;
+  productName?: string;
   rating: number;
   title: string | null;
   body: string | null;
   status: Database['public']['Enums']['review_status'];
   createdAt: string;
   customerName?: string;
+  isManual?: boolean;
+  source?: string | null;
+  isVerified?: boolean;
   images: {
     id: string;
     storagePath: string;
@@ -201,7 +205,7 @@ export async function getProductReviews(
   if (error || !reviews) return [];
 
   const reviewIds = reviews.map((r) => r.id);
-  const customerIds = Array.from(new Set(reviews.map((r) => r.customer_id)));
+  const customerIds = Array.from(new Set(reviews.map((r) => r.customer_id).filter(Boolean))) as string[];
 
   const [{ data: images }, { data: customers }] = await Promise.all([
     reviewIds.length > 0
@@ -231,7 +235,10 @@ export async function getProductReviews(
     body: r.body,
     status: r.status,
     createdAt: r.created_at,
-    customerName: customerMap.get(r.customer_id) || 'Verified Purchaser',
+    customerName: r.reviewer_name || (r.customer_id ? customerMap.get(r.customer_id) : null) || 'Verified Purchaser',
+    isManual: r.is_manual ?? false,
+    source: r.source ?? null,
+    isVerified: Boolean(r.order_id && r.customer_id),
     images: imageMap.get(r.id) || [],
   }));
 }
@@ -274,6 +281,72 @@ export async function getCustomerReviews(
     body: r.body,
     status: r.status,
     createdAt: r.created_at,
+    images: imageMap.get(r.id) || [],
+  }));
+}
+
+/**
+ * Fetches approved/published reviews across all products to display on the storefront homepage.
+ */
+export async function getStoreReviews(
+  supabase: SupabaseClient<Database>,
+  limit = 6
+): Promise<ReviewDetail[]> {
+  const { data: reviews, error } = await supabase
+    .from('reviews')
+    .select('*')
+    .eq('status', 'approved')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error || !reviews || reviews.length === 0) return [];
+
+  const reviewIds = reviews.map((r) => r.id);
+  const customerIds = Array.from(new Set(reviews.map((r) => r.customer_id).filter(Boolean))) as string[];
+  const productIds = Array.from(new Set(reviews.map((r) => r.product_id).filter(Boolean))) as string[];
+
+  const [{ data: images }, { data: customers }, { data: products }] = await Promise.all([
+    reviewIds.length > 0
+      ? supabase.from('review_images').select('*').in('review_id', reviewIds)
+      : Promise.resolve({ data: [] }),
+    customerIds.length > 0
+      ? supabase.from('customers').select('id, first_name, last_name').in('id', customerIds)
+      : Promise.resolve({ data: [] }),
+    productIds.length > 0
+      ? supabase.from('products').select('id, name').in('id', productIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const imageMap = new Map<string, { id: string; storagePath: string }[]>();
+  for (const img of images || []) {
+    if (!imageMap.has(img.review_id)) {
+      imageMap.set(img.review_id, []);
+    }
+    imageMap.get(img.review_id)!.push({ id: img.id, storagePath: img.storage_path });
+  }
+
+  const customerMap = new Map(
+    (customers || []).map((c) => [
+      c.id,
+      `${c.first_name || ''} ${c.last_name ? c.last_name[0] + '.' : ''}`.trim() || 'Verified Purchaser',
+    ])
+  );
+  const productMap = new Map((products || []).map((p) => [p.id, p.name]));
+
+  return reviews.map((r) => ({
+    id: r.id,
+    orderId: r.order_id,
+    productId: r.product_id,
+    productName: productMap.get(r.product_id) || 'Mindful Keepsake',
+    rating: r.rating,
+    title: r.title,
+    body: r.body,
+    status: r.status,
+    createdAt: r.created_at,
+    customerName: r.reviewer_name || (r.customer_id ? customerMap.get(r.customer_id) : null) || 'Verified Purchaser',
+    isManual: r.is_manual ?? false,
+    source: r.source ?? null,
+    isVerified: Boolean(r.order_id && r.customer_id),
     images: imageMap.get(r.id) || [],
   }));
 }

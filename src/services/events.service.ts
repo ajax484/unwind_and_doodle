@@ -121,7 +121,7 @@ export async function publishDomainEvent(
     }
 
     // Forward domain event to Inngest for durable orchestration asynchronously (outside tests)
-    if (process.env.NODE_ENV !== 'test') {
+    if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
       sendInngestDomainEvent({
         id: eventId,
         event_type: params.eventType,

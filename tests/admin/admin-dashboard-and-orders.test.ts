@@ -6,6 +6,7 @@ import {
   getAdminOrderDetail,
   refundAdminOrder,
   bulkConfirmOrders,
+  requestOrderReview,
 } from '@/services/admin-order.service';
 import { transitionOrderStatus } from '@/services/order-state-machine.service';
 import { ORDER_STATUS } from '@/lib/constants';
@@ -699,6 +700,116 @@ describe('Phase 6B: Admin Dashboard & Order Management', () => {
       expect(result.confirmed[0].orderId).toBe('ord-today-pending');
       expect(result.failed[0].orderId).toBe('ord-unpaid-pending');
       expect(result.failed[0].reason).toMatch(/payment is not successful/i);
+    });
+  });
+
+  describe('6. Request Review on Previous Orders', () => {
+    it('dispatches review request for an eligible received order and records timestamp', async () => {
+      mockSupabase._store.orders.push({
+        id: 'ord-past-received',
+        order_number: 'UAD-REC-901',
+        organization_id: orgA,
+        customer_id: 'cust-chidi',
+        email: 'chidi.okafor@example.com',
+        first_name: 'Chidi',
+        last_name: 'Okafor',
+        status: ORDER_STATUS.RECEIVED,
+        total: 15000,
+        review_requested_at: null,
+        created_at: '2026-09-01T10:00:00Z',
+        updated_at: '2026-09-05T14:00:00Z',
+      });
+
+      const res = await requestOrderReview(
+        mockSupabase,
+        'ord-past-received',
+        adminUserA,
+        orgA
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.reviewRequestedAt).toBeDefined();
+
+      // Verify orders table was updated
+      const order = mockSupabase._store.orders.find((o) => o.id === 'ord-past-received');
+      expect(order?.review_requested_at).toBe(res.reviewRequestedAt);
+
+      // Verify audit log
+      const audit = mockSupabase._store.audit_logs.find(
+        (a) => a.entity_id === 'ord-past-received' && a.action === 'order.review_requested'
+      );
+      expect(audit).toBeDefined();
+      expect(audit?.actor_id).toBe(adminUserA);
+
+      // Verify in-app notification
+      const notif = mockSupabase._store.notifications.find(
+        (n) => n.recipient_id === 'cust-chidi' && n.category === 'review'
+      );
+      expect(notif).toBeDefined();
+      expect(notif?.title).toContain('UAD-REC-901');
+
+      // Verify detail page mapper includes reviewRequestedAt
+      const detail = await getAdminOrderDetail(mockSupabase, 'ord-past-received', orgA);
+      expect(detail.reviewRequestedAt).toBe(res.reviewRequestedAt);
+    });
+
+    it('rejects requesting review if review email was already sent', async () => {
+      mockSupabase._store.orders.push({
+        id: 'ord-already-requested',
+        order_number: 'UAD-REC-902',
+        organization_id: orgA,
+        customer_id: 'cust-chidi',
+        email: 'chidi.okafor@example.com',
+        status: ORDER_STATUS.RECEIVED,
+        total: 15000,
+        review_requested_at: '2026-09-10T12:00:00Z',
+        created_at: '2026-09-01T10:00:00Z',
+        updated_at: '2026-09-05T14:00:00Z',
+      });
+
+      await expect(
+        requestOrderReview(
+          mockSupabase,
+          'ord-already-requested',
+          adminUserA,
+          orgA
+        )
+      ).rejects.toThrow(/already sent/i);
+    });
+
+    it('rejects requesting review if order status is not received', async () => {
+      await expect(
+        requestOrderReview(
+          mockSupabase,
+          'ord-today-pending',
+          adminUserA,
+          orgA
+        )
+      ).rejects.toThrow(/received orders/i);
+    });
+
+    it('denies requesting review for orders belonging to another organization', async () => {
+      mockSupabase._store.orders.push({
+        id: 'ord-org-b-received',
+        order_number: 'COMP-REC-01',
+        organization_id: orgB,
+        customer_id: 'cust-other',
+        email: 'other@competitor.com',
+        status: ORDER_STATUS.RECEIVED,
+        total: 10000,
+        review_requested_at: null,
+        created_at: '2026-09-01T10:00:00Z',
+        updated_at: '2026-09-05T14:00:00Z',
+      });
+
+      await expect(
+        requestOrderReview(
+          mockSupabase,
+          'ord-org-b-received',
+          adminUserA,
+          orgA
+        )
+      ).rejects.toThrow(/does not belong to your organization/i);
     });
   });
 });

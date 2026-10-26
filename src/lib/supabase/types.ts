@@ -1719,6 +1719,7 @@ export type Database = {
           placed_at: string | null;
           received_at: string | null;
           refunded_at: string | null;
+          review_requested_at: string | null;
           shipped_at: string | null;
           shipping_address: Json;
           shipping_fee: number;
@@ -1756,6 +1757,7 @@ export type Database = {
           placed_at?: string | null;
           received_at?: string | null;
           refunded_at?: string | null;
+          review_requested_at?: string | null;
           shipped_at?: string | null;
           shipping_address: Json;
           shipping_fee?: number;
@@ -1793,6 +1795,7 @@ export type Database = {
           placed_at?: string | null;
           received_at?: string | null;
           refunded_at?: string | null;
+          review_requested_at?: string | null;
           shipped_at?: string | null;
           shipping_address?: Json;
           shipping_fee?: number;
@@ -2509,36 +2512,45 @@ export type Database = {
         Row: {
           body: string | null;
           created_at: string;
-          customer_id: string;
+          customer_id: string | null;
           id: string;
-          order_id: string;
+          is_manual: boolean;
+          order_id: string | null;
           product_id: string;
           published_at: string | null;
           rating: number;
+          reviewer_name: string | null;
+          source: string | null;
           status: Database["public"]["Enums"]["review_status"];
           title: string | null;
         };
         Insert: {
           body?: string | null;
           created_at?: string;
-          customer_id: string;
+          customer_id?: string | null;
           id?: string;
-          order_id: string;
+          is_manual?: boolean;
+          order_id?: string | null;
           product_id: string;
           published_at?: string | null;
           rating: number;
+          reviewer_name?: string | null;
+          source?: string | null;
           status?: Database["public"]["Enums"]["review_status"];
           title?: string | null;
         };
         Update: {
           body?: string | null;
           created_at?: string;
-          customer_id?: string;
+          customer_id?: string | null;
           id?: string;
-          order_id?: string;
+          is_manual?: boolean;
+          order_id?: string | null;
           product_id?: string;
           published_at?: string | null;
           rating?: number;
+          reviewer_name?: string | null;
+          source?: string | null;
           status?: Database["public"]["Enums"]["review_status"];
           title?: string | null;
         };

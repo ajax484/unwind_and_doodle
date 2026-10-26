@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedCustomer } from '@/lib/auth-helpers';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
-import { submitReview, getProductReviews, getCustomerReviews } from '@/services/review.service';
+import { submitReview, getProductReviews, getCustomerReviews, getStoreReviews } from '@/services/review.service';
 import { z } from 'zod';
 
 const SubmitReviewSchema = z.object({
@@ -86,10 +86,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, data: reviews });
     }
 
-    return NextResponse.json(
-      { success: false, error: 'productId or mine=true parameter is required' },
-      { status: 400 }
-    );
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 6;
+    const reviews = await getStoreReviews(supabase, limit);
+    return NextResponse.json({ success: true, data: reviews });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Failed to fetch reviews';
     return NextResponse.json({ success: false, error: msg }, { status: 500 });

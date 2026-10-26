@@ -15,6 +15,31 @@ export const AdminReviewFilterSchema = z.object({
 
 export type AdminReviewFilterInput = z.input<typeof AdminReviewFilterSchema>;
 
+export const CreateManualReviewSchema = z.object({
+  productId: z.string().min(1, 'Product is required'),
+  rating: z.coerce.number().int().min(1).max(5),
+  reviewerName: z.string().trim().min(1, 'Reviewer name is required').max(100),
+  title: z.string().trim().max(150).optional().nullable(),
+  body: z.string().trim().min(1, 'Review content is required').max(3000),
+  orderId: z.string().optional().nullable(),
+  customerId: z.string().optional().nullable(),
+  source: z.string().trim().max(50).optional().nullable(),
+  status: z.enum(['approved', 'pending']).default('approved'),
+  createdAt: z.string().optional().nullable(),
+  images: z
+    .array(
+      z.object({
+        storagePath: z.string().min(1),
+        fileSize: z.number().optional(),
+        mimeType: z.string().optional(),
+      })
+    )
+    .max(5)
+    .optional(),
+});
+
+export type CreateManualReviewInput = z.infer<typeof CreateManualReviewSchema>;
+
 export const ModerateReviewSchema = z.object({
   action: z.enum(['approve', 'reject']),
   reason: z.string().optional(),
@@ -53,14 +78,14 @@ export interface AdminReviewImageItem {
 
 export interface AdminReviewListItem {
   id: string;
-  customerId: string;
+  customerId: string | null;
   customerName: string;
   customerEmail: string;
   productId: string;
   productName: string;
   productSlug: string;
-  orderId: string;
-  orderNumber: string;
+  orderId: string | null;
+  orderNumber: string | null;
   rating: number;
   title: string | null;
   body: string | null;
@@ -68,6 +93,8 @@ export interface AdminReviewListItem {
   imagesCount: number;
   publishedAt: string | null;
   createdAt: string;
+  isManual?: boolean;
+  source?: string | null;
 }
 
 export interface AdminReviewSummaryKPIs {
@@ -91,14 +118,14 @@ export interface AdminReviewListResponse {
 
 export interface AdminReviewDetail {
   id: string;
-  customerId: string;
+  customerId: string | null;
   customerName: string;
   customerEmail: string;
   productId: string;
   productName: string;
   productSlug: string;
-  orderId: string;
-  orderNumber: string;
+  orderId: string | null;
+  orderNumber: string | null;
   orderStatus: string;
   rating: number;
   title: string | null;
@@ -107,6 +134,8 @@ export interface AdminReviewDetail {
   publishedAt: string | null;
   createdAt: string;
   images: AdminReviewImageItem[];
+  isManual?: boolean;
+  source?: string | null;
 }
 
 // ==========================================

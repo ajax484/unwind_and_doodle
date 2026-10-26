@@ -5,6 +5,7 @@ import {
   getAdminReviewDetail,
   moderateReview,
   deleteReviewImage,
+  createManualReview,
 } from '@/services/admin-review.service';
 import {
   listAdminCustomizations,
@@ -330,6 +331,107 @@ describe('Phase 6F: Reviews & Customer Customization Management', () => {
 
       const audit = mockSupabase._store.audit_logs.find((a) => a.action === 'review.image_deleted');
       expect(audit).toBeDefined();
+    });
+
+    it('creates a standalone manual review with immediate publication and audit logging', async () => {
+      const created = await createManualReview(
+        mockSupabase,
+        {
+          productId: 'prod-safari-book',
+          rating: 5,
+          reviewerName: 'Halima Y.',
+          title: 'Wonderful colors',
+          body: 'Shared on Instagram! The pencils are rich and bold.',
+          source: 'Instagram',
+          status: 'approved',
+          images: [{ storagePath: 'reviews/instagram-post.jpg' }],
+        },
+        adminUserA,
+        orgA
+      );
+
+      expect(created.id).toBeDefined();
+      expect(created.customerName).toBe('Halima Y.');
+      expect(created.rating).toBe(5);
+      expect(created.status).toBe('approved');
+      expect(created.isManual).toBe(true);
+      expect(created.source).toBe('Instagram');
+      expect(created.images.length).toBe(1);
+
+      // Verify stored in mock Supabase
+      const stored = mockSupabase._store.reviews.find((r) => r.id === created.id);
+      expect(stored).toBeDefined();
+      expect(stored?.customer_id).toBeNull();
+      expect(stored?.order_id).toBeNull();
+      expect(stored?.reviewer_name).toBe('Halima Y.');
+      expect(stored?.is_manual).toBe(true);
+      expect(stored?.source).toBe('Instagram');
+
+      // Verify audit log
+      const audit = mockSupabase._store.audit_logs.find(
+        (a) => a.action === 'review.manual_created' && a.entity_id === created.id
+      );
+      expect(audit).toBeDefined();
+      expect(audit?.actor_id).toBe(adminUserA);
+
+      // Verify storefront returns it with isVerified = false
+      const publicReviews = await getProductReviews(mockSupabase, 'prod-safari-book');
+      const foundPublic = publicReviews.find((r) => r.id === created.id);
+      expect(foundPublic).toBeDefined();
+      expect(foundPublic?.customerName).toBe('Halima Y.');
+      expect(foundPublic?.isManual).toBe(true);
+      expect(foundPublic?.isVerified).toBe(false);
+      expect(foundPublic?.source).toBe('Instagram');
+    });
+
+    it('creates an order-linked manual review with pending status', async () => {
+      const created = await createManualReview(
+        mockSupabase,
+        {
+          productId: 'prod-safari-book',
+          rating: 4,
+          reviewerName: 'Chidi Okeke',
+          body: 'Great book received on delivery.',
+          orderId: 'ord-101',
+          customerId: 'cust-chidi',
+          source: 'WhatsApp',
+          status: 'pending',
+        },
+        adminUserA,
+        orgA
+      );
+
+      expect(created.id).toBeDefined();
+      expect(created.status).toBe('pending');
+      expect(created.isManual).toBe(true);
+      expect(created.source).toBe('WhatsApp');
+
+      const detail = await getAdminReviewDetail(mockSupabase, created.id, orgA);
+      expect(detail.id).toBe(created.id);
+      expect(detail.orderNumber).toBe('ORD-2026-101');
+      expect(detail.isManual).toBe(true);
+      expect(detail.source).toBe('WhatsApp');
+
+      // Public storefront should NOT show pending review
+      const publicReviews = await getProductReviews(mockSupabase, 'prod-safari-book');
+      expect(publicReviews.some((r) => r.id === created.id)).toBe(false);
+    });
+
+    it('rejects manual review creation for products outside organization', async () => {
+      await expect(
+        createManualReview(
+          mockSupabase,
+          {
+            productId: 'prod-org-b-item', // Belonging to Org B
+            rating: 5,
+            reviewerName: 'Intruder',
+            body: 'Should fail tenant check',
+            status: 'approved',
+          },
+          adminUserA,
+          orgA
+        )
+      ).rejects.toThrow('Forbidden: Selected product does not belong to your organization');
     });
   });
 
