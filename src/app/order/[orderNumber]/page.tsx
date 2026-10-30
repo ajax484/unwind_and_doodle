@@ -140,13 +140,28 @@ export default function OrderStatusPage() {
         setSelectedRetryMethod(json.data.payment.provider as any);
       }
 
-      // Track Purchase event with deduplication event_id
+      // Track Purchase event with deduplication event_id (idempotent across tabs & reloads)
+      const purchaseKey = `pixel_purchase_${json.data.orderNumber}`;
+      let alreadyTracked = false;
+      try {
+        alreadyTracked =
+          localStorage.getItem(purchaseKey) === '1' ||
+          sessionStorage.getItem(purchaseKey) === '1';
+      } catch {
+        alreadyTracked = false;
+      }
+
       if (
         (json.data.payment?.status === 'successful' || json.data.status !== 'created') &&
         typeof window !== 'undefined' &&
-        !sessionStorage.getItem(`pixel_purchase_${json.data.orderNumber}`)
+        !alreadyTracked
       ) {
-        sessionStorage.setItem(`pixel_purchase_${json.data.orderNumber}`, '1');
+        try {
+          localStorage.setItem(purchaseKey, '1');
+          sessionStorage.setItem(purchaseKey, '1');
+        } catch {
+          // Non-blocking
+        }
         trackPurchase(
           {
             value: json.data.totalAmount,

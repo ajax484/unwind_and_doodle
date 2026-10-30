@@ -5,7 +5,6 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 import { getCartHeaders, dispatchCartUpdated } from '@/lib/cart-client';
-import { trackPurchase } from '@/lib/meta-pixel';
 
 function CallbackContent() {
   const searchParams = useSearchParams();
@@ -46,23 +45,7 @@ function CallbackContent() {
             // Non-blocking
           }
 
-          // Trigger client Meta Pixel purchase event immediately with deduplication ID
-          if (
-            typeof window !== 'undefined' &&
-            !sessionStorage.getItem(`pixel_purchase_${json.orderNumber}`)
-          ) {
-            sessionStorage.setItem(`pixel_purchase_${json.orderNumber}`, '1');
-            trackPurchase(
-              {
-                value: json.totalAmount || 0,
-                currency: json.currency || 'NGN',
-                order_id: json.orderNumber,
-              },
-              json.orderNumber
-            );
-          }
-
-          // Redirect to confirmation page with signed order access token
+          // Redirect to confirmation page with signed order access token (canonical tracking occurs on confirmation page)
           const tokenParam = json.token ? `?token=${encodeURIComponent(json.token)}` : '';
           router.replace(`/order/${json.orderNumber}${tokenParam}`);
         } else {
