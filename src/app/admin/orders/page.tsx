@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, Suspense } from "react";
+import React, { useEffect, useState, useCallback, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -20,6 +20,36 @@ import { Pagination } from "@/components/Pagination";
 import { Checkbox } from "@/components/Checkbox";
 import Modal from "@/components/Modal";
 
+const VALID_TRANSITIONS: Record<string, Array<{ value: string; label: string }>> = {
+  created: [
+    { value: "pending", label: "Pending Review" },
+    { value: "confirmed", label: "Confirmed" },
+    { value: "cancelled", label: "Cancelled" },
+  ],
+  pending: [
+    { value: "confirmed", label: "Confirmed" },
+    { value: "cancelled", label: "Cancelled" },
+    { value: "refunded", label: "Refunded" },
+  ],
+  confirmed: [
+    { value: "shipped", label: "Shipped" },
+    { value: "cancelled", label: "Cancelled" },
+    { value: "refunded", label: "Refunded" },
+  ],
+  shipped: [
+    { value: "received", label: "Received" },
+    { value: "cancelled", label: "Cancelled" },
+    { value: "refunded", label: "Refunded" },
+  ],
+  received: [
+    { value: "refunded", label: "Refunded" },
+  ],
+  cancelled: [
+    { value: "refunded", label: "Refunded" },
+  ],
+  refunded: [],
+};
+
 function OrdersListContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -38,12 +68,18 @@ function OrdersListContent() {
 
   // Bulk selection state
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
-  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const [confirming, setConfirming] = useState(false);
+  const [targetStatus, setTargetStatus] = useState<string>("");
+  const [adminNote, setAdminNote] = useState("");
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<{
     type: "success" | "warning" | "danger";
     message: string;
   } | null>(null);
+
+  useEffect(() => {
+    setSelectedOrderIds([]);
+  }, [statusParam, paymentParam, searchParam, sortParam, pageParam]);
 
   const updateFilters = useCallback(
     (newParams: Record<string, string | number | undefined>) => {
@@ -151,15 +187,12 @@ function OrdersListContent() {
     statusParam || paymentParam || searchParam || sortParam !== "newest",
   );
 
-  const isOrderEligibleForConfirm = (order: AdminOrderListItem) => {
-    const paymentStatus = order.paymentStatus?.toLowerCase();
-    return (
-      (order.status === "pending" || order.status === "created") &&
-      (paymentStatus === "successful" || paymentStatus === "pending")
-    );
+  const isOrderSelectable = (order: AdminOrderListItem) => {
+    const transitions = VALID_TRANSITIONS[order.status] || [];
+    return transitions.length > 0;
   };
 
-  const eligibleOrdersOnPage = orders.filter(isOrderEligibleForConfirm);
+  const eligibleOrdersOnPage = orders.filter(isOrderSelectable);
   const allEligibleSelected =
     eligibleOrdersOnPage.length > 0 &&
     eligibleOrdersOnPage.every((o) => selectedOrderIds.includes(o.id));
@@ -183,21 +216,53 @@ function OrdersListContent() {
     );
   };
 
-  const handleBulkConfirm = async () => {
-    if (selectedOrderIds.length === 0) return;
+  const selectedOrders = orders.filter((o) => selectedOrderIds.includes(o.id));
+
+  const availableTargetStatuses = useMemo(() => {
+    if (selectedOrders.length === 0) {
+      if (statusParam && VALID_TRANSITIONS[statusParam]) {
+        return VALID_TRANSITIONS[statusParam];
+      }
+      return [];
+    }
+    const firstTransitions = VALID_TRANSITIONS[selectedOrders[0].status] || [];
+    return firstTransitions.filter((t) =>
+      selectedOrders.every((o) => {
+        const orderTransitions = VALID_TRANSITIONS[o.status] || [];
+        return orderTransitions.some((ot) => ot.value === t.value);
+      }),
+    );
+  }, [selectedOrders, statusParam]);
+
+  useEffect(() => {
+    if (availableTargetStatuses.length > 0) {
+      if (!availableTargetStatuses.some((t) => t.value === targetStatus)) {
+        setTargetStatus(availableTargetStatuses[0].value);
+      }
+    } else {
+      setTargetStatus("");
+    }
+  }, [availableTargetStatuses, targetStatus]);
+
+  const handleBulkUpdate = async () => {
+    if (selectedOrderIds.length === 0 || !targetStatus) return;
     try {
-      setConfirming(true);
+      setUpdating(true);
       setActionFeedback(null);
 
-      const res = await fetch("/api/admin/orders/bulk-confirm", {
+      const res = await fetch("/api/admin/orders/bulk-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderIds: selectedOrderIds }),
+        body: JSON.stringify({
+          orderIds: selectedOrderIds,
+          targetStatus,
+          note: adminNote.trim() || undefined,
+        }),
       });
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.error || "Failed to confirm orders");
+        throw new Error(json.error || "Failed to update orders");
       }
 
       const result = json.data;
@@ -209,26 +274,27 @@ function OrdersListContent() {
           )
           .join("; ");
         setActionFeedback({
-          type: result.confirmedCount > 0 ? "warning" : "danger",
-          message: `Confirmed ${result.confirmedCount} orders. Failed ${result.failedCount}: ${failedDetails}`,
+          type: result.updatedCount > 0 ? "warning" : "danger",
+          message: `Updated ${result.updatedCount} orders. Failed ${result.failedCount}: ${failedDetails}`,
         });
       } else {
         setActionFeedback({
           type: "success",
-          message: `Confirmed ${result.confirmedCount} ${result.confirmedCount === 1 ? "order" : "orders"}`,
+          message: `Updated ${result.updatedCount} ${result.updatedCount === 1 ? "order" : "orders"} to ${targetStatus}`,
         });
       }
 
       setSelectedOrderIds([]);
-      setIsConfirmModalOpen(false);
+      setAdminNote("");
+      setIsUpdateModalOpen(false);
       fetchOrders();
     } catch (err: unknown) {
       setActionFeedback({
         type: "danger",
-        message: err instanceof Error ? err.message : "Error confirming orders",
+        message: err instanceof Error ? err.message : "Error updating orders",
       });
     } finally {
-      setConfirming(false);
+      setUpdating(false);
     }
   };
 
@@ -438,7 +504,7 @@ function OrdersListContent() {
                 </thead>
                 <tbody className="divide-y divide-border-default">
                   {orders.map((order: AdminOrderListItem) => {
-                    const isEligible = isOrderEligibleForConfirm(order);
+                    const isEligible = isOrderSelectable(order);
                     const isSelected = selectedOrderIds.includes(order.id);
                     return (
                       <tr
@@ -515,7 +581,7 @@ function OrdersListContent() {
             {/* Mobile Cards View */}
             <div className="md:hidden divide-y divide-border-default p-3 space-y-3">
               {orders.map((order: AdminOrderListItem) => {
-                const isEligible = isOrderEligibleForConfirm(order);
+                const isEligible = isOrderSelectable(order);
                 const isSelected = selectedOrderIds.includes(order.id);
                 return (
                   <div
@@ -617,45 +683,81 @@ function OrdersListContent() {
           <span className="text-xs font-semibold text-text-primary whitespace-nowrap">
             {selectedOrderIds.length} selected
           </span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => setIsConfirmModalOpen(true)}
-            >
-              Confirm Orders ({selectedOrderIds.length})
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedOrderIds([])}
-            >
-              Cancel
-            </Button>
-          </div>
+          {availableTargetStatuses.length > 0 ? (
+            <div className="flex items-center gap-2">
+              <div className="w-44">
+                <Select
+                  value={targetStatus}
+                  onChange={(e) => setTargetStatus(e.target.value)}
+                  options={availableTargetStatuses}
+                  size="sm"
+                  aria-label="Target status"
+                />
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setIsUpdateModalOpen(true)}
+              >
+                Update Status
+              </Button>
+            </div>
+          ) : (
+            <span className="text-xs text-text-tertiary">
+              No common transitions available
+            </span>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSelectedOrderIds([])}
+          >
+            Cancel
+          </Button>
         </div>
       )}
 
-      {/* Bulk Confirm Confirmation Modal */}
+      {/* Bulk Status Update Confirmation Modal */}
       <Modal
-        isOpen={isConfirmModalOpen}
-        onClose={() => !confirming && setIsConfirmModalOpen(false)}
-        title="Confirm Orders"
+        isOpen={isUpdateModalOpen}
+        onClose={() => !updating && setIsUpdateModalOpen(false)}
+        title="Update Status"
         primaryAction={{
-          label: "Confirm",
-          onClick: handleBulkConfirm,
-          loading: confirming,
+          label: "Update",
+          onClick: handleBulkUpdate,
+          loading: updating,
         }}
         secondaryAction={{
           label: "Cancel",
-          onClick: () => setIsConfirmModalOpen(false),
-          disabled: confirming,
+          onClick: () => setIsUpdateModalOpen(false),
+          disabled: updating,
         }}
       >
-        <p className="text-sm text-text-secondary">
-          Are you sure you want to confirm {selectedOrderIds.length}{" "}
-          {selectedOrderIds.length === 1 ? "order" : "orders"}?
-        </p>
+        <div className="space-y-4">
+          <p className="text-sm text-text-secondary">
+            Change status of {selectedOrderIds.length}{" "}
+            {selectedOrderIds.length === 1 ? "order" : "orders"} to{" "}
+            <strong className="text-text-primary">
+              {availableTargetStatuses.find((s) => s.value === targetStatus)?.label || targetStatus}
+            </strong>
+            ?
+          </p>
+          <div>
+            <label
+              htmlFor="bulk-admin-note"
+              className="block text-xs font-semibold text-text-secondary mb-1.5"
+            >
+              Note (optional)
+            </label>
+            <TextInput
+              id="bulk-admin-note"
+              value={adminNote}
+              onChange={(e) => setAdminNote(e.target.value)}
+              placeholder="Reason or reference..."
+              size="sm"
+            />
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -8,8 +8,9 @@ import {
   AdminOrderDetailItem,
   AdminDashboardMetricsResponse,
   BulkConfirmOrdersResponse,
+  BulkUpdateOrderStatusResponse,
 } from '../types/admin-order';
-import { transitionOrderStatus } from './order-state-machine.service';
+import { transitionOrderStatus, canTransitionOrderStatus } from './order-state-machine.service';
 import { getPaymentProvider, PaymentProvider } from './payment';
 import { ORDER_STATUS } from '../lib/constants';
 import { dispatchTransactionalEmail } from './notification.service';
@@ -978,6 +979,161 @@ export async function bulkConfirmOrders(
     confirmedCount: confirmed.length,
     failedCount: failed.length,
     confirmed,
+    failed,
+  };
+}
+
+export interface BulkUpdateOrderStatusParams {
+  orderIds: string[];
+  targetStatus: OrderStatus;
+  organizationId: string;
+  userId?: string | null;
+  note?: string;
+}
+
+/**
+ * Bulk updates orders to a target status while enforcing tenant boundary and state machine rules.
+ */
+export async function bulkUpdateOrderStatus(
+  supabase: SupabaseClient<Database>,
+  params: BulkUpdateOrderStatusParams
+): Promise<BulkUpdateOrderStatusResponse> {
+  const { orderIds, targetStatus, organizationId, userId, note } = params;
+
+  if (!orderIds || orderIds.length === 0) {
+    return {
+      totalRequested: 0,
+      updatedCount: 0,
+      failedCount: 0,
+      updated: [],
+      failed: [],
+    };
+  }
+
+  // 1. Fetch matching orders for this organization
+  const { data: orders, error: ordersErr } = await supabase
+    .from('orders')
+    .select('id, order_number, status, organization_id')
+    .in('id', orderIds)
+    .eq('organization_id', organizationId);
+
+  if (ordersErr) {
+    throw new Error(`Failed to query orders: ${ordersErr.message}`);
+  }
+
+  const orderMap = new Map((orders || []).map((o) => [o.id, o]));
+
+  // If transitioning to CONFIRMED, fetch payments to ensure payment is successful or pending
+  let paidOrderIds: Set<string> | null = null;
+  if (targetStatus === ORDER_STATUS.CONFIRMED) {
+    const { data: payments, error: paymentsErr } = await supabase
+      .from('payments')
+      .select('id, order_id, status')
+      .in('order_id', orderIds);
+
+    if (paymentsErr) {
+      throw new Error(`Failed to query payments: ${paymentsErr.message}`);
+    }
+
+    paidOrderIds = new Set<string>();
+    for (const p of payments || []) {
+      const status = p.status?.toLowerCase();
+      if (status === 'successful' || status === 'pending') {
+        paidOrderIds.add(p.order_id);
+      }
+    }
+  }
+
+  const updated: Array<{ orderId: string; orderNumber: string }> = [];
+  const failed: Array<{ orderId: string; orderNumber?: string; reason: string }> = [];
+
+  for (const orderId of orderIds) {
+    const order = orderMap.get(orderId);
+    if (!order) {
+      failed.push({
+        orderId,
+        reason: 'Order not found or does not belong to organization',
+      });
+      continue;
+    }
+
+    if (order.status === targetStatus) {
+      failed.push({
+        orderId,
+        orderNumber: order.order_number,
+        reason: `Order is already in ${targetStatus} status`,
+      });
+      continue;
+    }
+
+    // Special check for CONFIRMED
+    if (targetStatus === ORDER_STATUS.CONFIRMED) {
+      if (order.status !== ORDER_STATUS.PENDING && order.status !== ORDER_STATUS.CREATED) {
+        failed.push({
+          orderId,
+          orderNumber: order.order_number,
+          reason: `Cannot confirm order in '${order.status}' status`,
+        });
+        continue;
+      }
+      if (paidOrderIds && !paidOrderIds.has(order.id)) {
+        failed.push({
+          orderId,
+          orderNumber: order.order_number,
+          reason: 'Order payment is not successful or pending',
+        });
+        continue;
+      }
+    } else {
+      // General transition validation
+      if (!canTransitionOrderStatus(order.status as OrderStatus, targetStatus)) {
+        failed.push({
+          orderId,
+          orderNumber: order.order_number,
+          reason: `Transition from '${order.status}' to '${targetStatus}' is not allowed`,
+        });
+        continue;
+      }
+    }
+
+    try {
+      if (targetStatus === ORDER_STATUS.CONFIRMED && order.status === ORDER_STATUS.CREATED) {
+        await transitionOrderStatus({
+          supabase,
+          orderId: order.id,
+          targetStatus: ORDER_STATUS.PENDING,
+          userId: userId || null,
+          note: 'Transitioned to pending prior to confirmation',
+        });
+      }
+
+      await transitionOrderStatus({
+        supabase,
+        orderId: order.id,
+        targetStatus,
+        userId: userId || null,
+        note: note || `Bulk updated to ${targetStatus} by admin`,
+      });
+
+      updated.push({
+        orderId: order.id,
+        orderNumber: order.order_number,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown transition error';
+      failed.push({
+        orderId: order.id,
+        orderNumber: order.order_number,
+        reason: msg,
+      });
+    }
+  }
+
+  return {
+    totalRequested: orderIds.length,
+    updatedCount: updated.length,
+    failedCount: failed.length,
+    updated,
     failed,
   };
 }

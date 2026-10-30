@@ -69,6 +69,40 @@ export interface BulkConfirmOrdersResponse {
   }>;
 }
 
+export const BulkUpdateOrderStatusSchema = z.object({
+  orderIds: z
+    .array(z.string().min(1))
+    .min(1, 'At least one order ID is required')
+    .max(100, 'Cannot exceed 100 orders'),
+  targetStatus: z.enum([
+    'created',
+    'pending',
+    'confirmed',
+    'shipped',
+    'received',
+    'cancelled',
+    'refunded',
+  ]),
+  note: z.string().optional(),
+});
+
+export type BulkUpdateOrderStatusInput = z.infer<typeof BulkUpdateOrderStatusSchema>;
+
+export interface BulkUpdateOrderStatusResponse {
+  totalRequested: number;
+  updatedCount: number;
+  failedCount: number;
+  updated: Array<{
+    orderId: string;
+    orderNumber: string;
+  }>;
+  failed: Array<{
+    orderId: string;
+    orderNumber?: string;
+    reason: string;
+  }>;
+}
+
 export type TransitionOrderStatusInput = z.infer<typeof TransitionOrderStatusSchema>;
 export type RefundOrderInput = z.infer<typeof RefundOrderSchema>;
 export type AdminOrderFilters = z.input<typeof AdminOrderFilterSchema>;

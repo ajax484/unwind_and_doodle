@@ -6,6 +6,7 @@ import {
   getAdminOrderDetail,
   refundAdminOrder,
   bulkConfirmOrders,
+  bulkUpdateOrderStatus,
   requestOrderReview,
 } from '@/services/admin-order.service';
 import { transitionOrderStatus } from '@/services/order-state-machine.service';
@@ -700,6 +701,86 @@ describe('Phase 6B: Admin Dashboard & Order Management', () => {
       expect(result.confirmed[0].orderId).toBe('ord-today-pending');
       expect(result.failed[0].orderId).toBe('ord-unpaid-pending');
       expect(result.failed[0].reason).toMatch(/payment is not successful/i);
+    });
+  });
+
+  describe('bulkUpdateOrderStatus', () => {
+    it('successfully bulk transitions confirmed orders to shipped', async () => {
+      const result = await bulkUpdateOrderStatus(mockSupabase, {
+        orderIds: ['ord-today-confirmed'],
+        targetStatus: ORDER_STATUS.SHIPPED,
+        organizationId: orgA,
+        userId: adminUserA,
+        note: 'Dispatched via DHL batch',
+      });
+
+      expect(result.totalRequested).toBe(1);
+      expect(result.updatedCount).toBe(1);
+      expect(result.failedCount).toBe(0);
+      expect(result.updated[0].orderId).toBe('ord-today-confirmed');
+
+      const updatedOrder = mockSupabase._store.orders.find((o) => o.id === 'ord-today-confirmed');
+      expect(updatedOrder?.status).toBe(ORDER_STATUS.SHIPPED);
+      expect(updatedOrder?.shipped_at).toBeDefined();
+    });
+
+    it('enforces payment validation when bulk updating to confirmed', async () => {
+      mockSupabase._store.orders.push({
+        id: 'ord-unpaid-test',
+        order_number: 'UAD-UNPAID',
+        organization_id: orgA,
+        customer_id: 'cust-chidi',
+        status: ORDER_STATUS.PENDING,
+        total: 5000,
+        created_at: new Date().toISOString(),
+      });
+
+      const result = await bulkUpdateOrderStatus(mockSupabase, {
+        orderIds: ['ord-unpaid-test'],
+        targetStatus: ORDER_STATUS.CONFIRMED,
+        organizationId: orgA,
+        userId: adminUserA,
+      });
+
+      expect(result.updatedCount).toBe(0);
+      expect(result.failedCount).toBe(1);
+      expect(result.failed[0].reason).toMatch(/payment is not successful/i);
+    });
+
+    it('rejects invalid state machine transitions and reports reasons', async () => {
+      // Trying to transition a received order to shipped
+      mockSupabase._store.orders.push({
+        id: 'ord-already-received',
+        order_number: 'UAD-REC-999',
+        organization_id: orgA,
+        status: ORDER_STATUS.RECEIVED,
+        total: 10000,
+        created_at: new Date().toISOString(),
+      });
+
+      const result = await bulkUpdateOrderStatus(mockSupabase, {
+        orderIds: ['ord-already-received'],
+        targetStatus: ORDER_STATUS.SHIPPED,
+        organizationId: orgA,
+        userId: adminUserA,
+      });
+
+      expect(result.updatedCount).toBe(0);
+      expect(result.failedCount).toBe(1);
+      expect(result.failed[0].reason).toMatch(/not allowed/i);
+    });
+
+    it('enforces tenant isolation', async () => {
+      const result = await bulkUpdateOrderStatus(mockSupabase, {
+        orderIds: ['ord-org-b-01'], // Belongs to orgB
+        targetStatus: ORDER_STATUS.CANCELLED,
+        organizationId: orgA,
+        userId: adminUserA,
+      });
+
+      expect(result.updatedCount).toBe(0);
+      expect(result.failedCount).toBe(1);
+      expect(result.failed[0].reason).toMatch(/not found or does not belong to organization/i);
     });
   });
 
