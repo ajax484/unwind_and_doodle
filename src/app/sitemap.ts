@@ -3,7 +3,7 @@ import { getPublishedCatalog } from '@/services/catalog.service';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://unwindanddoodle.com';
+  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://unwindanddoodle.ubah484.dev';
 
   const staticRoutes: MetadataRoute.Sitemap = [
     {

@@ -53,7 +53,7 @@ function createDefaultBlock(type: V1CampaignBlockType): V1CampaignBlock {
         type: 'button',
         data: {
           text: 'Take Action',
-          url: 'https://unwindanddoodle.com',
+          url: 'https://unwindanddoodle.ubah484.dev',
           style: 'rose',
           align: 'center',
         },

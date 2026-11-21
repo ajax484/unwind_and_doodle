@@ -15,7 +15,7 @@ async function resolveSlug(params: Promise<{ slug: string }>): Promise<string> {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const slug = await resolveSlug(params);
-  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://unwindanddoodle.com';
+  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://unwindanddoodle.ubah484.dev';
 
   if (!slug) {
     return {
@@ -77,7 +77,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ProductDetailPage({ params }: PageProps) {
   const slug = await resolveSlug(params);
-  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://unwindanddoodle.com';
+  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://unwindanddoodle.ubah484.dev';
 
   let structuredData: Record<string, unknown> | null = null;
   let initialProduct: ProductDetail | null = null;

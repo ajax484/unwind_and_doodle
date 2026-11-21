@@ -1024,7 +1024,7 @@ ${trackingUrl}
       const orderNumber = String(data.orderNumber || '');
       const customerName = String(data.customerName || 'Customer');
       const note = data.note ? String(data.note) : '';
-      const storeUrl = String(data.storeUrl || 'https://unwindanddoodle.com');
+      const storeUrl = String(data.storeUrl || 'https://unwindanddoodle.ubah484.dev');
       const supportUrl = String(data.supportUrl || `${storeUrl}/contact`);
 
       const body = `

@@ -293,7 +293,7 @@ export async function fulfillSuccessfulPayment(
     const appBaseUrl = (
       process.env.NEXT_PUBLIC_APP_URL ||
       process.env.NEXT_PUBLIC_SITE_URL ||
-      'https://unwindanddoodle.com'
+      'https://unwindanddoodle.ubah484.dev'
     ).replace(/\/$/, '');
 
     sendMetaConversionEvent({

@@ -20,7 +20,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   display: 'swap',
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://unwindanddoodle.com';
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://unwindanddoodle.ubah484.dev';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

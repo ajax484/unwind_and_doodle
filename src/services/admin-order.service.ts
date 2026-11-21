@@ -1195,7 +1195,7 @@ export async function requestOrderReview(
 
   const effectiveCustomerName = customerName || 'Valued Customer';
   const effectiveOrderNumber = order.order_number;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://unwindanddoodle.com';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://unwindanddoodle.ubah484.dev';
   const reviewUrl = `${appUrl}/account/orders/${effectiveOrderNumber}`;
   const now = new Date().toISOString();
 

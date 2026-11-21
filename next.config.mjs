@@ -18,11 +18,7 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'api.unwindanddoodle.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'media.unwindanddoodle.com',
+        hostname: 'unwind-api.ubah484.dev',
       },
       {
         protocol: 'https',
