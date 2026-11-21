@@ -30,6 +30,9 @@ export interface CatalogProductItem {
   images: { id: string; imageUrl: string; isPrimary: boolean }[];
   media: ProductMedia[];
   categories: { id: string; name: string; slug: string }[];
+  displayOrder?: number;
+  isFeatured?: boolean;
+  featuredOrder?: number;
   createdAt?: string;
 }
 
@@ -56,6 +59,7 @@ export interface CatalogQueryOptions {
   search?: string;
   q?: string;
   categorySlug?: string;
+  featuredOnly?: boolean;
   sort?: 'featured' | 'newest' | 'price-asc' | 'price-desc' | string;
   inStockOnly?: boolean;
   page?: number;
@@ -81,7 +85,7 @@ export async function getPublishedCatalog(
   }
 
   // Filter for published / active products
-  let products = (rawProducts || []).filter((p) => {
+  const products = (rawProducts || []).filter((p) => {
     if (p.status) return p.status === 'published';
     const legacyActive = (p as { is_active?: boolean }).is_active;
     if (legacyActive !== undefined) return legacyActive;
@@ -89,21 +93,6 @@ export async function getPublishedCatalog(
   });
 
   if (!products || products.length === 0) {
-    return [];
-  }
-
-  // Filter by search query across name, description, SKU
-  if (searchTerm && searchTerm.trim()) {
-    const qLower = searchTerm.trim().toLowerCase();
-    products = products.filter(
-      (p) =>
-        (p.name && p.name.toLowerCase().includes(qLower)) ||
-        (p.description && stripHtml(p.description).toLowerCase().includes(qLower)) ||
-        (p.sku && p.sku.toLowerCase().includes(qLower))
-    );
-  }
-
-  if (products.length === 0) {
     return [];
   }
 
@@ -248,7 +237,12 @@ export async function getPublishedCatalog(
 
     const stock = stockByProduct.get(p.id) || 0;
     const cats = categoriesByProduct.get(p.id) || [];
-    const prodExt = p as typeof p & { price?: number };
+    const prodExt = p as typeof p & {
+      price?: number;
+      display_order?: number;
+      is_featured?: boolean;
+      featured_order?: number;
+    };
     const effectivePrice = p.selling_price ?? prodExt.price ?? 0;
 
     const bComponents = bundleItemsByBundle.get(p.id) || [];
@@ -276,9 +270,33 @@ export async function getPublishedCatalog(
         })),
       media: sortedMedia,
       categories: cats,
+      displayOrder: typeof prodExt.display_order === 'number' ? prodExt.display_order : 0,
+      isFeatured: Boolean(prodExt.is_featured),
+      featuredOrder: typeof prodExt.featured_order === 'number' ? prodExt.featured_order : 0,
       createdAt: p.created_at,
     };
   });
+
+  // Filter by search query across name, description, SKU, and category names/slugs
+  if (searchTerm && searchTerm.trim()) {
+    const qLower = searchTerm.trim().toLowerCase();
+    catalog = catalog.filter(
+      (p) =>
+        (p.name && p.name.toLowerCase().includes(qLower)) ||
+        (p.description && stripHtml(p.description).toLowerCase().includes(qLower)) ||
+        (p.sku && p.sku.toLowerCase().includes(qLower)) ||
+        p.categories.some(
+          (c) =>
+            c.name.toLowerCase().includes(qLower) ||
+            c.slug.toLowerCase().includes(qLower)
+        )
+    );
+  }
+
+  // Filter by featuredOnly if supplied
+  if (options?.featuredOnly) {
+    catalog = catalog.filter((p) => p.isFeatured);
+  }
 
   // Filter by categorySlug if supplied
   if (options?.categorySlug && options.categorySlug.trim()) {
@@ -294,26 +312,42 @@ export async function getPublishedCatalog(
   }
 
   // Sorting
-  if (options?.sort) {
-    switch (options.sort) {
-      case 'price-asc':
-        catalog.sort((a, b) => a.price - b.price);
-        break;
-      case 'price-desc':
-        catalog.sort((a, b) => b.price - a.price);
-        break;
-      case 'newest':
-        catalog.sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return dateB - dateA;
-        });
-        break;
-      case 'featured':
-      default:
-        // Keep default order
-        break;
-    }
+  const effectiveSort = options?.sort || 'featured';
+  switch (effectiveSort) {
+    case 'price-asc':
+      catalog.sort((a, b) => a.price - b.price);
+      break;
+    case 'price-desc':
+      catalog.sort((a, b) => b.price - a.price);
+      break;
+    case 'newest':
+      catalog.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+      break;
+    case 'featured':
+    default:
+      catalog.sort((a, b) => {
+        // 1. Auto-sink out-of-stock products below in-stock products
+        if (a.isAvailable !== b.isAvailable) {
+          return a.isAvailable ? -1 : 1;
+        }
+        // 2. When querying homepage featured items, respect featuredOrder first
+        if (options?.featuredOnly) {
+          const featDiff = (a.featuredOrder ?? 0) - (b.featuredOrder ?? 0);
+          if (featDiff !== 0) return featDiff;
+        }
+        // 3. Respect global display_order ascending
+        const orderDiff = (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+        if (orderDiff !== 0) return orderDiff;
+        // 4. Deterministic tie-breaker: newest first
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+      break;
   }
 
   // Pagination / Limit

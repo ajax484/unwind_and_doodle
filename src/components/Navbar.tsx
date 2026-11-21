@@ -119,8 +119,8 @@ export interface NavbarProps
 
 const defaultNavLinks: NavLinkItem[] = [
   { label: 'Shop', href: '/products' },
-  { label: 'Collections', href: '/products?category=coloring-books' },
-  { label: 'Custom Coloring Books', href: '/products?category=coloring-books' },
+  { label: 'Customized Books', href: '/products?category=customized-books' },
+  { label: 'Kits', href: '/products?category=kits' },
   { label: 'About', href: '/#about' },
 ];
 
@@ -344,7 +344,7 @@ export function Navbar({
           {showSearch && (
             <Link
               data-testid="navbar-search-link"
-              href="/products"
+              href="/products?focus=search"
               className="text-xs sm:text-sm font-medium text-text-secondary hover:text-text-primary flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-bg-subtle transition-colors"
               aria-label="Search Catalog"
             >
@@ -452,7 +452,7 @@ export function Navbar({
           {/* Mobile Search Icon */}
           {showSearch && (
             <Link
-              href="/products"
+              href="/products?focus=search"
               className="p-2 rounded-lg text-text-secondary hover:bg-bg-subtle transition-colors"
               aria-label="Search Catalog"
             >

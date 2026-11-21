@@ -93,7 +93,13 @@ export default function CategoryGrid({ initialCategories }: CategoryGridProps = 
             ))}
           </div>
         ) : categories.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div
+            className={`grid grid-cols-1 sm:grid-cols-2 ${
+              categories.length === 3 || categories.length === 5 || categories.length === 6
+                ? 'lg:grid-cols-3'
+                : 'lg:grid-cols-4'
+            } gap-6`}
+          >
             {categories.map((cat, idx) => {
               const badgeStyle = BADGE_STYLES[idx % BADGE_STYLES.length];
               const displayDesc =
@@ -132,7 +138,7 @@ export default function CategoryGrid({ initialCategories }: CategoryGridProps = 
           </div>
         ) : (
           /* Fallback if no categories returned from API */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {HOMEPAGE_CATEGORIES.map((cat) => (
               <Link
                 key={cat.title}

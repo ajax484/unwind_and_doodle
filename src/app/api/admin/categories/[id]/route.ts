@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { updateCategory, deleteCategory } from '@/services/admin-product.service';
 import { getAuthenticatedAdmin } from '@/lib/auth-helpers';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
+import { revalidateStorefrontCatalog } from '@/lib/cache-revalidation';
 
 export async function PATCH(
   req: NextRequest,
@@ -24,6 +25,7 @@ export async function PATCH(
       name?: string;
       slug?: string;
       description?: string | null;
+      sort_order?: number;
     } = {};
 
     if (body.name !== undefined) {
@@ -50,12 +52,18 @@ export async function PATCH(
       updates.description = typeof body.description === 'string' ? body.description.trim() : null;
     }
 
+    if (typeof body.sort_order === 'number' && Number.isInteger(body.sort_order) && body.sort_order >= 0) {
+      updates.sort_order = body.sort_order;
+    }
+
     const updated = await updateCategory(
       supabase,
       id,
       adminContext.organization.id,
       updates
     );
+
+    revalidateStorefrontCatalog();
 
     return NextResponse.json({ success: true, data: updated }, { status: 200 });
   } catch (error: unknown) {
@@ -95,6 +103,8 @@ export async function DELETE(
       id,
       adminContext.organization.id
     );
+
+    revalidateStorefrontCatalog();
 
     return NextResponse.json({ success: true, data: result }, { status: 200 });
   } catch (error: unknown) {

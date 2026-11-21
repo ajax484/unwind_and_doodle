@@ -72,6 +72,8 @@ export default function FeaturedProductsSection({
               media={prod.media}
               isAvailable={prod.isAvailable}
               requiresCustomization={prod.requiresCustomization}
+              productType={prod.productType}
+              bundleComponentsCount={prod.bundleComponentsCount}
               categories={prod.categories}
             />
           ))}

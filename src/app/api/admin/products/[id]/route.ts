@@ -7,6 +7,7 @@ import {
 } from '@/services/admin-product.service';
 import { getAuthenticatedAdmin } from '@/lib/auth-helpers';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
+import { revalidateStorefrontCatalog } from '@/lib/cache-revalidation';
 
 export async function GET(
   req: NextRequest,
@@ -85,6 +86,8 @@ export async function PATCH(
       adminContext.organization.id
     );
 
+    revalidateStorefrontCatalog();
+
     return NextResponse.json({ success: true, data: updated }, { status: 200 });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Error updating product';
@@ -125,6 +128,8 @@ export async function DELETE(
       adminContext.user.id,
       adminContext.organization.id
     );
+
+    revalidateStorefrontCatalog();
 
     return NextResponse.json({ success: true, data: result }, { status: 200 });
   } catch (error: unknown) {

@@ -50,6 +50,7 @@ export default function AdminProductEditPage({
   const [costPrice, setCostPrice] = useState<number>(0);
   const [status, setStatus] = useState<'draft' | 'published' | 'archived'>('draft');
   const [requiresCustomization, setRequiresCustomization] = useState(false);
+  const [isFeatured, setIsFeatured] = useState(false);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [media, setMedia] = useState<AdminMediaItem[]>([]);
 
@@ -111,6 +112,7 @@ export default function AdminProductEditPage({
         setStatus(p.status);
         setRequiresCustomization(p.requires_customization);
         setSupportsThemeCustomization(p.supports_theme_customization || false);
+        setIsFeatured(Boolean(p.is_featured));
         setSelectedCategoryIds(p.categories.map((c) => c.id));
         if (p.media && p.media.length > 0) {
           setMedia(
@@ -296,6 +298,8 @@ export default function AdminProductEditPage({
         status: overrideStatus || status,
         requires_customization: requiresCustomization,
         supports_theme_customization: supportsThemeCustomization,
+        is_featured: isFeatured,
+        category_ids: selectedCategoryIds,
         media: media.map((m, idx) => ({
           ...(m.id ? { id: m.id } : {}),
           type: m.type,
@@ -650,6 +654,18 @@ export default function AdminProductEditPage({
                 type="checkbox"
                 checked={supportsThemeCustomization}
                 onChange={(e) => setSupportsThemeCustomization(e.target.checked)}
+                className="w-4 h-4 rounded text-rose-500"
+              />
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+              <span className="font-semibold text-slate-800 block">
+                Featured on Homepage
+              </span>
+              <input
+                type="checkbox"
+                checked={isFeatured}
+                onChange={(e) => setIsFeatured(e.target.checked)}
                 className="w-4 h-4 rounded text-rose-500"
               />
             </div>

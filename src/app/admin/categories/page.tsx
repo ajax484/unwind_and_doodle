@@ -16,7 +16,9 @@ function CategoriesManagementContent() {
 
   // Filters & Sorting
   const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
-  const [sortBy, setSortBy] = useState<'name_asc' | 'name_desc' | 'products_desc' | 'newest'>('name_asc');
+  const [sortBy, setSortBy] = useState<'storefront' | 'name_asc' | 'name_desc' | 'products_desc' | 'newest'>('storefront');
+  const [orderDirty, setOrderDirty] = useState(false);
+  const [savingOrder, setSavingOrder] = useState(false);
 
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -43,6 +45,7 @@ function CategoriesManagementContent() {
       const json = await res.json();
       if (res.ok && json.success) {
         setCategories(json.data || []);
+        setOrderDirty(false);
       } else {
         throw new Error(json.error || 'Failed to fetch categories');
       }
@@ -72,6 +75,11 @@ function CategoriesManagementContent() {
     }
 
     result.sort((a, b) => {
+      if (sortBy === 'storefront') {
+        const orderDiff = (a.sort_order ?? 0) - (b.sort_order ?? 0);
+        if (orderDiff !== 0) return orderDiff;
+        return a.name.localeCompare(b.name);
+      }
       if (sortBy === 'name_asc') return a.name.localeCompare(b.name);
       if (sortBy === 'name_desc') return b.name.localeCompare(a.name);
       if (sortBy === 'products_desc') return (b.product_count || 0) - (a.product_count || 0);
@@ -81,6 +89,48 @@ function CategoriesManagementContent() {
 
     return result;
   }, [categories, searchTerm, sortBy]);
+
+  const canReorder = sortBy === 'storefront' && !searchTerm.trim();
+
+  const handleMoveCategory = (categoryId: string, direction: -1 | 1) => {
+    setCategories((prev) => {
+      const sorted = [...prev].sort((a, b) => {
+        const diff = (a.sort_order ?? 0) - (b.sort_order ?? 0);
+        if (diff !== 0) return diff;
+        return a.name.localeCompare(b.name);
+      });
+      const idx = sorted.findIndex((c) => c.id === categoryId);
+      const targetIdx = idx + direction;
+      if (idx === -1 || targetIdx < 0 || targetIdx >= sorted.length) return prev;
+      const [moved] = sorted.splice(idx, 1);
+      sorted.splice(targetIdx, 0, moved);
+      return sorted.map((cat, i) => ({ ...cat, sort_order: i + 1 }));
+    });
+    setOrderDirty(true);
+  };
+
+  const handleSaveOrder = async () => {
+    try {
+      setSavingOrder(true);
+      setError(null);
+      const orderedIds = filteredAndSortedCategories.map((c) => c.id);
+      const res = await fetch('/api/admin/categories/reorder', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderedIds }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to save category order');
+      }
+      setOrderDirty(false);
+      await fetchCategories();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error saving category order');
+    } finally {
+      setSavingOrder(false);
+    }
+  };
 
   // Open Create Modal
   const openCreateModal = () => {
@@ -234,6 +284,16 @@ function CategoriesManagementContent() {
         </div>
 
         <div className="flex items-center gap-3">
+          {orderDirty && (
+            <button
+              type="button"
+              onClick={handleSaveOrder}
+              disabled={savingOrder}
+              className="px-4 py-2 rounded-xl bg-neutral-charcoal text-text-inverse text-xs font-heading font-semibold shadow-sm cursor-pointer disabled:opacity-50"
+            >
+              {savingOrder ? 'Saving...' : 'Save Order'}
+            </button>
+          )}
           <Link
             href="/admin/products"
             className="px-4 py-2 rounded-xl border border-border-default bg-white hover:bg-bg-subtle text-xs font-heading font-semibold text-text-secondary hover:text-text-primary transition-all shadow-2xs"
@@ -280,6 +340,7 @@ function CategoriesManagementContent() {
             onChange={(e) => setSortBy(e.target.value as any)}
             className="text-xs border border-border-default rounded-xl px-3 py-2 bg-white text-text-primary focus:outline-none focus:border-brand-rose"
           >
+            <option value="storefront">Storefront Order</option>
             <option value="name_asc">Name (A → Z)</option>
             <option value="name_desc">Name (Z → A)</option>
             <option value="products_desc">Most Products</option>
@@ -431,6 +492,31 @@ function CategoriesManagementContent() {
                     {/* Actions */}
                     <td className="py-3.5 px-4 text-right">
                       <div className="inline-flex items-center gap-1.5">
+                        {canReorder && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveCategory(category.id, -1)}
+                              disabled={filteredAndSortedCategories[0]?.id === category.id}
+                              aria-label={`Move ${category.name} up`}
+                              className="px-2 py-1.5 rounded-lg border border-border-default bg-white hover:bg-bg-subtle disabled:opacity-30 text-[11px] font-semibold cursor-pointer"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveCategory(category.id, 1)}
+                              disabled={
+                                filteredAndSortedCategories[filteredAndSortedCategories.length - 1]?.id ===
+                                category.id
+                              }
+                              aria-label={`Move ${category.name} down`}
+                              className="px-2 py-1.5 rounded-lg border border-border-default bg-white hover:bg-bg-subtle disabled:opacity-30 text-[11px] font-semibold cursor-pointer"
+                            >
+                              ↓
+                            </button>
+                          </>
+                        )}
                         <button
                           onClick={() => openEditModal(category)}
                           className="px-2.5 py-1.5 rounded-lg border border-border-default bg-white hover:bg-bg-subtle text-text-primary text-[11px] font-heading font-semibold transition-colors shadow-2xs"

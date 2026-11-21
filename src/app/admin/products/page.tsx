@@ -132,6 +132,12 @@ function ProductsListContent() {
 
         <div className="flex items-center gap-3">
           <Link
+            href="/admin/products/merchandising"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold font-heading shadow-2xs transition-all cursor-pointer"
+          >
+            <span>✨</span> Merchandising
+          </Link>
+          <Link
             href="/admin/categories"
             className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold font-heading shadow-2xs transition-all cursor-pointer"
           >
@@ -226,6 +232,7 @@ function ProductsListContent() {
               className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-700 bg-white focus:outline-hidden focus:border-rose-400 cursor-pointer"
             >
               <option value="newest">Sort: Newest First</option>
+              <option value="display_order">Sort: Storefront Order</option>
               <option value="oldest">Sort: Oldest First</option>
               <option value="price_desc">Sort: Price (High to Low)</option>
               <option value="price_asc">Sort: Price (Low to High)</option>
@@ -330,12 +337,19 @@ function ProductsListContent() {
                             )}
                           </div>
                           <div>
-                            <Link
-                              href={`/admin/products/${product.id}`}
-                              className="font-bold text-slate-900 hover:text-rose-500 transition-colors"
-                            >
-                              {product.name}
-                            </Link>
+                            <div className="flex items-center gap-1.5">
+                              <Link
+                                href={`/admin/products/${product.id}`}
+                                className="font-bold text-slate-900 hover:text-rose-500 transition-colors"
+                              >
+                                {product.name}
+                              </Link>
+                              {product.is_featured && (
+                                <span className="px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-semibold">
+                                  Featured
+                                </span>
+                              )}
+                            </div>
                             <div className="font-mono text-[10px] text-slate-400">/{product.slug}</div>
                           </div>
                         </div>

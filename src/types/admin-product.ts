@@ -36,6 +36,9 @@ export const CreateProductSchema = z.object({
   cost_price: z.coerce.number().min(0, 'Cost price cannot be negative').default(0),
   requires_customization: z.boolean().default(false),
   supports_theme_customization: z.boolean().default(false).optional(),
+  display_order: z.coerce.number().int().min(0).optional(),
+  is_featured: z.boolean().optional(),
+  featured_order: z.coerce.number().int().min(0).optional(),
   status: z.enum(['draft', 'published', 'archived']).default('draft'),
   category_ids: z.array(z.string().uuid()).optional().default([]),
   images: z
@@ -63,15 +66,30 @@ export const ProductAddonSchema = z.object({
 
 export const UpdateProductAddonSchema = ProductAddonSchema.partial();
 
+export const UpdateMerchandisingItemSchema = z.object({
+  id: z.string().uuid(),
+  display_order: z.coerce.number().int().min(0).optional(),
+  is_featured: z.boolean().optional(),
+  featured_order: z.coerce.number().int().min(0).optional(),
+});
+
+export const UpdateMerchandisingSchema = z.object({
+  items: z.array(UpdateMerchandisingItemSchema).min(1, 'At least one product update is required'),
+});
+
+export const ReorderCategoriesSchema = z.object({
+  orderedIds: z.array(z.string().uuid()).min(1, 'At least one category ID is required'),
+});
+
 export const AdminProductFilterSchema = z.object({
   search: z.string().optional(),
   status: z.enum(['draft', 'published', 'archived']).optional(),
-  product_type: z.enum(['physical', 'custom']).optional(),
+  product_type: z.enum(['physical', 'custom', 'bundle']).optional(),
   categoryId: z.string().optional(),
   organizationId: z.string().optional(),
-  sortBy: z.enum(['newest', 'oldest', 'price_asc', 'price_desc', 'name_asc']).default('newest').optional(),
+  sortBy: z.enum(['newest', 'oldest', 'price_asc', 'price_desc', 'name_asc', 'display_order']).default('newest').optional(),
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(25),
+  limit: z.coerce.number().int().min(1).max(200).default(25),
 });
 
 export type CreateProductInput = z.input<typeof CreateProductSchema>;
@@ -79,6 +97,9 @@ export type UpdateProductInput = z.input<typeof UpdateProductSchema>;
 export type ProductAddonInput = z.input<typeof ProductAddonSchema>;
 export type UpdateProductAddonInput = z.input<typeof UpdateProductAddonSchema>;
 export type AdminProductFilters = z.input<typeof AdminProductFilterSchema>;
+export type UpdateMerchandisingItemInput = z.infer<typeof UpdateMerchandisingItemSchema>;
+export type UpdateMerchandisingInput = z.infer<typeof UpdateMerchandisingSchema>;
+export type ReorderCategoriesInput = z.infer<typeof ReorderCategoriesSchema>;
 
 export interface AdminProductImageItem {
   id: string;
@@ -100,6 +121,7 @@ export interface AdminCategory {
   name: string;
   slug: string;
   description: string | null;
+  sort_order?: number;
   created_at: string;
   product_count?: number;
 }
@@ -115,6 +137,9 @@ export interface AdminProductListItem {
   status: ProductStatus;
   requires_customization: boolean;
   supports_theme_customization?: boolean;
+  display_order?: number;
+  is_featured?: boolean;
+  featured_order?: number;
   primaryImage: string | null;
   images: { id: string; storage_path: string; sort_order: number }[];
   media?: ProductMedia[];
@@ -171,6 +196,9 @@ export interface AdminProductDetail {
   status: ProductStatus;
   requires_customization: boolean;
   supports_theme_customization?: boolean;
+  display_order?: number;
+  is_featured?: boolean;
+  featured_order?: number;
   organization_id: string;
   images: AdminProductImageItem[];
   media?: ProductMedia[];

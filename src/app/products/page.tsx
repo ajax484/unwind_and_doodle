@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useTransition, Suspense } from 'react';
+import React, { useEffect, useState, useTransition, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import ProductCard from '@/components/ProductCard';
 import { Pagination } from '@/components/Pagination';
@@ -24,13 +24,17 @@ function ProductsContent() {
   const initialInStock = searchParams.get('inStock') === 'true';
   const initialPage = Number(searchParams.get('page')) || 1;
 
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
   const [products, setProducts] = useState<CatalogProductItem[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([
     { id: 'all', name: 'All', slug: '' },
     { id: 'cb', name: 'Coloring Books', slug: 'coloring-books' },
     { id: 'jn', name: 'Journals', slug: 'journals' },
-    { id: 'wr', name: 'Pencils & Pens', slug: 'writing' },
-    { id: 'gf', name: 'Gift Sets', slug: 'gift-sets' },
+    { id: 'gb', name: 'Game Books', slug: 'game-books' },
+    { id: 'cust', name: 'Customized Books', slug: 'customized-books' },
+    { id: 'ct', name: 'Coloring Tools', slug: 'coloring-tools' },
+    { id: 'kt', name: 'Kits', slug: 'kits' },
   ]);
 
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
@@ -51,6 +55,9 @@ function ProductsContent() {
     setSelectedSort(searchParams.get('sort') || 'featured');
     setInStockOnly(searchParams.get('inStock') === 'true');
     setCurrentPage(Number(searchParams.get('page')) || 1);
+    if (searchParams.get('focus') === 'search') {
+      searchInputRef.current?.focus();
+    }
   }, [searchParams]);
 
   // Fetch products from server
@@ -213,6 +220,7 @@ function ProductsContent() {
           {/* Live Search */}
           <div className="relative w-full sm:w-72">
             <input
+              ref={searchInputRef}
               type="text"
               placeholder="Search products..."
               value={searchQuery}

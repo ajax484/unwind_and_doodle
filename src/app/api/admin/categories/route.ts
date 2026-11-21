@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { listCategories, createCategory } from '@/services/admin-product.service';
 import { getAuthenticatedAdmin } from '@/lib/auth-helpers';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
+import { revalidateStorefrontCatalog } from '@/lib/cache-revalidation';
 
 export async function GET(req: NextRequest) {
   try {
@@ -48,8 +49,14 @@ export async function POST(req: NextRequest) {
       supabase,
       name.trim(),
       adminContext.organization.id,
-      { slug, description }
+      {
+        slug,
+        description,
+        sort_order: typeof body?.sort_order === 'number' ? body.sort_order : undefined,
+      }
     );
+
+    revalidateStorefrontCatalog();
 
     return NextResponse.json({ success: true, data: category }, { status: 201 });
   } catch (error: unknown) {

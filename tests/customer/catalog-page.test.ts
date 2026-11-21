@@ -183,4 +183,105 @@ describe('Phase 3C: Product Catalog (/products)', () => {
       expect(page2[0].id).not.toBe(page1[0].id);
     });
   });
+
+  describe('4. Global Display Order, Auto-Sink Out-of-Stock, Homepage Featuring & Category Search', () => {
+    it('orders by display_order ascending and automatically sinks out-of-stock products to the bottom', async () => {
+      const merchSupabase = createMockSupabaseClient({
+        warehouses: [{ id: warehouseId, name: 'Lagos Hub', code: 'LAG-01', is_active: true }],
+        categories: [
+          { id: 'cat-cb', name: 'Coloring Books', slug: 'coloring-books', sort_order: 1 },
+          { id: 'cat-kt', name: 'Kits', slug: 'kits', sort_order: 6 },
+        ],
+        products: [
+          {
+            id: 'prod-pen',
+            name: 'Gel Pen',
+            slug: 'gel-pen',
+            description: 'Smooth pen',
+            selling_price: 1500,
+            sku: 'PEN-01',
+            status: 'published',
+            display_order: 3,
+            is_featured: false,
+            featured_order: 0,
+            created_at: '2026-08-01T10:00:00Z',
+          },
+          {
+            id: 'prod-oos-top',
+            name: 'Sold Out Hero Book',
+            slug: 'sold-out-hero-book',
+            description: 'Currently sold out',
+            selling_price: 12000,
+            sku: 'BK-OOS-01',
+            status: 'published',
+            display_order: 1,
+            is_featured: true,
+            featured_order: 1,
+            created_at: '2026-08-25T10:00:00Z',
+          },
+          {
+            id: 'prod-book-lead',
+            name: 'Signature Coloring Book',
+            slug: 'signature-coloring-book',
+            description: 'Lead product',
+            selling_price: 9000,
+            sku: 'BK-SIG-01',
+            status: 'published',
+            display_order: 2,
+            is_featured: true,
+            featured_order: 2,
+            created_at: '2026-08-10T10:00:00Z',
+          },
+          {
+            id: 'prod-kit-1',
+            name: 'Weekend Unwind Bundle',
+            slug: 'weekend-unwind-bundle',
+            description: 'Complete creative pack',
+            selling_price: 18000,
+            sku: 'KT-WKD-01',
+            status: 'published',
+            display_order: 4,
+            is_featured: true,
+            featured_order: 3,
+            created_at: '2026-08-12T10:00:00Z',
+          },
+        ],
+        product_categories: [
+          { product_id: 'prod-book-lead', category_id: 'cat-cb' },
+          { product_id: 'prod-kit-1', category_id: 'cat-kt' },
+        ],
+        product_images: [],
+        product_media: [],
+        inventory: [
+          { warehouse_id: warehouseId, product_id: 'prod-pen', quantity: 50, reserved_quantity: 0 },
+          { warehouse_id: warehouseId, product_id: 'prod-oos-top', quantity: 0, reserved_quantity: 0 },
+          { warehouse_id: warehouseId, product_id: 'prod-book-lead', quantity: 10, reserved_quantity: 0 },
+          { warehouse_id: warehouseId, product_id: 'prod-kit-1', quantity: 5, reserved_quantity: 0 },
+        ],
+      });
+
+      const allOrdered = await getPublishedCatalog(merchSupabase, { sort: 'featured' });
+      expect(allOrdered.map((p) => p.slug)).toEqual([
+        'signature-coloring-book', // display_order 2, in stock
+        'gel-pen',                 // display_order 3, in stock
+        'weekend-unwind-bundle',   // display_order 4, in stock
+        'sold-out-hero-book',      // display_order 1, but out of stock -> auto-sunk to bottom
+      ]);
+
+      // Homepage featured returns all featured items (flexible count) ordered by featured_order, with OOS sunk
+      const featured = await getPublishedCatalog(merchSupabase, {
+        featuredOnly: true,
+        sort: 'featured',
+      });
+      expect(featured.map((p) => p.slug)).toEqual([
+        'signature-coloring-book', // featured_order 2, in stock
+        'weekend-unwind-bundle',   // featured_order 3, in stock
+        'sold-out-hero-book',      // featured_order 1, out of stock -> auto-sunk
+      ]);
+
+      // Search matches category names even when the word is not in product title/description
+      const kitSearch = await getPublishedCatalog(merchSupabase, { search: 'Kits' });
+      expect(kitSearch.map((p) => p.slug)).toEqual(['weekend-unwind-bundle']);
+    });
+  });
 });

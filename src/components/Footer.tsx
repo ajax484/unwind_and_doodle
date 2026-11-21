@@ -118,10 +118,11 @@ export interface FooterProps
 
 export const CANONICAL_CATALOG_LINKS: FooterLinkItem[] = [
   { label: 'Coloring Books', href: '/products?category=coloring-books' },
-  { label: 'Collections', href: '/products' },
-  { label: 'Bundles', href: '/products?category=bundles' },
-  { label: 'Gift Ideas', href: '/products?category=gifts' },
-  { label: 'Journals & Planners', href: '/products?category=journals' },
+  { label: 'Journals', href: '/products?category=journals' },
+  { label: 'Game Books', href: '/products?category=game-books' },
+  { label: 'Customized Books', href: '/products?category=customized-books' },
+  { label: 'Coloring Tools', href: '/products?category=coloring-tools' },
+  { label: 'Kits', href: '/products?category=kits' },
 ];
 
 export const CANONICAL_SUPPORT_LINKS: FooterLinkItem[] = [

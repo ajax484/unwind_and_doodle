@@ -31,7 +31,7 @@ export async function listAdminProducts(
   filters: AdminProductFilters
 ): Promise<AdminProductListResponse> {
   const page = Math.max(1, filters.page || 1);
-  const limit = Math.max(1, Math.min(100, filters.limit || 25));
+  const limit = Math.max(1, Math.min(200, filters.limit || 25));
   const offset = (page - 1) * limit;
 
   // 1. If filtering by categoryId, get matching product IDs
@@ -87,7 +87,15 @@ export async function listAdminProducts(
 
   // Sorting
   const sortBy = filters.sortBy || 'newest';
-  if (sortBy === 'oldest') {
+  if (sortBy === 'display_order') {
+    filtered.sort((a, b) => {
+      const orderA = (a as Record<string, unknown>).display_order as number | undefined;
+      const orderB = (b as Record<string, unknown>).display_order as number | undefined;
+      const diff = (orderA ?? 0) - (orderB ?? 0);
+      if (diff !== 0) return diff;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  } else if (sortBy === 'oldest') {
     filtered.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   } else if (sortBy === 'price_asc') {
     filtered.sort((a, b) => (a.selling_price || 0) - (b.selling_price || 0));
@@ -313,6 +321,13 @@ export async function listAdminProducts(
       status: p.status,
       requires_customization: p.requires_customization || false,
       supports_theme_customization: Boolean((p as Record<string, unknown>).supports_theme_customization),
+      display_order: typeof (p as Record<string, unknown>).display_order === 'number'
+        ? ((p as Record<string, unknown>).display_order as number)
+        : 0,
+      is_featured: Boolean((p as Record<string, unknown>).is_featured),
+      featured_order: typeof (p as Record<string, unknown>).featured_order === 'number'
+        ? ((p as Record<string, unknown>).featured_order as number)
+        : 0,
       primaryImage: primaryImageMap.get(p.id) || null,
       images: imagesByProduct.get(p.id) || [],
       media: mediaByProduct.get(p.id) || [],
@@ -484,6 +499,13 @@ export async function getAdminProductDetail(
     status: product.status,
     requires_customization: product.requires_customization || false,
     supports_theme_customization: Boolean((product as Record<string, unknown>).supports_theme_customization),
+    display_order: typeof (product as Record<string, unknown>).display_order === 'number'
+      ? ((product as Record<string, unknown>).display_order as number)
+      : 0,
+    is_featured: Boolean((product as Record<string, unknown>).is_featured),
+    featured_order: typeof (product as Record<string, unknown>).featured_order === 'number'
+      ? ((product as Record<string, unknown>).featured_order as number)
+      : 0,
     organization_id: product.organization_id,
     images: sortedImages.map((img) => ({
       id: img.id,
@@ -559,6 +581,10 @@ export async function createAdminProduct(
       selling_price: input.selling_price,
       cost_price: input.cost_price,
       requires_customization: input.requires_customization,
+      supports_theme_customization: input.supports_theme_customization ?? false,
+      ...(input.display_order !== undefined ? { display_order: input.display_order } : {}),
+      ...(input.is_featured !== undefined ? { is_featured: input.is_featured } : {}),
+      ...(input.featured_order !== undefined ? { featured_order: input.featured_order } : {}),
       status: input.status,
     } as unknown as Database['public']['Tables']['products']['Insert'])
     .select()
@@ -747,6 +773,9 @@ export async function updateAdminProduct(
   if ((input as Record<string, unknown>).supports_theme_customization !== undefined) {
     updatePayload.supports_theme_customization = (input as Record<string, unknown>).supports_theme_customization;
   }
+  if (input.display_order !== undefined) updatePayload.display_order = input.display_order;
+  if (input.is_featured !== undefined) updatePayload.is_featured = input.is_featured;
+  if (input.featured_order !== undefined) updatePayload.featured_order = input.featured_order;
   if (input.status !== undefined) updatePayload.status = input.status;
 
   const { error: updateErr } = await supabase
@@ -1165,6 +1194,13 @@ export async function listCategories(
 
   const categories = data || [];
 
+  const sortCategories = <T extends { sort_order?: number; name: string }>(list: T[]) =>
+    list.sort((a, b) => {
+      const orderDiff = (a.sort_order ?? 0) - (b.sort_order ?? 0);
+      if (orderDiff !== 0) return orderDiff;
+      return a.name.localeCompare(b.name);
+    });
+
   if (options?.includeProductCount && categories.length > 0) {
     const categoryIds = categories.map((c) => c.id);
     const { data: prodCats } = await supabase
@@ -1177,15 +1213,15 @@ export async function listCategories(
       countMap[pc.category_id] = (countMap[pc.category_id] || 0) + 1;
     });
 
-    return categories
-      .map((c) => ({
+    return sortCategories(
+      categories.map((c) => ({
         ...c,
         product_count: countMap[c.id] || 0,
       }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    );
   }
 
-  return categories.sort((a, b) => a.name.localeCompare(b.name));
+  return sortCategories(categories);
 }
 
 /**
@@ -1195,7 +1231,7 @@ export async function createCategory(
   supabase: SupabaseClient<Database>,
   name: string,
   organizationId: string,
-  options?: { slug?: string; description?: string | null }
+  options?: { slug?: string; description?: string | null; sort_order?: number }
 ) {
   const customSlug = options?.slug ? slugify(options.slug) : null;
   const baseSlug = customSlug || slugify(name) || 'category';
@@ -1214,6 +1250,7 @@ export async function createCategory(
       name: name.trim(),
       slug,
       description: options?.description !== undefined ? options.description : null,
+      ...(options?.sort_order !== undefined ? { sort_order: options.sort_order } : {}),
     } as unknown as Database['public']['Tables']['categories']['Insert'])
     .select()
     .single();
@@ -1226,7 +1263,7 @@ export async function createCategory(
 }
 
 /**
- * Updates an existing category's name, slug, or description.
+ * Updates an existing category's name, slug, description, or sort_order.
  */
 export async function updateCategory(
   supabase: SupabaseClient<Database>,
@@ -1236,6 +1273,7 @@ export async function updateCategory(
     name?: string;
     slug?: string;
     description?: string | null;
+    sort_order?: number;
   }
 ) {
   // 1. Verify category exists and belongs to organization
@@ -1284,6 +1322,10 @@ export async function updateCategory(
 
   if (updates.description !== undefined) {
     payload.description = updates.description && updates.description.trim() ? updates.description.trim() : null;
+  }
+
+  if (updates.sort_order !== undefined) {
+    payload.sort_order = updates.sort_order;
   }
 
   const { data: updated, error: updateError } = await supabase
@@ -1350,6 +1392,128 @@ export async function deleteCategory(
     detachedProductCount: productCount || 0,
     detachedDiscountCount: discountCount || 0,
   };
+}
+
+/**
+ * Batch-updates storefront merchandising fields (display_order, is_featured, featured_order)
+ * for products belonging to an organization.
+ */
+export async function updateProductMerchandising(
+  supabase: SupabaseClient<Database>,
+  organizationId: string,
+  items: {
+    id: string;
+    display_order?: number;
+    is_featured?: boolean;
+    featured_order?: number;
+  }[],
+  userId?: string
+): Promise<{ updatedCount: number }> {
+  if (!items || items.length === 0) {
+    return { updatedCount: 0 };
+  }
+
+  const ids = items.map((item) => item.id);
+  const { data: existingProducts, error: fetchError } = await supabase
+    .from('products')
+    .select('id, organization_id')
+    .in('id', ids);
+
+  if (fetchError) {
+    throw new Error(`Failed to verify products: ${fetchError.message}`);
+  }
+
+  const ownedIds = new Set(
+    (existingProducts || [])
+      .filter((p) => p.organization_id === organizationId)
+      .map((p) => p.id)
+  );
+
+  const now = new Date().toISOString();
+  let updatedCount = 0;
+
+  for (const item of items) {
+    if (!ownedIds.has(item.id)) {
+      continue;
+    }
+
+    const updatePayload: Record<string, unknown> = { updated_at: now };
+    if (item.display_order !== undefined) updatePayload.display_order = item.display_order;
+    if (item.is_featured !== undefined) updatePayload.is_featured = item.is_featured;
+    if (item.featured_order !== undefined) updatePayload.featured_order = item.featured_order;
+
+    const { error: updateError } = await supabase
+      .from('products')
+      .update(updatePayload as unknown as Database['public']['Tables']['products']['Update'])
+      .eq('id', item.id)
+      .eq('organization_id', organizationId);
+
+    if (updateError) {
+      throw new Error(`Failed to update merchandising for product ${item.id}: ${updateError.message}`);
+    }
+    updatedCount++;
+  }
+
+  if (userId && updatedCount > 0) {
+    await supabase.from('audit_logs').insert({
+      organization_id: organizationId,
+      actor_id: userId,
+      user_id: userId,
+      action: 'catalog.merchandising_updated',
+      entity_type: 'product',
+      entity_id: items[0].id,
+      after_data: { updatedCount },
+    } as unknown as Database['public']['Tables']['audit_logs']['Insert']);
+  }
+
+  return { updatedCount };
+}
+
+/**
+ * Batch-updates category sort_order values for an organization.
+ */
+export async function reorderCategories(
+  supabase: SupabaseClient<Database>,
+  organizationId: string,
+  orderedIds: string[]
+): Promise<{ updatedCount: number }> {
+  if (!orderedIds || orderedIds.length === 0) {
+    return { updatedCount: 0 };
+  }
+
+  const { data: existingCats, error: fetchError } = await supabase
+    .from('categories')
+    .select('id, organization_id')
+    .in('id', orderedIds);
+
+  if (fetchError) {
+    throw new Error(`Failed to verify categories: ${fetchError.message}`);
+  }
+
+  const ownedIds = new Set(
+    (existingCats || [])
+      .filter((c) => c.organization_id === organizationId)
+      .map((c) => c.id)
+  );
+
+  let updatedCount = 0;
+  for (let idx = 0; idx < orderedIds.length; idx++) {
+    const id = orderedIds[idx];
+    if (!ownedIds.has(id)) continue;
+
+    const { error: updateError } = await supabase
+      .from('categories')
+      .update({ sort_order: idx + 1 } as unknown as Database['public']['Tables']['categories']['Update'])
+      .eq('id', id)
+      .eq('organization_id', organizationId);
+
+    if (updateError) {
+      throw new Error(`Failed to reorder category ${id}: ${updateError.message}`);
+    }
+    updatedCount++;
+  }
+
+  return { updatedCount };
 }
 
 /**

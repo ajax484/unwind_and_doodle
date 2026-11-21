@@ -9,7 +9,8 @@ export async function GET() {
 
     const { data: categories, error } = await supabase
       .from('categories')
-      .select('id, name, slug, description, created_at')
+      .select('id, name, slug, description, sort_order, created_at')
+      .order('sort_order', { ascending: true })
       .order('name', { ascending: true });
 
     if (error) {

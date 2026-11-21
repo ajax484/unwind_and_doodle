@@ -31,8 +31,12 @@ export async function GET(req: NextRequest) {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedProducts = allMatching.slice(startIndex, startIndex + itemsPerPage);
 
-    // Fetch dynamic categories from DB
-    const { data: dbCategories } = await supabase.from('categories').select('id, name, slug, description');
+    // Fetch dynamic categories from DB ordered by storefront sort_order
+    const { data: dbCategories } = await supabase
+      .from('categories')
+      .select('id, name, slug, description, sort_order')
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true });
 
     return NextResponse.json(
       {

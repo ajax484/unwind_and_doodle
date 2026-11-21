@@ -33,6 +33,7 @@ export default function NewProductPage() {
   const [sellingPrice, setSellingPrice] = useState<number | ''>('');
   const [costPrice, setCostPrice] = useState<number | ''>('');
   const [requiresCustomization, setRequiresCustomization] = useState(false);
+  const [isFeatured, setIsFeatured] = useState(false);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [media, setMedia] = useState<AdminMediaItem[]>([]);
 
@@ -198,6 +199,7 @@ export default function NewProductPage() {
         cost_price: Number(costPrice) || 0,
         requires_customization: requiresCustomization,
         supports_theme_customization: supportsThemeCustomization,
+        is_featured: isFeatured,
         status,
         category_ids: selectedCategoryIds,
         media: media.map((m, idx) => ({
@@ -427,6 +429,21 @@ export default function NewProductPage() {
                 type="checkbox"
                 checked={requiresCustomization}
                 onChange={(e) => setRequiresCustomization(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-500" />
+            </label>
+          </div>
+
+          <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+            <h3 className="font-heading font-bold text-base text-slate-900">
+              Featured on Homepage
+            </h3>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isFeatured}
+                onChange={(e) => setIsFeatured(e.target.checked)}
                 className="sr-only peer"
               />
               <div className="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-500" />

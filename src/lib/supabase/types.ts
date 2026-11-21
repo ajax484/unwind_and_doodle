@@ -223,6 +223,7 @@ export type Database = {
           name: string;
           organization_id: string;
           slug: string;
+          sort_order: number;
         };
         Insert: {
           created_at?: string;
@@ -231,6 +232,7 @@ export type Database = {
           name: string;
           organization_id: string;
           slug: string;
+          sort_order?: number;
         };
         Update: {
           created_at?: string;
@@ -239,6 +241,7 @@ export type Database = {
           name?: string;
           organization_id?: string;
           slug?: string;
+          sort_order?: number;
         };
         Relationships: [
           {
@@ -2425,7 +2428,10 @@ export type Database = {
           cost_price: number;
           created_at: string;
           description: string | null;
+          display_order: number;
+          featured_order: number;
           id: string;
+          is_featured: boolean;
           name: string;
           organization_id: string;
           product_type: Database["public"]["Enums"]["product_type"];
@@ -2441,7 +2447,10 @@ export type Database = {
           cost_price?: number;
           created_at?: string;
           description?: string | null;
+          display_order?: number;
+          featured_order?: number;
           id?: string;
+          is_featured?: boolean;
           name: string;
           organization_id: string;
           product_type?: Database["public"]["Enums"]["product_type"];
@@ -2457,7 +2466,10 @@ export type Database = {
           cost_price?: number;
           created_at?: string;
           description?: string | null;
+          display_order?: number;
+          featured_order?: number;
           id?: string;
+          is_featured?: boolean;
           name?: string;
           organization_id?: string;
           product_type?: Database["public"]["Enums"]["product_type"];

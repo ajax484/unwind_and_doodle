@@ -3,6 +3,7 @@ import { AdminProductFilterSchema, CreateProductSchema } from '@/types/admin-pro
 import { listAdminProducts, createAdminProduct } from '@/services/admin-product.service';
 import { getAuthenticatedAdmin } from '@/lib/auth-helpers';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
+import { revalidateStorefrontCatalog } from '@/lib/cache-revalidation';
 
 export async function GET(req: NextRequest) {
   try {
@@ -80,6 +81,8 @@ export async function POST(req: NextRequest) {
       adminContext.user.id,
       adminContext.organization.id
     );
+
+    revalidateStorefrontCatalog();
 
     return NextResponse.json({ success: true, data: product }, { status: 201 });
   } catch (error: unknown) {

@@ -24,21 +24,29 @@ const getHomepageData = unstable_cache(
   async (): Promise<HomepageData> => {
     const supabase = getServiceSupabaseClient();
 
-    const [productsResult, categoriesResult, reviewsResult] = await Promise.allSettled([
-      getPublishedCatalog(supabase, { sort: 'price-desc' }),
-      supabase
-        .from('categories')
-        .select('id, name, slug, description')
-        .order('name', { ascending: true }),
-      getStoreReviews(supabase, 6),
-    ]);
+    const [featuredResult, fallbackCatalogResult, categoriesResult, reviewsResult] =
+      await Promise.allSettled([
+        getPublishedCatalog(supabase, { featuredOnly: true, sort: 'featured' }),
+        getPublishedCatalog(supabase, { sort: 'featured', limit: 4 }),
+        supabase
+          .from('categories')
+          .select('id, name, slug, description, sort_order')
+          .order('sort_order', { ascending: true })
+          .order('name', { ascending: true }),
+        getStoreReviews(supabase, 6),
+      ]);
+
+    const explicitlyFeatured =
+      featuredResult.status === 'fulfilled' ? featuredResult.value : [];
+    const fallbackProducts =
+      fallbackCatalogResult.status === 'fulfilled' ? fallbackCatalogResult.value : [];
 
     const featuredProducts =
-      productsResult.status === 'fulfilled' ? productsResult.value.slice(0, 4) : [];
+      explicitlyFeatured.length > 0 ? explicitlyFeatured : fallbackProducts;
     const productsError =
-      productsResult.status === 'rejected'
-        ? productsResult.reason instanceof Error
-          ? productsResult.reason.message
+      featuredResult.status === 'rejected' && fallbackCatalogResult.status === 'rejected'
+        ? featuredResult.reason instanceof Error
+          ? featuredResult.reason.message
           : 'Error loading catalog'
         : null;
 
@@ -60,7 +68,7 @@ const getHomepageData = unstable_cache(
     };
   },
   ['homepage-data'],
-  { revalidate: 60 }
+  { revalidate: 60, tags: ['homepage-data', 'catalog', 'categories'] }
 );
 
 export default async function HomePage() {

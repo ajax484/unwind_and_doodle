@@ -139,6 +139,7 @@ export default function AdminLayoutClient({
       icon: "🎨",
       children: [
         { label: "Products", href: "/admin/products", exact: true },
+        { label: "Merchandising", href: "/admin/products/merchandising" },
         { label: "Categories", href: "/admin/categories" },
         { label: "Bundles", href: "/admin/products/bundles" },
         { label: "Inventory", href: "/admin/inventory" },
@@ -247,6 +248,8 @@ export default function AdminLayoutClient({
     if (pathname.startsWith("/admin/audit-logs")) return "Audit Logs";
     if (pathname.startsWith("/admin/analytics")) return "Store Analytics";
     if (pathname.startsWith("/admin/orders")) return "Order Management";
+    if (pathname.startsWith("/admin/products/merchandising"))
+      return "Storefront Merchandising";
     if (pathname.startsWith("/admin/products/bundles"))
       return "Product Bundles";
     if (pathname.startsWith("/admin/products")) return "Products";
@@ -281,6 +284,7 @@ export default function AdminLayoutClient({
       analytics: "Store Analytics",
       orders: "Orders",
       products: "Products",
+      merchandising: "Merchandising",
       bundles: "Bundles",
       inventory: "Inventory & Stock",
       customers: "Customers",
