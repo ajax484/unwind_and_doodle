@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { HOMEPAGE_CATEGORIES } from '@/lib/homepage-data';
 
-interface DynamicCategory {
+export interface DynamicCategory {
   id: string;
   name: string;
   slug: string;
@@ -18,11 +18,17 @@ const BADGE_STYLES = [
   'bg-brand-sage-subtle text-brand-sage',
 ];
 
-export default function CategoryGrid() {
-  const [categories, setCategories] = useState<DynamicCategory[]>([]);
-  const [loading, setLoading] = useState(true);
+export interface CategoryGridProps {
+  initialCategories?: DynamicCategory[];
+}
+
+export default function CategoryGrid({ initialCategories }: CategoryGridProps = {}) {
+  const hasInitial = initialCategories !== undefined;
+  const [categories, setCategories] = useState<DynamicCategory[]>(initialCategories ?? []);
+  const [loading, setLoading] = useState(!hasInitial);
 
   useEffect(() => {
+    if (hasInitial) return;
     let isMounted = true;
     async function loadCategories() {
       try {
@@ -43,7 +49,7 @@ export default function CategoryGrid() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [hasInitial]);
 
   return (
     <section className="w-full bg-gradient-to-b from-brand-rose-subtle via-bg-accent to-brand-rose-light py-16 sm:py-24 lg:py-32 border-b border-brand-rose/25 relative overflow-hidden">

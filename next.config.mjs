@@ -7,6 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  htmlLimitedBots: /.*/,
   outputFileTracingRoot: __dirname,
   images: {
     formats: ['image/avif', 'image/webp'],

@@ -17,11 +17,16 @@ import { trackViewContent, trackAddToCart } from '@/lib/meta-pixel';
 import TestimonialCard from '@/components/TestimonialCard';
 import RatingStars from '@/components/RatingStars';
 
-export default function ProductDetailClient({ initialSlug }: { initialSlug?: string }) {
+export interface ProductDetailClientProps {
+  initialSlug?: string;
+  initialProduct?: ProductDetail | null;
+}
+
+export default function ProductDetailClient({ initialSlug, initialProduct }: ProductDetailClientProps) {
   const params = useParams();
   const slug = initialSlug || (params?.slug as string);
 
-  const [product, setProduct] = useState<ProductDetail | null>(null);
+  const [product, setProduct] = useState<ProductDetail | null>(initialProduct || null);
   const [quantity, setQuantity] = useState(1);
   const [selectedAddons, setSelectedAddons] = useState<Record<string, number>>({});
   const [customization, setCustomization] = useState<{ assetUrls: string[]; notes: string }>({
@@ -36,7 +41,7 @@ export default function ProductDetailClient({ initialSlug }: { initialSlug?: str
   const [relatedProducts, setRelatedProducts] = useState<CatalogProductItem[]>([]);
   const [activeTab, setActiveTab] = useState<'details' | 'shipping' | 'customization'>('details');
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialProduct);
   const [addingToCart, setAddingToCart] = useState(false);
   const [addedSuccess, setAddedSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +57,65 @@ export default function ProductDetailClient({ initialSlug }: { initialSlug?: str
   }>>([]);
 
   useEffect(() => {
+    async function loadAuxiliaryData(prod: ProductDetail) {
+      trackViewContent({
+        content_name: prod.name,
+        content_ids: [prod.id],
+        value: prod.price,
+        currency: 'NGN',
+      });
+
+      if (prod.supportsThemeCustomization) {
+        try {
+          const themesRes = await fetch(`/api/products/${prod.slug || prod.id}/themes`);
+          if (themesRes.ok) {
+            const themesJson = await themesRes.json();
+            if (themesJson.success && Array.isArray(themesJson.themes)) {
+              setAvailableThemes(themesJson.themes);
+            }
+          }
+        } catch {
+          // ignore theme fetch error
+        }
+      }
+
+      // Fetch related products from same category if available
+      try {
+        const primaryCat = prod.categories?.[0]?.slug;
+        const relatedRes = await fetch(
+          primaryCat ? `/api/products?category=${primaryCat}&limit=4` : '/api/products?limit=4'
+        );
+        if (relatedRes.ok) {
+          const relatedJson = await relatedRes.json();
+          if (relatedJson.success && Array.isArray(relatedJson.data)) {
+            setRelatedProducts(
+              relatedJson.data.filter((p: CatalogProductItem) => p.id !== prod.id).slice(0, 4)
+            );
+          }
+        }
+      } catch {
+        // ignore related error
+      }
+
+      // Fetch product reviews
+      try {
+        const reviewsRes = await fetch(`/api/reviews?productId=${prod.id}`);
+        if (reviewsRes.ok) {
+          const reviewsJson = await reviewsRes.json();
+          if (reviewsJson.success && Array.isArray(reviewsJson.data)) {
+            setReviews(reviewsJson.data);
+          }
+        }
+      } catch {
+        // Keep fallback testimonials if review fetch fails
+      }
+    }
+
+    if (initialProduct && (initialProduct.slug === slug || initialProduct.id === slug)) {
+      loadAuxiliaryData(initialProduct);
+      return;
+    }
+
     async function loadProduct() {
       if (!slug) return;
       try {
@@ -69,54 +133,13 @@ export default function ProductDetailClient({ initialSlug }: { initialSlug?: str
             json.data.supports_theme_customization
           );
 
-          setProduct({
+          const currentProd: ProductDetail = {
             ...json.data,
             supportsThemeCustomization: supportsThemes,
-          });
+          };
+          setProduct(currentProd);
 
-          trackViewContent({
-            content_name: json.data.name,
-            content_ids: [json.data.id],
-            value: json.data.price,
-            currency: 'NGN',
-          });
-
-          if (supportsThemes) {
-            const themesRes = await fetch(`/api/products/${json.data.slug || json.data.id}/themes`);
-            if (themesRes.ok) {
-              const themesJson = await themesRes.json();
-              if (themesJson.success && Array.isArray(themesJson.themes)) {
-                setAvailableThemes(themesJson.themes);
-              }
-            }
-          }
-
-          // Fetch related products from same category if available
-          const primaryCat = json.data.categories?.[0]?.slug;
-          const relatedRes = await fetch(
-            primaryCat ? `/api/products?category=${primaryCat}&limit=4` : '/api/products?limit=4'
-          );
-          if (relatedRes.ok) {
-            const relatedJson = await relatedRes.json();
-            if (relatedJson.success && Array.isArray(relatedJson.data)) {
-              setRelatedProducts(
-                relatedJson.data.filter((p: CatalogProductItem) => p.id !== json.data.id).slice(0, 4)
-              );
-            }
-          }
-
-          // Fetch product reviews
-          try {
-            const reviewsRes = await fetch(`/api/reviews?productId=${json.data.id}`);
-            if (reviewsRes.ok) {
-              const reviewsJson = await reviewsRes.json();
-              if (reviewsJson.success && Array.isArray(reviewsJson.data)) {
-                setReviews(reviewsJson.data);
-              }
-            }
-          } catch {
-            // Keep fallback testimonials if review fetch fails
-          }
+          loadAuxiliaryData(currentProd);
         }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Error loading product');
@@ -125,7 +148,7 @@ export default function ProductDetailClient({ initialSlug }: { initialSlug?: str
       }
     }
     loadProduct();
-  }, [slug]);
+  }, [slug, initialProduct]);
 
   const handleToggleTheme = (themeId: string) => {
     setSelectedThemeIds((prev) => {

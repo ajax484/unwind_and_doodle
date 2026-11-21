@@ -10,14 +10,12 @@ import MetaPixel from '@/components/analytics/MetaPixel';
 
 const fredoka = Fredoka({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
   variable: '--font-fredoka',
   display: 'swap',
 });
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
   variable: '--font-plus-jakarta',
   display: 'swap',
 });

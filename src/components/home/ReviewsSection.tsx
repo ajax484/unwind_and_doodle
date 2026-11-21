@@ -18,23 +18,65 @@ function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export default function ReviewsSection() {
+export interface RawReviewItem {
+  id: string;
+  body?: string | null;
+  title?: string | null;
+  rating: number;
+  customerName?: string;
+  isVerified?: boolean;
+  productName?: string;
+  source?: string | null;
+}
+
+export interface ReviewsSectionProps {
+  initialReviews?: RawReviewItem[];
+}
+
+function buildFallbackReviews(count?: number): DisplayReview[] {
+  const list = count !== undefined ? HOMEPAGE_REVIEWS.slice(0, count) : HOMEPAGE_REVIEWS;
+  return list.map((rev, i) => ({
+    id: `fallback-${i}`,
+    quote: rev.quote,
+    rating: rev.rating,
+    author: {
+      name: rev.author,
+      initials: getInitials(rev.author),
+      roleOrStatus: 'Verified Customer',
+      productContext: rev.product,
+      location: rev.location,
+    },
+  }));
+}
+
+function mapRawReviews(raw: RawReviewItem[]): DisplayReview[] {
+  if (!raw.length) return buildFallbackReviews();
+  const dbReviews: DisplayReview[] = raw.map((r) => ({
+    id: r.id,
+    quote: r.body || r.title || 'Wonderful relaxing experience!',
+    rating: r.rating || 5,
+    author: {
+      name: r.customerName || 'Verified Customer',
+      initials: getInitials(r.customerName || 'Verified Customer'),
+      roleOrStatus: r.isVerified ? 'Verified Purchaser' : 'Verified Review',
+      productContext: r.productName,
+      location: r.source ? `via ${r.source}` : undefined,
+    },
+  }));
+  if (dbReviews.length >= 3) {
+    return dbReviews.slice(0, 6);
+  }
+  return [...dbReviews, ...buildFallbackReviews(3 - dbReviews.length)];
+}
+
+export default function ReviewsSection({ initialReviews }: ReviewsSectionProps = {}) {
+  const hasInitial = initialReviews !== undefined;
   const [reviews, setReviews] = useState<DisplayReview[]>(() =>
-    HOMEPAGE_REVIEWS.map((rev, i) => ({
-      id: `fallback-${i}`,
-      quote: rev.quote,
-      rating: rev.rating,
-      author: {
-        name: rev.author,
-        initials: getInitials(rev.author),
-        roleOrStatus: 'Verified Customer',
-        productContext: rev.product,
-        location: rev.location,
-      },
-    }))
+    hasInitial ? mapRawReviews(initialReviews) : buildFallbackReviews()
   );
 
   useEffect(() => {
+    if (hasInitial) return;
     let isMounted = true;
 
     async function loadReviews() {
@@ -44,47 +86,7 @@ export default function ReviewsSection() {
 
         const json = await res.json();
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-          const dbReviews: DisplayReview[] = json.data.map((r: {
-            id: string;
-            body?: string | null;
-            title?: string | null;
-            rating: number;
-            customerName?: string;
-            isVerified?: boolean;
-            productName?: string;
-            source?: string | null;
-          }) => ({
-            id: r.id,
-            quote: r.body || r.title || 'Wonderful relaxing experience!',
-            rating: r.rating || 5,
-            author: {
-              name: r.customerName || 'Verified Customer',
-              initials: getInitials(r.customerName || 'Verified Customer'),
-              roleOrStatus: r.isVerified ? 'Verified Purchaser' : 'Verified Review',
-              productContext: r.productName,
-              location: r.source ? `via ${r.source}` : undefined,
-            },
-          }));
-
-          if (dbReviews.length >= 3) {
-            if (isMounted) setReviews(dbReviews.slice(0, 6));
-          } else {
-            const fallbackSupplements = HOMEPAGE_REVIEWS.slice(0, 3 - dbReviews.length).map(
-              (rev, i) => ({
-                id: `fallback-${i}`,
-                quote: rev.quote,
-                rating: rev.rating,
-                author: {
-                  name: rev.author,
-                  initials: getInitials(rev.author),
-                  roleOrStatus: 'Verified Customer',
-                  productContext: rev.product,
-                  location: rev.location,
-                },
-              })
-            );
-            if (isMounted) setReviews([...dbReviews, ...fallbackSupplements]);
-          }
+          if (isMounted) setReviews(mapRawReviews(json.data));
         }
       } catch {
         // Retain initial curated testimonials on error
@@ -95,7 +97,7 @@ export default function ReviewsSection() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [hasInitial]);
 
   return (
     <section className="w-full bg-bg-subtle py-16 sm:py-24 lg:py-32 border-b border-border-default relative overflow-hidden">

@@ -93,7 +93,6 @@ export default function HeroSection({ coloristCount }: HeroSectionProps = {}) {
               src={RIGHT_IMAGE_SRC}
               alt={RIGHT_IMAGE_ALT}
               fill
-              priority
               sizes="(min-width: 1280px) 480px, (min-width: 1024px) 320px, 100vw"
               className="object-cover scale-105 transition-transform duration-700 hover:scale-110"
             />
@@ -148,7 +147,7 @@ export default function HeroSection({ coloristCount }: HeroSectionProps = {}) {
       <div className="max-w-4xl mx-auto relative z-10 text-center space-y-6 sm:space-y-8 px-4 sm:px-6">
         {/* Larger Bluish Radial Glow Halo (Outer Star Glow) */}
         <div
-          className="hero-halo-blue absolute top-1/2 left-1/2 w-[1200px] max-w-[150vw] h-[800px] pointer-events-none -z-20 blur-[30px]"
+          className="hero-halo-blue absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1200px] max-w-[150vw] h-[800px] pointer-events-none -z-20 opacity-75"
           style={{
             background: 'radial-gradient(closest-side, rgba(167, 194, 212, 0.45), rgba(167, 194, 212, 0) 70%)',
           }}
@@ -157,7 +156,7 @@ export default function HeroSection({ coloristCount }: HeroSectionProps = {}) {
 
         {/* Soft Pinkish Radial Glow Halo (Inner Star Glow) */}
         <div
-          className="hero-halo-pink absolute top-1/2 left-1/2 w-[900px] max-w-[130vw] h-[600px] pointer-events-none -z-10 blur-[20px]"
+          className="hero-halo-pink absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] max-w-[130vw] h-[600px] pointer-events-none -z-10 opacity-80"
           style={{
             background: 'radial-gradient(closest-side, rgba(244, 201, 211, 0.55), rgba(244, 201, 211, 0) 70%)',
           }}
@@ -216,7 +215,6 @@ export default function HeroSection({ coloristCount }: HeroSectionProps = {}) {
                 src={RIGHT_IMAGE_SRC}
                 alt={RIGHT_IMAGE_ALT}
                 fill
-                priority
                 sizes="(min-width: 640px) 192px, 144px"
                 className="object-cover"
               />

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { getProductDetailBySlug } from '@/services/catalog.service';
+import { getProductDetailBySlug, ProductDetail } from '@/services/catalog.service';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
 import { extractPlainText } from '@/lib/rich-text';
 import ProductDetailClient from './ProductDetailClient';
@@ -80,6 +80,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://unwindanddoodle.com';
 
   let structuredData: Record<string, unknown> | null = null;
+  let initialProduct: ProductDetail | null = null;
 
   if (slug) {
     try {
@@ -87,6 +88,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
       const product = await getProductDetailBySlug(supabase, slug);
 
       if (product) {
+        initialProduct = product;
         const plainDesc =
           extractPlainText(product.description, 300) ||
           `${product.name} by Unwind & Doodle`;
@@ -131,7 +133,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
         />
       )}
-      <ProductDetailClient initialSlug={slug} />
+      <ProductDetailClient initialSlug={slug} initialProduct={initialProduct} />
     </>
   );
 }
