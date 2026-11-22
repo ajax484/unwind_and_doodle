@@ -39,6 +39,10 @@ export const CreateProductSchema = z.object({
   display_order: z.coerce.number().int().min(0).optional(),
   is_featured: z.boolean().optional(),
   featured_order: z.coerce.number().int().min(0).optional(),
+  paper_gsm: z.string().trim().max(60).optional().nullable(),
+  binding: z.string().trim().max(80).optional().nullable(),
+  page_count: z.union([z.coerce.number().int().positive().max(2000), z.literal(''), z.null()]).optional().transform((v) => (v === '' ? null : v)),
+  dimensions: z.string().trim().max(80).optional().nullable(),
   status: z.enum(['draft', 'published', 'archived']).default('draft'),
   category_ids: z.array(z.string().uuid()).optional().default([]),
   images: z
@@ -80,6 +84,35 @@ export const UpdateMerchandisingSchema = z.object({
 export const ReorderCategoriesSchema = z.object({
   orderedIds: z.array(z.string().uuid()).min(1, 'At least one category ID is required'),
 });
+
+export const BulkUpdateProductsSchema = z
+  .object({
+    productIds: z.array(z.string().uuid()).min(1, 'Select at least one product').max(100),
+    status: z.enum(['draft', 'published', 'archived']).optional(),
+    selling_price: z.coerce.number().min(0, 'Selling price cannot be negative').optional(),
+    priceAdjustment: z
+      .object({
+        mode: z.enum(['fixed_delta', 'percent_delta']),
+        amount: z.coerce.number(),
+      })
+      .optional(),
+    categoryAction: z
+      .object({
+        mode: z.enum(['replace', 'add', 'remove']),
+        categoryIds: z.array(z.string().uuid()),
+      })
+      .optional(),
+  })
+  .refine(
+    (data) =>
+      data.status !== undefined ||
+      data.selling_price !== undefined ||
+      data.priceAdjustment !== undefined ||
+      data.categoryAction !== undefined,
+    { message: 'Provide at least one field to update' }
+  );
+
+export type BulkUpdateProductsInput = z.infer<typeof BulkUpdateProductsSchema>;
 
 export const AdminProductFilterSchema = z.object({
   search: z.string().optional(),
@@ -140,6 +173,10 @@ export interface AdminProductListItem {
   display_order?: number;
   is_featured?: boolean;
   featured_order?: number;
+  paper_gsm?: string | null;
+  binding?: string | null;
+  page_count?: number | null;
+  dimensions?: string | null;
   primaryImage: string | null;
   images: { id: string; storage_path: string; sort_order: number }[];
   media?: ProductMedia[];
@@ -199,6 +236,10 @@ export interface AdminProductDetail {
   display_order?: number;
   is_featured?: boolean;
   featured_order?: number;
+  paper_gsm?: string | null;
+  binding?: string | null;
+  page_count?: number | null;
+  dimensions?: string | null;
   organization_id: string;
   images: AdminProductImageItem[];
   media?: ProductMedia[];

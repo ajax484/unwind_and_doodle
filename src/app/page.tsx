@@ -2,6 +2,8 @@ import React from 'react';
 import { unstable_cache } from 'next/cache';
 import { getPublishedCatalog, CatalogProductItem } from '@/services/catalog.service';
 import { getStoreReviews } from '@/services/review.service';
+import { getHomepageSettings } from '@/services/homepage-settings.service';
+import { DEFAULT_HOMEPAGE_CONFIG, HomepageConfig, HomepageSectionKey } from '@/types/homepage-settings';
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
 import HeroSection from '@/components/home/HeroSection';
 import FeaturedProductsSection from '@/components/home/FeaturedProductsSection';
@@ -17,6 +19,7 @@ interface HomepageData {
   featuredProducts: CatalogProductItem[];
   categories: DynamicCategory[];
   reviews: RawReviewItem[];
+  homepageConfig: HomepageConfig;
   productsError: string | null;
 }
 
@@ -24,17 +27,23 @@ const getHomepageData = unstable_cache(
   async (): Promise<HomepageData> => {
     const supabase = getServiceSupabaseClient();
 
-    const [featuredResult, fallbackCatalogResult, categoriesResult, reviewsResult] =
-      await Promise.allSettled([
-        getPublishedCatalog(supabase, { featuredOnly: true, sort: 'featured' }),
-        getPublishedCatalog(supabase, { sort: 'featured', limit: 4 }),
-        supabase
-          .from('categories')
-          .select('id, name, slug, description, sort_order')
-          .order('sort_order', { ascending: true })
-          .order('name', { ascending: true }),
-        getStoreReviews(supabase, 6),
-      ]);
+    const [
+      featuredResult,
+      fallbackCatalogResult,
+      categoriesResult,
+      reviewsResult,
+      homepageSettingsResult,
+    ] = await Promise.allSettled([
+      getPublishedCatalog(supabase, { featuredOnly: true, sort: 'featured' }),
+      getPublishedCatalog(supabase, { sort: 'featured', limit: 4 }),
+      supabase
+        .from('categories')
+        .select('id, name, slug, description, sort_order')
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true }),
+      getStoreReviews(supabase, 6),
+      getHomepageSettings(supabase),
+    ]);
 
     const explicitlyFeatured =
       featuredResult.status === 'fulfilled' ? featuredResult.value : [];
@@ -60,10 +69,16 @@ const getHomepageData = unstable_cache(
         ? reviewsResult.value
         : [];
 
+    const homepageConfig: HomepageConfig =
+      homepageSettingsResult.status === 'fulfilled'
+        ? homepageSettingsResult.value.config
+        : DEFAULT_HOMEPAGE_CONFIG;
+
     return {
       featuredProducts,
       categories,
       reviews,
+      homepageConfig,
       productsError,
     };
   },
@@ -76,6 +91,7 @@ export default async function HomePage() {
     featuredProducts: [],
     categories: [],
     reviews: [],
+    homepageConfig: DEFAULT_HOMEPAGE_CONFIG,
     productsError: null,
   };
 
@@ -85,32 +101,52 @@ export default async function HomePage() {
     data.productsError = err instanceof Error ? err.message : 'Error loading catalog';
   }
 
+  const { copy, sections } = data.homepageConfig;
+
+  const renderSection = (key: HomepageSectionKey) => {
+    switch (key) {
+      case 'hero':
+        return <HeroSection key="hero" copy={copy.hero} />;
+      case 'categories':
+        return (
+          <CategoryGrid
+            key="categories"
+            initialCategories={data.categories}
+            copy={copy.categories}
+          />
+        );
+      case 'featured_products':
+        return (
+          <FeaturedProductsSection
+            key="featured_products"
+            products={data.featuredProducts}
+            loading={false}
+            error={data.productsError}
+            copy={copy.featured_products}
+          />
+        );
+      case 'custom_keepsake':
+        return <CustomKeepsakeSection key="custom_keepsake" copy={copy.custom_keepsake} />;
+      case 'brand_philosophy':
+        return <BrandPhilosophySection key="brand_philosophy" copy={copy.brand_philosophy} />;
+      case 'reviews':
+        return (
+          <ReviewsSection
+            key="reviews"
+            initialReviews={data.reviews}
+            copy={copy.reviews}
+          />
+        );
+      case 'newsletter':
+        return <NewsletterSection key="newsletter" copy={copy.newsletter} />;
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="w-full flex flex-col">
-      {/* 1. HERO SECTION */}
-      <HeroSection />
-
-      {/* 2. FEATURED PRODUCTS SECTION */}
-      <FeaturedProductsSection
-        products={data.featuredProducts}
-        loading={false}
-        error={data.productsError}
-      />
-
-      {/* 3. CUSTOM COLORING BOOK SHOWCASE */}
-      <CustomKeepsakeSection />
-
-      {/* 4. SHOP BY CATEGORY */}
-      <CategoryGrid initialCategories={data.categories} />
-
-      {/* 5. BRAND / VALUE PROPOSITION */}
-      <BrandPhilosophySection />
-
-      {/* 6. REVIEWS / SOCIAL PROOF */}
-      <ReviewsSection initialReviews={data.reviews} />
-
-      {/* 7. NEWSLETTER SIGNUP */}
-      <NewsletterSection />
+      {sections.filter((s) => s.enabled).map((s) => renderSection(s.key))}
     </div>
   );
 }

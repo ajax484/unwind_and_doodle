@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { HOMEPAGE_REVIEWS } from '@/lib/homepage-data';
 import TestimonialCard, { TestimonialAuthor } from '@/components/TestimonialCard';
+import { DEFAULT_HOMEPAGE_CONFIG, ReviewsCopy } from '@/types/homepage-settings';
 
 export interface DisplayReview {
   id: string | number;
@@ -31,6 +32,7 @@ export interface RawReviewItem {
 
 export interface ReviewsSectionProps {
   initialReviews?: RawReviewItem[];
+  copy?: Partial<ReviewsCopy>;
 }
 
 function buildFallbackReviews(count?: number): DisplayReview[] {
@@ -69,7 +71,8 @@ function mapRawReviews(raw: RawReviewItem[]): DisplayReview[] {
   return [...dbReviews, ...buildFallbackReviews(3 - dbReviews.length)];
 }
 
-export default function ReviewsSection({ initialReviews }: ReviewsSectionProps = {}) {
+export default function ReviewsSection({ initialReviews, copy }: ReviewsSectionProps = {}) {
+  const c = { ...DEFAULT_HOMEPAGE_CONFIG.copy.reviews, ...copy };
   const hasInitial = initialReviews !== undefined;
   const [reviews, setReviews] = useState<DisplayReview[]>(() =>
     hasInitial ? mapRawReviews(initialReviews) : buildFallbackReviews()
@@ -104,10 +107,10 @@ export default function ReviewsSection({ initialReviews }: ReviewsSectionProps =
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto space-y-3 mb-12">
           <span className="text-xs font-heading font-semibold uppercase tracking-wider text-brand-rose block">
-            Customer Reflections
+            {c.eyebrow}
           </span>
           <h2 className="font-heading text-3xl sm:text-4xl font-bold text-text-primary">
-            What people are saying
+            {c.title}
           </h2>
         </div>
 

@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       try {
         await supabase.storage.createBucket('products', {
           public: true,
-          fileSizeLimit: 10485760,
+          fileSizeLimit: 104857600,
         });
 
         const retry = await supabase.storage

@@ -1,9 +1,15 @@
 import React from 'react';
 import Link from 'next/link';
+import { CustomKeepsakeCopy, DEFAULT_HOMEPAGE_CONFIG } from '@/types/homepage-settings';
 
-export default function CustomKeepsakeSection() {
+export interface CustomKeepsakeSectionProps {
+  copy?: Partial<CustomKeepsakeCopy>;
+}
+
+export default function CustomKeepsakeSection({ copy }: CustomKeepsakeSectionProps = {}) {
+  const c = { ...DEFAULT_HOMEPAGE_CONFIG.copy.custom_keepsake, ...copy };
   return (
-    <section className="w-full bg-neutral-charcoal text-white py-16 sm:py-24 lg:py-32 relative overflow-hidden">
+    <section className="w-full bg-neutral-charcoal text-white py-14 sm:py-20 lg:py-24 relative overflow-hidden">
       {/* Subtle logo blobs inside full-width dark section */}
       <div className="absolute top-0 right-0 w-96 sm:w-[600px] h-96 sm:h-[600px] rounded-full bg-brand-blue/12 blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-96 sm:w-[600px] h-96 sm:h-[600px] rounded-full bg-brand-rose/12 blur-3xl pointer-events-none" />
@@ -14,16 +20,16 @@ export default function CustomKeepsakeSection() {
           <div className="lg:col-span-6 space-y-6">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neutral-footer-border text-[11px] font-heading font-semibold tracking-wide uppercase text-neutral-cream">
               <span className="text-brand-rose">✨</span>
-              <span>Personalized Keepsake Books</span>
+              <span>{c.badge}</span>
             </div>
 
-            <h2 className="font-heading text-3xl sm:text-5xl font-bold tracking-tight leading-tight text-white">
-              Turn your memories into <br />
-              <span className="text-brand-rose">coloring pages.</span>
+            <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight text-white">
+              {c.headlineLead} <br />
+              <span className="text-brand-rose">{c.headlineAccent}</span>
             </h2>
 
             <p className="text-sm sm:text-base text-brand-blue leading-relaxed">
-              Upload your favorite photos from family celebrations, vacations, weddings, or cherished moments. Our artists transform them into bespoke line art bound into a personalized coloring book.
+              {c.description}
             </p>
 
             {/* 3-Step Visual Process */}
@@ -47,10 +53,10 @@ export default function CustomKeepsakeSection() {
 
             <div className="pt-2">
               <Link
-                href="/products?category=coloring-books"
+                href={c.ctaHref}
                 className="btn-rose !py-3.5 !px-8 text-sm inline-flex items-center gap-2"
               >
-                <span>Create your coloring book</span>
+                <span>{c.ctaLabel}</span>
                 <span aria-hidden="true">→</span>
               </Link>
             </div>
@@ -78,7 +84,7 @@ export default function CustomKeepsakeSection() {
                 <div className="text-center py-6">
                   <span className="text-4xl mb-2 block">📖</span>
                   <span className="font-heading font-bold text-sm text-white block">Printed Keepsake</span>
-                  <span className="text-[11px] text-text-tertiary">160gsm archival finish</span>
+                  <span className="text-[11px] text-text-tertiary">Quality bleed-resistant paper</span>
                 </div>
                 <span className="text-[10px] text-text-tertiary text-center">Step 2 • Hand-Bound</span>
               </div>

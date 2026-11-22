@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { DEFAULT_HOMEPAGE_CONFIG, NewsletterCopy } from '@/types/homepage-settings';
 
 export interface NewsletterSectionProps {
   email?: string;
@@ -9,6 +10,7 @@ export interface NewsletterSectionProps {
   onEmailChange?: (email: string) => void;
   onSubmit?: (e: React.FormEvent) => void;
   onSuccess?: () => void;
+  copy?: Partial<NewsletterCopy>;
 }
 
 export default function NewsletterSection({
@@ -18,7 +20,9 @@ export default function NewsletterSection({
   onEmailChange: controlledOnEmailChange,
   onSubmit: controlledOnSubmit,
   onSuccess,
+  copy,
 }: NewsletterSectionProps = {}) {
+  const c = { ...DEFAULT_HOMEPAGE_CONFIG.copy.newsletter, ...copy };
   const [internalEmail, setInternalEmail] = useState('');
   const [internalStatus, setInternalStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [internalMessage, setInternalMessage] = useState('');
@@ -74,13 +78,13 @@ export default function NewsletterSection({
         <div className="bg-bg-subtle border-2 border-border-default rounded-3xl p-8 sm:p-14 text-center space-y-6 relative overflow-hidden shadow-xs">
           <div className="space-y-2 max-w-xl mx-auto">
             <span className="text-xs font-heading font-semibold uppercase tracking-wider text-brand-blue block">
-              The Mindful Letter
+              {c.eyebrow}
             </span>
             <h2 className="font-heading text-2xl sm:text-4xl font-bold text-text-primary">
-              Stay in the loop.
+              {c.title}
             </h2>
             <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">
-              New product editions, creative journaling prompts, and occasional quiet inspirations in your inbox. No spam.
+              {c.description}
             </p>
           </div>
 
@@ -100,7 +104,7 @@ export default function NewsletterSection({
                 disabled={status === 'loading'}
                 className="btn-rose text-xs sm:text-sm !py-3 !px-6 whitespace-nowrap"
               >
-                {status === 'loading' ? 'Joining...' : 'Subscribe'}
+                {status === 'loading' ? 'Joining...' : c.buttonLabel}
               </button>
             </div>
 

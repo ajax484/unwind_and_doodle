@@ -418,6 +418,52 @@ export default function ProductDetailClient({ initialSlug, initialProduct }: Pro
             <RichTextContent html={product.description} />
           )}
 
+          {/* Structured Product Specifications */}
+          {(product.paperGsm || product.binding || product.pageCount || product.dimensions) && (
+            <div
+              className="rounded-2xl border border-border-default bg-bg-subtle/60 p-4 sm:p-5 space-y-3"
+              data-testid="product-specs-block"
+            >
+              <h3 className="font-heading font-bold text-xs uppercase tracking-wider text-text-secondary">
+                Specifications
+              </h3>
+              <dl className="grid grid-cols-2 gap-3 text-xs">
+                {product.paperGsm && (
+                  <div className="bg-bg-surface rounded-xl px-3 py-2 border border-border-default/70">
+                    <dt className="text-[11px] text-text-tertiary">Paper Weight</dt>
+                    <dd className="font-heading font-semibold text-text-primary mt-0.5">
+                      {product.paperGsm}
+                    </dd>
+                  </div>
+                )}
+                {product.binding && (
+                  <div className="bg-bg-surface rounded-xl px-3 py-2 border border-border-default/70">
+                    <dt className="text-[11px] text-text-tertiary">Binding</dt>
+                    <dd className="font-heading font-semibold text-text-primary mt-0.5">
+                      {product.binding}
+                    </dd>
+                  </div>
+                )}
+                {product.pageCount && (
+                  <div className="bg-bg-surface rounded-xl px-3 py-2 border border-border-default/70">
+                    <dt className="text-[11px] text-text-tertiary">Pages</dt>
+                    <dd className="font-heading font-semibold text-text-primary mt-0.5">
+                      {product.pageCount} pages
+                    </dd>
+                  </div>
+                )}
+                {product.dimensions && (
+                  <div className="bg-bg-surface rounded-xl px-3 py-2 border border-border-default/70">
+                    <dt className="text-[11px] text-text-tertiary">Dimensions</dt>
+                    <dd className="font-heading font-semibold text-text-primary mt-0.5">
+                      {product.dimensions}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+          )}
+
           {/* Bundle What's Included Section */}
           {product.productType === 'bundle' && product.bundleItems && product.bundleItems.length > 0 && (
             <div className="space-y-4 pt-4 border-t border-border-default">

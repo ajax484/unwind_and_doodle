@@ -44,7 +44,7 @@ describe('Admin Product Media Upload & Storage Verification', () => {
       expect(error).toBeNull();
       expect(bucket).toBeDefined();
       expect(bucket?.file_size_limit).toBeGreaterThanOrEqual(104857600); // 100MB
-    });
+    }, 20_000);
 
     it('successfully uploads and cleans up a test video file in products bucket', async () => {
       const supabase = getServiceSupabaseClient();
@@ -62,6 +62,6 @@ describe('Admin Product Media Upload & Storage Verification', () => {
       // Clean up
       const removeRes = await supabase.storage.from('products').remove([testKey]);
       expect(removeRes.error).toBeNull();
-    });
+    }, 20_000);
   });
 });

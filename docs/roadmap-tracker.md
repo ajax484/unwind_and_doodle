@@ -65,23 +65,23 @@ Audited on `2026-11-22` (`npx tsc --noEmit` passing; `1,077 / 1,079` Vitest test
 ## Tier 2 — Brand Positioning & Daily Admin Efficiency
 
 ### 2.1 Homepage Repositioning & Editable Sections (`CAT-4`)
-- [ ] **Section Reordering & Brand Framing:** Update [src/app/page.tsx](../src/app/page.tsx) so the homepage leads with:
+- [x] **Section Reordering & Brand Framing:** Update [src/app/page.tsx](../src/app/page.tsx) so the homepage leads with:
   1. Brand introduction (warm, calm, playful — *"A little less scrolling. A lot more living."*)
   2. Category tiles (Coloring Books, Journals, Game Books, Customized Books, Coloring Tools, Kits)
   3. Featured ready-to-buy products
   4. Customization section (secondary, not dominating)
   5. Brand philosophy, real customer reviews, newsletter signup
-- [ ] **Admin-Editable Homepage Copy & Section Order:** Provide a simple Admin settings form to edit hero/section copy and toggle/order homepage sections without a deploy.
+- [x] **Admin-Editable Homepage Copy & Section Order:** Provide a simple Admin settings form to edit hero/section copy and toggle/order homepage sections without a deploy.
 
 ### 2.2 Product Structured Specs & Data Audit (`CAT-6`)
-- [ ] **Database & API:** Add structured spec columns to `products` (`paper_gsm`, `binding`, `page_count`, `dimensions`) via migration and expose in catalog & admin product APIs.
-- [ ] **Admin Form & Storefront Display:** Add structured spec inputs to Admin Product Create/Edit and render consistent spec blocks on product detail pages.
-- [ ] **Catalog Copy Audit:** Audit all live products for inaccurate `150gsm` claims, missing specs, descriptions, and typos (e.g., fix `"Park Of 12 Color Pencils"` → `"Pack Of 12 Color Pencils"`).
+- [x] **Database & API:** Add structured spec columns to `products` (`paper_gsm`, `binding`, `page_count`, `dimensions`) via migration and expose in catalog & admin product APIs.
+- [x] **Admin Form & Storefront Display:** Add structured spec inputs to Admin Product Create/Edit and render consistent spec blocks on product detail pages.
+- [x] **Catalog Copy Audit:** Audit all live products for inaccurate `150gsm` claims, missing specs, descriptions, and typos (e.g., fix `"Park Of 12 Color Pencils"` → `"Pack Of 12 Color Pencils"`).
 
 ### 2.3 Admin Operations Polish (`ADM-PROD-2`, `ADM-IMG-1` to `3`, `PERF-3`)
-- [ ] **ADM-PROD-2 (Bulk Product Edits):** Multi-select products in `/admin/products` to bulk-update price, category, or active/hidden status, with a preview step before applying and audit logging.
-- [ ] **ADM-IMG-1 to ADM-IMG-3 (Multi-Image Upload Reliability):** Investigate intermittent multi-attempt upload failures (payload size limits, timeouts, retries), add per-file progress + individual retry for failed files, verify drag-to-reorder primary image, and verify server-side/upload resize & compression. Also stabilize the 2 timing-out tests in `tests/admin/upload-route.test.ts`.
-- [ ] **PERF-3 (Admin Responsiveness):** Profile slow admin transitions (orders, products, section switches), ensure pagination/server-side filtering and cached reference data (categories, delivery zones) keep navigation snappy.
+- [x] **ADM-PROD-2 (Bulk Product Edits):** Multi-select products in `/admin/products` to bulk-update price, category, or active/hidden status, with a preview step before applying and audit logging.
+- [x] **ADM-IMG-1 to ADM-IMG-3 (Multi-Image Upload Reliability):** Investigate intermittent multi-attempt upload failures (payload size limits, timeouts, retries), add per-file progress + individual retry for failed files, verify drag-to-reorder primary image, and verify server-side/upload resize & compression. Also stabilize the 2 timing-out tests in `tests/admin/upload-route.test.ts`.
+- [x] **PERF-3 (Admin Responsiveness):** Profile slow admin transitions (orders, products, section switches), ensure pagination/server-side filtering and cached reference data (categories, delivery zones) keep navigation snappy.
 
 ---
 

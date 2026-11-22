@@ -3,7 +3,9 @@
 import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
 import { AdminProductListItem, AdminProductListResponse, AdminProductCategoryItem } from '@/types/admin-product';
+import { fetchCachedAdminReference } from '@/lib/admin-reference-cache';
 
 function ProductsListContent() {
   const router = useRouter();
@@ -23,6 +25,17 @@ function ProductsListContent() {
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(searchParam);
 
+  // Bulk edit state (ADM-PROD-2)
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkStep, setBulkStep] = useState<'edit' | 'preview'>('edit');
+  const [bulkStatus, setBulkStatus] = useState<'' | 'draft' | 'published' | 'archived'>('');
+  const [bulkPriceMode, setBulkPriceMode] = useState<'none' | 'fixed' | 'fixed_delta' | 'percent_delta'>('none');
+  const [bulkPriceValue, setBulkPriceValue] = useState<string>('');
+  const [bulkCategoryMode, setBulkCategoryMode] = useState<'none' | 'add' | 'replace' | 'remove'>('none');
+  const [bulkCategoryIds, setBulkCategoryIds] = useState<string[]>([]);
+  const [bulkApplying, setBulkApplying] = useState(false);
+
   const updateFilters = useCallback(
     (newParams: Record<string, string | number | undefined>) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -40,11 +53,18 @@ function ProductsListContent() {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch('/api/admin/categories');
-      const json = await res.json();
-      if (res.ok && json.success) {
-        setCategories(json.data || []);
-      }
+      const list = await fetchCachedAdminReference<AdminProductCategoryItem[]>(
+        'admin-categories',
+        async () => {
+          const res = await fetch('/api/admin/categories');
+          const json = await res.json();
+          if (res.ok && json.success) {
+            return json.data || [];
+          }
+          return [];
+        }
+      );
+      setCategories(list);
     } catch {
       // Non-blocking
     }
@@ -91,6 +111,88 @@ function ProductsListContent() {
     setSearchInput(searchParam);
   }, [searchParam]);
 
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [searchParam, statusParam, typeParam, categoryParam, sortParam, pageParam]);
+
+  const toggleSelectProduct = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const openBulkModal = () => {
+    setBulkStep('edit');
+    setBulkStatus('');
+    setBulkPriceMode('none');
+    setBulkPriceValue('');
+    setBulkCategoryMode('none');
+    setBulkCategoryIds([]);
+    setBulkModalOpen(true);
+  };
+
+  const toggleBulkCategory = (catId: string) => {
+    setBulkCategoryIds((prev) =>
+      prev.includes(catId) ? prev.filter((id) => id !== catId) : [...prev, catId]
+    );
+  };
+
+  const hasBulkChanges =
+    Boolean(bulkStatus) ||
+    (bulkPriceMode !== 'none' && bulkPriceValue.trim() !== '' && !Number.isNaN(Number(bulkPriceValue))) ||
+    (bulkCategoryMode !== 'none' && (bulkCategoryMode === 'replace' || bulkCategoryIds.length > 0));
+
+  const computePreviewPrice = (currentPrice: number): number => {
+    if (bulkPriceMode === 'none' || bulkPriceValue.trim() === '') return currentPrice;
+    const val = Number(bulkPriceValue);
+    if (Number.isNaN(val)) return currentPrice;
+    if (bulkPriceMode === 'fixed') return Math.max(0, Math.round(val));
+    if (bulkPriceMode === 'fixed_delta') return Math.max(0, Math.round(currentPrice + val));
+    return Math.max(0, Math.round(currentPrice * (1 + val / 100)));
+  };
+
+  const handleApplyBulkUpdate = async () => {
+    if (selectedIds.length === 0 || !hasBulkChanges) return;
+    try {
+      setBulkApplying(true);
+      const payload: Record<string, unknown> = { productIds: selectedIds };
+      if (bulkStatus) payload.status = bulkStatus;
+      if (bulkPriceMode === 'fixed' && bulkPriceValue.trim() !== '') {
+        payload.selling_price = Number(bulkPriceValue);
+      } else if (
+        (bulkPriceMode === 'fixed_delta' || bulkPriceMode === 'percent_delta') &&
+        bulkPriceValue.trim() !== ''
+      ) {
+        payload.priceAdjustment = {
+          mode: bulkPriceMode,
+          amount: Number(bulkPriceValue),
+        };
+      }
+      if (bulkCategoryMode !== 'none') {
+        payload.categoryAction = {
+          mode: bulkCategoryMode,
+          categoryIds: bulkCategoryIds,
+        };
+      }
+
+      const res = await fetch('/api/admin/products/bulk', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Bulk update failed');
+      }
+      toast.success(`Updated ${json.data.updatedCount} products`);
+      setBulkModalOpen(false);
+      setSelectedIds([]);
+      await fetchProducts();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Bulk update failed');
+    } finally {
+      setBulkApplying(false);
+    }
+  };
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateFilters({ search: searchInput.trim(), page: 1 });
@@ -121,6 +223,15 @@ function ProductsListContent() {
   const hasActiveFilters = Boolean(
     searchParam || statusParam || typeParam || categoryParam || sortParam !== 'newest'
   );
+  const selectedProducts = products.filter((p) => selectedIds.includes(p.id));
+  const allOnPageSelected = products.length > 0 && products.every((p) => selectedIds.includes(p.id));
+  const toggleSelectAll = () => {
+    if (allOnPageSelected) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(products.map((p) => p.id));
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -264,9 +375,37 @@ function ProductsListContent() {
         </div>
       )}
 
+      {/* Bulk Actions Bar */}
+      {selectedIds.length > 0 && (
+        <div
+          className="p-3.5 rounded-2xl bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3 shadow-md"
+          data-testid="bulk-products-bar"
+        >
+          <span className="text-xs font-bold">
+            {selectedIds.length} {selectedIds.length === 1 ? 'product' : 'products'} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={openBulkModal}
+              className="px-3.5 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold cursor-pointer"
+            >
+              Bulk Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds([])}
+              className="px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold cursor-pointer"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 4. Products Table (Desktop) & Cards (Mobile) */}
       <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
-        {loading ? (
+        {loading && !data ? (
           <div className="p-8 space-y-4 animate-pulse">
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="h-16 bg-slate-50 rounded-2xl" />
@@ -305,10 +444,19 @@ function ProductsListContent() {
         ) : (
           <>
             {/* Desktop Table */}
-            <div className="hidden md:block overflow-x-auto">
+            <div className={`hidden md:block overflow-x-auto transition-opacity ${loading ? 'opacity-60' : ''}`}>
               <table className="w-full text-left text-xs text-slate-600">
                 <thead className="bg-slate-50/80 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
                   <tr>
+                    <th className="py-3.5 pl-4 pr-2 w-10">
+                      <input
+                        type="checkbox"
+                        checked={allOnPageSelected}
+                        onChange={toggleSelectAll}
+                        aria-label="Select all products"
+                        className="w-4 h-4 rounded text-rose-500 cursor-pointer"
+                      />
+                    </th>
                     <th className="py-3.5 px-4 font-semibold">Product</th>
                     <th className="py-3.5 px-4 font-semibold">SKU</th>
                     <th className="py-3.5 px-4 font-semibold">Categories</th>
@@ -322,7 +470,21 @@ function ProductsListContent() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {products.map((product: AdminProductListItem) => (
-                    <tr key={product.id} className="hover:bg-slate-50/60 transition-colors">
+                    <tr
+                      key={product.id}
+                      className={`hover:bg-slate-50/60 transition-colors ${
+                        selectedIds.includes(product.id) ? 'bg-rose-50/30' : ''
+                      }`}
+                    >
+                      <td className="py-3.5 pl-4 pr-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(product.id)}
+                          onChange={() => toggleSelectProduct(product.id)}
+                          aria-label={`Select ${product.name}`}
+                          className="w-4 h-4 rounded text-rose-500 cursor-pointer"
+                        />
+                      </td>
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 shrink-0 overflow-hidden flex items-center justify-center">
@@ -562,6 +724,221 @@ function ProductsListContent() {
           </div>
         )}
       </div>
+
+      {/* Bulk Edit Modal with Preview Step (ADM-PROD-2) */}
+      {bulkModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Bulk Edit Products"
+        >
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-heading font-bold text-base text-slate-900">
+                {bulkStep === 'edit'
+                  ? `Bulk Edit (${selectedIds.length} selected)`
+                  : `Preview Changes (${selectedProducts.length} products)`}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setBulkModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 font-bold text-sm cursor-pointer"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-5 text-xs">
+              {bulkStep === 'edit' ? (
+                <>
+                  {/* Status */}
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-700 block">Status</label>
+                    <select
+                      value={bulkStatus}
+                      onChange={(e) =>
+                        setBulkStatus(e.target.value as '' | 'draft' | 'published' | 'archived')
+                      }
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800"
+                    >
+                      <option value="">No change</option>
+                      <option value="published">Published (Active)</option>
+                      <option value="draft">Draft (Hidden)</option>
+                      <option value="archived">Archived</option>
+                    </select>
+                  </div>
+
+                  {/* Price */}
+                  <div className="space-y-2">
+                    <label className="font-bold text-slate-700 block">Selling Price</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <select
+                        value={bulkPriceMode}
+                        onChange={(e) =>
+                          setBulkPriceMode(
+                            e.target.value as 'none' | 'fixed' | 'fixed_delta' | 'percent_delta'
+                          )
+                        }
+                        className="px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800"
+                      >
+                        <option value="none">No change</option>
+                        <option value="fixed">Set fixed price (₦)</option>
+                        <option value="fixed_delta">Adjust by amount (+/- ₦)</option>
+                        <option value="percent_delta">Adjust by percent (+/- %)</option>
+                      </select>
+                      {bulkPriceMode !== 'none' && (
+                        <input
+                          type="number"
+                          value={bulkPriceValue}
+                          onChange={(e) => setBulkPriceValue(e.target.value)}
+                          placeholder={
+                            bulkPriceMode === 'percent_delta'
+                              ? 'e.g. 10 or -15'
+                              : bulkPriceMode === 'fixed_delta'
+                              ? 'e.g. 1000 or -500'
+                              : 'e.g. 12000'
+                          }
+                          className="px-3 py-2.5 rounded-xl border border-slate-200 text-slate-800"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Categories */}
+                  <div className="space-y-2">
+                    <label className="font-bold text-slate-700 block">Categories</label>
+                    <select
+                      value={bulkCategoryMode}
+                      onChange={(e) =>
+                        setBulkCategoryMode(e.target.value as 'none' | 'add' | 'replace' | 'remove')
+                      }
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800"
+                    >
+                      <option value="none">No change</option>
+                      <option value="add">Add selected categories</option>
+                      <option value="replace">Replace with selected categories</option>
+                      <option value="remove">Remove selected categories</option>
+                    </select>
+                    {bulkCategoryMode !== 'none' && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {categories.map((cat) => {
+                          const active = bulkCategoryIds.includes(cat.id);
+                          return (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => toggleBulkCategory(cat.id)}
+                              className={`px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${
+                                active
+                                  ? 'bg-rose-500 text-white border-rose-500'
+                                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                              }`}
+                            >
+                              {cat.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-[10px] uppercase text-slate-500 border-b border-slate-200">
+                      <tr>
+                        <th className="py-2.5 px-3">Product</th>
+                        <th className="py-2.5 px-3">Price</th>
+                        <th className="py-2.5 px-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {selectedProducts.map((p) => {
+                        const nextPrice = computePreviewPrice(p.selling_price);
+                        const nextStatus = bulkStatus || p.status;
+                        return (
+                          <tr key={p.id}>
+                            <td className="py-2.5 px-3 font-semibold text-slate-900">{p.name}</td>
+                            <td className="py-2.5 px-3">
+                              {nextPrice !== p.selling_price ? (
+                                <span>
+                                  <span className="line-through text-slate-400">
+                                    {formatCurrency(p.selling_price)}
+                                  </span>{' '}
+                                  →{' '}
+                                  <strong className="text-rose-600">
+                                    {formatCurrency(nextPrice)}
+                                  </strong>
+                                </span>
+                              ) : (
+                                <span className="text-slate-500">
+                                  {formatCurrency(p.selling_price)}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 capitalize">
+                              {nextStatus !== p.status ? (
+                                <span>
+                                  <span className="line-through text-slate-400">{p.status}</span> →{' '}
+                                  <strong className="text-emerald-700">{nextStatus}</strong>
+                                </span>
+                              ) : (
+                                <span className="text-slate-500">{p.status}</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/70 flex items-center justify-between gap-3">
+              {bulkStep === 'preview' ? (
+                <button
+                  type="button"
+                  onClick={() => setBulkStep('edit')}
+                  className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 cursor-pointer"
+                >
+                  ← Back
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setBulkModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 cursor-pointer"
+                >
+                  Cancel
+                </button>
+              )}
+
+              {bulkStep === 'edit' ? (
+                <button
+                  type="button"
+                  disabled={!hasBulkChanges}
+                  onClick={() => setBulkStep('preview')}
+                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold disabled:opacity-40 cursor-pointer"
+                >
+                  Preview Changes →
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={bulkApplying}
+                  onClick={handleApplyBulkUpdate}
+                  className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
+                >
+                  {bulkApplying ? 'Applying...' : 'Apply Bulk Update'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

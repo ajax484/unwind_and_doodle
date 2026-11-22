@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { HOMEPAGE_CATEGORIES } from '@/lib/homepage-data';
+import { CategoriesCopy, DEFAULT_HOMEPAGE_CONFIG } from '@/types/homepage-settings';
 
 export interface DynamicCategory {
   id: string;
@@ -20,9 +21,11 @@ const BADGE_STYLES = [
 
 export interface CategoryGridProps {
   initialCategories?: DynamicCategory[];
+  copy?: Partial<CategoriesCopy>;
 }
 
-export default function CategoryGrid({ initialCategories }: CategoryGridProps = {}) {
+export default function CategoryGrid({ initialCategories, copy }: CategoryGridProps = {}) {
+  const c = { ...DEFAULT_HOMEPAGE_CONFIG.copy.categories, ...copy };
   const hasInitial = initialCategories !== undefined;
   const [categories, setCategories] = useState<DynamicCategory[]>(initialCategories ?? []);
   const [loading, setLoading] = useState(!hasInitial);
@@ -62,14 +65,14 @@ export default function CategoryGrid({ initialCategories }: CategoryGridProps = 
         <div className="text-center max-w-2xl mx-auto space-y-3 mb-10 sm:mb-12">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/90 border border-brand-rose/35 text-xs font-heading font-semibold text-text-accent shadow-2xs">
             <span>♡</span>
-            <span className="uppercase tracking-wider text-[11px]">Explore Collections</span>
+            <span className="uppercase tracking-wider text-[11px]">{c.badge}</span>
           </div>
 
           <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-text-primary tracking-tight">
-            Shop by category
+            {c.title}
           </h2>
           <p className="text-xs sm:text-sm text-text-secondary max-w-lg mx-auto leading-relaxed">
-            Discover thoughtfully curated formats for relaxation, journaling, and mindful drawing.
+            {c.subtitle}
           </p>
         </div>
 

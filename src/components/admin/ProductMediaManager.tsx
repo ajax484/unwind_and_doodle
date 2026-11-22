@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useId } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { AdminMediaItem } from '@/types/admin-product';
 import Button from '@/components/Button';
 import Badge from '@/components/Badge';
@@ -14,6 +14,20 @@ import {
   isAllowedImageMimeType,
   isAllowedVideoMimeType,
 } from '@/lib/product-media-storage';
+import {
+  compressImageForUpload,
+  uploadFormDataWithRetry,
+} from '@/lib/image-upload-utils';
+
+interface UploadQueueItem {
+  id: string;
+  file: File;
+  type: 'image' | 'video';
+  status: 'queued' | 'compressing' | 'uploading' | 'done' | 'error';
+  progress: number;
+  error?: string;
+  savedBytes?: number;
+}
 
 export interface ProductMediaManagerProps {
   media: AdminMediaItem[];
@@ -153,6 +167,11 @@ export default function ProductMediaManager({
   // Uploading state
   const [uploadingType, setUploadingType] = useState<'image' | 'video' | 'thumbnail' | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[]>([]);
+  const mediaRef = useRef<AdminMediaItem[]>(media);
+  useEffect(() => {
+    mediaRef.current = media;
+  }, [media]);
 
   // Drag & drop state
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -166,119 +185,182 @@ export default function ProductMediaManager({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCapturingFrame, setIsCapturingFrame] = useState(false);
 
-  // 1. Upload Handler for Images and Videos
-  const handleFileUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-    type: 'image' | 'video'
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const updateQueueItem = (id: string, patch: Partial<UploadQueueItem>) => {
+    setUploadQueue((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  };
 
-    setUploadError(null);
+  const dismissQueueItem = (id: string) => {
+    setUploadQueue((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const uploadSingleQueuedFile = async (queueItem: UploadQueueItem) => {
+    const { id, file, type } = queueItem;
 
     // Client-side validations
     if (type === 'image') {
       if (!isAllowedImageMimeType(file.type, file.name)) {
-        setUploadError('Invalid image format. Allowed: JPG, PNG, WEBP, GIF.');
-        e.target.value = '';
+        updateQueueItem(id, {
+          status: 'error',
+          error: 'Invalid image format. Allowed: JPG, PNG, WEBP, GIF.',
+        });
         return;
       }
       if (file.size > MAX_IMAGE_FILE_SIZE) {
-        setUploadError(`Image exceeds maximum size limit of ${MAX_IMAGE_FILE_SIZE / (1024 * 1024)}MB.`);
-        e.target.value = '';
+        updateQueueItem(id, {
+          status: 'error',
+          error: `Exceeds ${MAX_IMAGE_FILE_SIZE / (1024 * 1024)}MB limit.`,
+        });
         return;
       }
     } else {
       if (!isAllowedVideoMimeType(file.type, file.name)) {
-        setUploadError('Invalid video format. Allowed: MP4, WEBM, QuickTime (MOV).');
-        e.target.value = '';
+        updateQueueItem(id, {
+          status: 'error',
+          error: 'Invalid video format. Allowed: MP4, WEBM, QuickTime (MOV).',
+        });
         return;
       }
       if (file.size > MAX_VIDEO_FILE_SIZE) {
-        setUploadError(`Video exceeds maximum size limit of ${MAX_VIDEO_FILE_SIZE / (1024 * 1024)}MB.`);
-        e.target.value = '';
+        updateQueueItem(id, {
+          status: 'error',
+          error: `Exceeds ${MAX_VIDEO_FILE_SIZE / (1024 * 1024)}MB limit.`,
+        });
         return;
       }
     }
 
     try {
-      setUploadingType(type);
+      let fileToUpload = file;
+      let savedBytes = 0;
 
-      const formData = new FormData();
-      formData.append('file', file);
-      if (productId) {
-        formData.append('productId', productId);
+      if (type === 'image') {
+        updateQueueItem(id, { status: 'compressing', progress: 5, error: undefined });
+        const compressed = await compressImageForUpload(file);
+        fileToUpload = compressed.file;
+        savedBytes = Math.max(0, compressed.originalSize - compressed.compressedSize);
       }
 
-      // If uploading a video, initiate client-side thumbnail capture simultaneously
+      updateQueueItem(id, { status: 'uploading', progress: 10, savedBytes, error: undefined });
+
       const thumbnailPromise =
         type === 'video'
           ? captureVideoThumbnail(file).catch(() => null)
           : Promise.resolve(null);
 
-      const res = await fetch('/api/admin/products/upload-media', {
-        method: 'POST',
-        body: formData,
-      });
-
-      let json: { success?: boolean; error?: string; data?: { storagePath: string; altText?: string } } | null = null;
-      const text = await res.text();
-      try {
-        json = text ? JSON.parse(text) : null;
-      } catch {
-        throw new Error(
-          res.status === 413
-            ? `File is too large for the server to process (HTTP 413). Please upload a smaller or compressed file.`
-            : `Server returned an unexpected response (HTTP ${res.status}): ${text.slice(0, 150) || res.statusText}`
-        );
-      }
-
-      if (!res.ok || !json?.success || !json.data) {
-        throw new Error(json?.error || `Failed to upload ${type}`);
-      }
+      const uploadData = await uploadFormDataWithRetry<{
+        storagePath: string;
+        altText?: string;
+      }>(
+        '/api/admin/products/upload-media',
+        () => {
+          const formData = new FormData();
+          formData.append('file', fileToUpload);
+          if (productId) formData.append('productId', productId);
+          return formData;
+        },
+        {
+          maxRetries: 2,
+          onProgress: (pct) => {
+            updateQueueItem(id, { progress: Math.max(10, pct) });
+          },
+        }
+      );
 
       let generatedThumbnailPath: string | null = null;
-
-      // If video thumbnail was captured, upload it automatically
       const capturedThumbnailFile = await thumbnailPromise;
       if (capturedThumbnailFile) {
         try {
-          const thumbFormData = new FormData();
-          thumbFormData.append('file', capturedThumbnailFile);
-          thumbFormData.append('isThumbnail', 'true');
-          if (productId) {
-            thumbFormData.append('productId', productId);
-          }
-
-          const thumbRes = await fetch('/api/admin/products/upload-media', {
-            method: 'POST',
-            body: thumbFormData,
-          });
-          if (thumbRes.ok) {
-            const thumbJson = await thumbRes.json();
-            if (thumbJson?.success && thumbJson.data?.storagePath) {
-              generatedThumbnailPath = thumbJson.data.storagePath;
-            }
+          const thumbData = await uploadFormDataWithRetry<{ storagePath: string }>(
+            '/api/admin/products/upload-media',
+            () => {
+              const thumbFormData = new FormData();
+              thumbFormData.append('file', capturedThumbnailFile);
+              thumbFormData.append('isThumbnail', 'true');
+              if (productId) thumbFormData.append('productId', productId);
+              return thumbFormData;
+            },
+            { maxRetries: 1 }
+          );
+          if (thumbData?.storagePath) {
+            generatedThumbnailPath = thumbData.storagePath;
           }
         } catch {
-          // Non-critical: allow video upload to succeed even if auto-thumbnail upload fails
+          // Non-critical
         }
       }
 
-      const newMediaItem: AdminMediaItem = {
-        type,
-        storage_path: json.data.storagePath,
-        thumbnail_path: generatedThumbnailPath,
-        alt_text: json.data.altText || `${productName} ${type}`,
-        sort_order: media.length,
-      };
+      const nextMedia = [
+        ...mediaRef.current,
+        {
+          type,
+          storage_path: uploadData.storagePath,
+          thumbnail_path: generatedThumbnailPath,
+          alt_text: uploadData.altText || `${productName} ${type}`,
+          sort_order: mediaRef.current.length,
+        },
+      ];
+      mediaRef.current = nextMedia;
+      onChange(nextMedia);
 
-      onChange([...media, newMediaItem]);
+      updateQueueItem(id, { status: 'done', progress: 100 });
+      setTimeout(() => {
+        setUploadQueue((prev) => prev.filter((q) => q.id !== id));
+      }, 1500);
     } catch (err: unknown) {
-      setUploadError(err instanceof Error ? err.message : `Error uploading ${type}`);
+      updateQueueItem(id, {
+        status: 'error',
+        error: err instanceof Error ? err.message : `Error uploading ${type}`,
+      });
+    }
+  };
+
+  // 1. Multi-file Upload Handler for Images and Videos
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: 'image' | 'video'
+  ) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (selectedFiles.length === 0) return;
+
+    setUploadError(null);
+    setUploadingType(type);
+
+    const newItems: UploadQueueItem[] = selectedFiles.map((file, idx) => ({
+      id: `${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
+      file,
+      type,
+      status: 'queued',
+      progress: 0,
+    }));
+
+    setUploadQueue((prev) => [...prev, ...newItems]);
+
+    // Process with controlled concurrency (2 files at a time)
+    const concurrency = 2;
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < newItems.length) {
+        const current = newItems[cursor++];
+        await uploadSingleQueuedFile(current);
+      }
+    };
+
+    try {
+      await Promise.all(
+        Array.from({ length: Math.min(concurrency, newItems.length) }, () => worker())
+      );
     } finally {
       setUploadingType(null);
-      e.target.value = '';
+    }
+  };
+
+  const handleRetryQueueItem = async (item: UploadQueueItem) => {
+    setUploadingType(item.type);
+    try {
+      await uploadSingleQueuedFile(item);
+    } finally {
+      setUploadingType(null);
     }
   };
 
@@ -560,10 +642,11 @@ export default function ProductMediaManager({
 
         {/* Action buttons */}
         <div className="flex items-center gap-2">
-          {/* Upload Image Input */}
+          {/* Upload Image Input (supports multi-file selection) */}
           <input
             ref={imageInputRef}
             type="file"
+            multiple
             accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
             onChange={(e) => handleFileUpload(e, 'image')}
             disabled={disabled || isUploading}
@@ -577,9 +660,9 @@ export default function ProductMediaManager({
             disabled={disabled || isUploading}
             loading={uploadingType === 'image'}
             onClick={() => imageInputRef.current?.click()}
-            aria-label="Upload product image"
+            aria-label="Upload product images"
           >
-            + Add Image
+            + Add Images
           </Button>
 
           {/* Upload Video Input */}
@@ -605,6 +688,71 @@ export default function ProductMediaManager({
           </Button>
         </div>
       </div>
+
+      {/* Per-File Upload Progress & Retry Queue */}
+      {uploadQueue.length > 0 && (
+        <div className="space-y-2" data-testid="media-upload-queue">
+          {uploadQueue.map((q) => (
+            <div
+              key={q.id}
+              className={`p-3 rounded-2xl border text-xs flex flex-col gap-1.5 ${
+                q.status === 'error'
+                  ? 'bg-red-50/70 border-red-200 text-red-800'
+                  : q.status === 'done'
+                  ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800'
+                  : 'bg-slate-50 border-slate-200 text-slate-700'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-semibold truncate">{q.file.name}</span>
+                  <span className="text-[10px] text-slate-400 shrink-0">
+                    {q.status === 'compressing'
+                      ? 'Optimizing...'
+                      : q.status === 'uploading'
+                      ? `${q.progress}%`
+                      : q.status === 'done'
+                      ? 'Uploaded'
+                      : q.status === 'error'
+                      ? 'Failed'
+                      : 'Queued'}
+                  </span>
+                </div>
+                {q.status === 'error' && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleRetryQueueItem(q)}
+                      className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold cursor-pointer"
+                    >
+                      Retry
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => dismissQueueItem(q.id)}
+                      className="text-red-500 hover:text-red-700 font-bold cursor-pointer"
+                      aria-label={`Dismiss ${q.file.name}`}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
+              {q.status !== 'error' && (
+                <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-200 ${
+                      q.status === 'done' ? 'bg-emerald-500' : 'bg-rose-500'
+                    }`}
+                    style={{ width: `${q.progress}%` }}
+                  />
+                </div>
+              )}
+              {q.error && <p className="text-[11px] text-red-700">{q.error}</p>}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Upload Error Alert */}
       {uploadError && (

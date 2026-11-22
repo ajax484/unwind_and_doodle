@@ -33,6 +33,10 @@ export interface CatalogProductItem {
   displayOrder?: number;
   isFeatured?: boolean;
   featuredOrder?: number;
+  paperGsm?: string | null;
+  binding?: string | null;
+  pageCount?: number | null;
+  dimensions?: string | null;
   createdAt?: string;
 }
 
@@ -242,6 +246,10 @@ export async function getPublishedCatalog(
       display_order?: number;
       is_featured?: boolean;
       featured_order?: number;
+      paper_gsm?: string | null;
+      binding?: string | null;
+      page_count?: number | null;
+      dimensions?: string | null;
     };
     const effectivePrice = p.selling_price ?? prodExt.price ?? 0;
 
@@ -273,6 +281,10 @@ export async function getPublishedCatalog(
       displayOrder: typeof prodExt.display_order === 'number' ? prodExt.display_order : 0,
       isFeatured: Boolean(prodExt.is_featured),
       featuredOrder: typeof prodExt.featured_order === 'number' ? prodExt.featured_order : 0,
+      paperGsm: prodExt.paper_gsm ?? null,
+      binding: prodExt.binding ?? null,
+      pageCount: typeof prodExt.page_count === 'number' ? prodExt.page_count : null,
+      dimensions: prodExt.dimensions ?? null,
       createdAt: p.created_at,
     };
   });

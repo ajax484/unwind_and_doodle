@@ -33,7 +33,13 @@ export async function GET(req: NextRequest) {
       adminContext.organization.id
     );
 
-    return NextResponse.json({ success: true, data }, { status: 200 });
+    return NextResponse.json(
+      { success: true, data },
+      {
+        status: 200,
+        headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+      }
+    );
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Error fetching delivery zones';
     const isAuthError =

@@ -87,14 +87,30 @@ export async function POST(req: NextRequest) {
       file.type
     );
 
-    // Upload to Supabase Storage bucket
-    let { error: uploadError } = await supabase.storage
-      .from(PRODUCT_STORAGE_BUCKET)
-      .upload(storagePath, buffer, {
-        contentType: file.type || (folder === 'videos' ? 'video/mp4' : 'image/jpeg'),
-        cacheControl: '31536000, public, immutable',
-        upsert: true,
-      });
+    // Upload to Supabase Storage bucket with transient retry
+    const attemptUpload = async () =>
+      supabase.storage
+        .from(PRODUCT_STORAGE_BUCKET)
+        .upload(storagePath, buffer, {
+          contentType: file.type || (folder === 'videos' ? 'video/mp4' : 'image/jpeg'),
+          cacheControl: '31536000, public, immutable',
+          upsert: true,
+        });
+
+    let { error: uploadError } = await attemptUpload();
+    if (
+      uploadError &&
+      !uploadError.message.includes('not found') &&
+      !uploadError.message.includes('Bucket') &&
+      !uploadError.message.includes('size limit') &&
+      !uploadError.message.includes('exceeded the maximum allowed size')
+    ) {
+      for (let retryAttempt = 0; retryAttempt < 2 && uploadError; retryAttempt++) {
+        await new Promise((r) => setTimeout(r, 400 * (retryAttempt + 1)));
+        const retried = await attemptUpload();
+        uploadError = retried.error;
+      }
+    }
 
     // Auto-create or update bucket if missing or size limit exceeded
     if (uploadError) {

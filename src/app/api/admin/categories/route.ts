@@ -12,7 +12,13 @@ export async function GET(req: NextRequest) {
     const categories = await listCategories(supabase, adminContext.organization.id, {
       includeProductCount: true,
     });
-    return NextResponse.json({ success: true, data: categories }, { status: 200 });
+    return NextResponse.json(
+      { success: true, data: categories },
+      {
+        status: 200,
+        headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+      }
+    );
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Error fetching categories';
     const isAuthError =

@@ -5,6 +5,7 @@ import { ProductMedia, ProductMediaType } from '../types/product-media';
 import {
   CreateProductInput,
   UpdateProductInput,
+  BulkUpdateProductsInput,
   ProductAddonInput,
   UpdateProductAddonInput,
   AdminProductFilters,
@@ -328,6 +329,12 @@ export async function listAdminProducts(
       featured_order: typeof (p as Record<string, unknown>).featured_order === 'number'
         ? ((p as Record<string, unknown>).featured_order as number)
         : 0,
+      paper_gsm: ((p as Record<string, unknown>).paper_gsm as string | null) ?? null,
+      binding: ((p as Record<string, unknown>).binding as string | null) ?? null,
+      page_count: typeof (p as Record<string, unknown>).page_count === 'number'
+        ? ((p as Record<string, unknown>).page_count as number)
+        : null,
+      dimensions: ((p as Record<string, unknown>).dimensions as string | null) ?? null,
       primaryImage: primaryImageMap.get(p.id) || null,
       images: imagesByProduct.get(p.id) || [],
       media: mediaByProduct.get(p.id) || [],
@@ -506,6 +513,12 @@ export async function getAdminProductDetail(
     featured_order: typeof (product as Record<string, unknown>).featured_order === 'number'
       ? ((product as Record<string, unknown>).featured_order as number)
       : 0,
+    paper_gsm: ((product as Record<string, unknown>).paper_gsm as string | null) ?? null,
+    binding: ((product as Record<string, unknown>).binding as string | null) ?? null,
+    page_count: typeof (product as Record<string, unknown>).page_count === 'number'
+      ? ((product as Record<string, unknown>).page_count as number)
+      : null,
+    dimensions: ((product as Record<string, unknown>).dimensions as string | null) ?? null,
     organization_id: product.organization_id,
     images: sortedImages.map((img) => ({
       id: img.id,
@@ -585,6 +598,10 @@ export async function createAdminProduct(
       ...(input.display_order !== undefined ? { display_order: input.display_order } : {}),
       ...(input.is_featured !== undefined ? { is_featured: input.is_featured } : {}),
       ...(input.featured_order !== undefined ? { featured_order: input.featured_order } : {}),
+      ...(input.paper_gsm !== undefined ? { paper_gsm: input.paper_gsm || null } : {}),
+      ...(input.binding !== undefined ? { binding: input.binding || null } : {}),
+      ...(input.page_count !== undefined ? { page_count: input.page_count ?? null } : {}),
+      ...(input.dimensions !== undefined ? { dimensions: input.dimensions || null } : {}),
       status: input.status,
     } as unknown as Database['public']['Tables']['products']['Insert'])
     .select()
@@ -776,6 +793,10 @@ export async function updateAdminProduct(
   if (input.display_order !== undefined) updatePayload.display_order = input.display_order;
   if (input.is_featured !== undefined) updatePayload.is_featured = input.is_featured;
   if (input.featured_order !== undefined) updatePayload.featured_order = input.featured_order;
+  if (input.paper_gsm !== undefined) updatePayload.paper_gsm = input.paper_gsm ? input.paper_gsm.trim() : null;
+  if (input.binding !== undefined) updatePayload.binding = input.binding ? input.binding.trim() : null;
+  if (input.page_count !== undefined) updatePayload.page_count = input.page_count ?? null;
+  if (input.dimensions !== undefined) updatePayload.dimensions = input.dimensions ? input.dimensions.trim() : null;
   if (input.status !== undefined) updatePayload.status = input.status;
 
   const { error: updateErr } = await supabase
@@ -1609,4 +1630,147 @@ export async function deleteAdminProductMedia(
 
   return { success: true, storageDeleteFailed };
 }
+
+/**
+ * Bulk-updates status, selling price (fixed or adjusted), and/or categories for multiple products
+ * within an organization, recording a consolidated audit log entry.
+ */
+export async function bulkUpdateAdminProducts(
+  supabase: SupabaseClient<Database>,
+  input: BulkUpdateProductsInput,
+  userId: string,
+  organizationId: string
+): Promise<{ updatedCount: number; updatedIds: string[] }> {
+  const uniqueIds = [...new Set(input.productIds)];
+
+  const { data: existingProducts, error: fetchErr } = await supabase
+    .from('products')
+    .select('id, name, selling_price, status, organization_id')
+    .in('id', uniqueIds)
+    .eq('organization_id', organizationId);
+
+  if (fetchErr) {
+    throw new Error(`Failed to fetch products for bulk update: ${fetchErr.message}`);
+  }
+
+  const targets = existingProducts || [];
+  if (targets.length === 0) {
+    throw new Error('No matching products found in your organization');
+  }
+
+  const nowIso = new Date().toISOString();
+  const auditChanges: Array<{
+    id: string;
+    name: string;
+    before: { status: string; selling_price: number };
+    after: { status: string; selling_price: number };
+  }> = [];
+
+  for (const prod of targets) {
+    const updatePayload: Record<string, unknown> = { updated_at: nowIso };
+    let nextPrice = prod.selling_price;
+    let nextStatus = prod.status;
+
+    if (input.status !== undefined) {
+      updatePayload.status = input.status;
+      nextStatus = input.status;
+    }
+
+    if (input.selling_price !== undefined) {
+      nextPrice = Math.max(0, Math.round(input.selling_price));
+      updatePayload.selling_price = nextPrice;
+    } else if (input.priceAdjustment) {
+      const { mode, amount } = input.priceAdjustment;
+      if (mode === 'fixed_delta') {
+        nextPrice = Math.max(0, Math.round(prod.selling_price + amount));
+      } else {
+        nextPrice = Math.max(0, Math.round(prod.selling_price * (1 + amount / 100)));
+      }
+      updatePayload.selling_price = nextPrice;
+    }
+
+    if (Object.keys(updatePayload).length > 1) {
+      const { error: updErr } = await supabase
+        .from('products')
+        .update(updatePayload as unknown as Database['public']['Tables']['products']['Update'])
+        .eq('id', prod.id)
+        .eq('organization_id', organizationId);
+
+      if (updErr) {
+        throw new Error(`Failed to update product "${prod.name}": ${updErr.message}`);
+      }
+    }
+
+    if (input.categoryAction) {
+      const { mode, categoryIds } = input.categoryAction;
+      if (mode === 'replace') {
+        await supabase.from('product_categories').delete().eq('product_id', prod.id);
+        if (categoryIds.length > 0) {
+          await supabase.from('product_categories').insert(
+            categoryIds.map((category_id) => ({
+              product_id: prod.id,
+              category_id,
+            })) as unknown as Database['public']['Tables']['product_categories']['Insert']
+          );
+        }
+      } else if (mode === 'add' && categoryIds.length > 0) {
+        const { data: currentLinks } = await supabase
+          .from('product_categories')
+          .select('category_id')
+          .eq('product_id', prod.id);
+        const existingSet = new Set((currentLinks || []).map((l) => l.category_id));
+        const toAdd = categoryIds.filter((cid) => !existingSet.has(cid));
+        if (toAdd.length > 0) {
+          await supabase.from('product_categories').insert(
+            toAdd.map((category_id) => ({
+              product_id: prod.id,
+              category_id,
+            })) as unknown as Database['public']['Tables']['product_categories']['Insert']
+          );
+        }
+      } else if (mode === 'remove' && categoryIds.length > 0) {
+        await supabase
+          .from('product_categories')
+          .delete()
+          .eq('product_id', prod.id)
+          .in('category_id', categoryIds);
+      }
+    }
+
+    auditChanges.push({
+      id: prod.id,
+      name: prod.name,
+      before: { status: prod.status, selling_price: prod.selling_price },
+      after: { status: nextStatus, selling_price: nextPrice },
+    });
+  }
+
+  try {
+    await supabase.from('audit_logs').insert({
+      organization_id: organizationId,
+      actor_id: userId,
+      user_id: userId,
+      action: 'product.bulk_updated',
+      entity_type: 'product',
+      entity_id: targets[0].id,
+      before_data: {
+        count: targets.length,
+        products: auditChanges.map((c) => ({ id: c.id, name: c.name, ...c.before })),
+      } as unknown as Json,
+      after_data: {
+        count: targets.length,
+        categoryAction: input.categoryAction || null,
+        products: auditChanges.map((c) => ({ id: c.id, name: c.name, ...c.after })),
+      } as unknown as Json,
+    } as unknown as Database['public']['Tables']['audit_logs']['Insert']);
+  } catch {
+    // Non-blocking audit log
+  }
+
+  return {
+    updatedCount: targets.length,
+    updatedIds: targets.map((t) => t.id),
+  };
+}
+
 

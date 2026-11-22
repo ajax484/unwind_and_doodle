@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { DEFAULT_HOMEPAGE_CONFIG, HeroCopy } from '@/types/homepage-settings';
 
 const LEFT_IMAGE_SRC = '/images/ChatGPT Image Oct 2, 2026, 03_42_13 PM.webp';
 const RIGHT_IMAGE_SRC = '/images/IMG_3364.JPG.webp';
@@ -9,6 +10,7 @@ const RIGHT_IMAGE_ALT = 'Personalized creative keepsakes';
 
 export interface HeroSectionProps {
   coloristCount?: number | string;
+  copy?: Partial<HeroCopy>;
 }
 
 const DEFAULT_COLORIST_COUNT: number | string | undefined = undefined;
@@ -61,11 +63,12 @@ function RoseIcon({ className, color = '#F0A8B8' }: { className?: string; color?
   );
 }
 
-export default function HeroSection({ coloristCount }: HeroSectionProps = {}) {
+export default function HeroSection({ coloristCount, copy }: HeroSectionProps = {}) {
+  const c = { ...DEFAULT_HOMEPAGE_CONFIG.copy.hero, ...copy };
   const count = coloristCount ?? DEFAULT_COLORIST_COUNT;
   const socialProofText = count
     ? `Loved by ${typeof count === 'number' ? count.toLocaleString() : count} colorists`
-    : 'Loved by colorists';
+    : c.socialProofLabel;
 
   return (
     <section className="w-full bg-white relative min-h-screen flex justify-center items-center py-16 sm:py-20 lg:py-0 border-b border-border-default overflow-hidden">
@@ -165,10 +168,10 @@ export default function HeroSection({ coloristCount }: HeroSectionProps = {}) {
 
         {/* Display Headline */}
         <h1 className="font-heading text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-text-primary leading-[1.08]">
-          Create something <br className="hidden sm:inline" />
-          <span className="text-brand-blue">worth </span>
+          {c.headlineLead} <br className="hidden sm:inline" />
+          <span className="text-brand-blue">{c.headlineBlue}</span>
           <span className="text-brand-rose relative inline-block">
-            keeping.
+            {c.headlineRose}
             <svg
               aria-hidden="true"
               className="hero-squiggle absolute left-0 -bottom-3 sm:-bottom-4 w-full h-[18px] sm:h-[22px] overflow-visible pointer-events-none"
@@ -192,7 +195,7 @@ export default function HeroSection({ coloristCount }: HeroSectionProps = {}) {
 
         {/* Subtitle Copy */}
         <p className="text-base sm:text-lg text-text-secondary max-w-2xl mx-auto leading-relaxed">
-          Coloring books, guided journals, and creative essentials thoughtfully designed to make space for imagination, quiet moments, and everyday relaxation.
+          {c.subtitle}
         </p>
 
         {/* Mobile / Tablet Responsive Circular Image Showcases (Visible on < lg screens) */}
@@ -224,14 +227,14 @@ export default function HeroSection({ coloristCount }: HeroSectionProps = {}) {
 
         {/* CTA Action Row */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-4 pt-2">
-          <Link href="/products" className="btn-rose !py-3.5 !px-7 text-center">
-            Shop the collection →
+          <Link href={c.primaryCtaHref} className="btn-rose !py-3.5 !px-7 text-center">
+            {c.primaryCtaLabel} →
           </Link>
           <Link
-            href="/products?category=coloring-books"
+            href={c.secondaryCtaHref}
             className="btn-outline !py-3.5 !px-7 text-center hover:border-brand-blue hover:text-brand-blue-deep transition-all"
           >
-            Create your coloring book
+            {c.secondaryCtaLabel}
           </Link>
         </div>
 

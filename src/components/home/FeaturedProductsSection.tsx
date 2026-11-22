@@ -3,35 +3,39 @@ import Link from 'next/link';
 import ProductCard from '@/components/ProductCard';
 import Skeleton from '@/components/Skeleton';
 import { CatalogProductItem } from '@/services/catalog.service';
+import { DEFAULT_HOMEPAGE_CONFIG, FeaturedProductsCopy } from '@/types/homepage-settings';
 
 interface FeaturedProductsSectionProps {
   products: CatalogProductItem[];
   loading: boolean;
   error: string | null;
+  copy?: Partial<FeaturedProductsCopy>;
 }
 
 export default function FeaturedProductsSection({
   products,
   loading,
   error,
+  copy,
 }: FeaturedProductsSectionProps) {
+  const c = { ...DEFAULT_HOMEPAGE_CONFIG.copy.featured_products, ...copy };
   return (
     <section className="w-full bg-bg-subtle py-16 sm:py-24 lg:py-28 border-b border-border-default">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10 pb-4 border-b border-border-default">
         <div>
           <span className="text-xs font-heading font-semibold uppercase tracking-wider text-brand-blue block mb-1">
-            Curated Favorites
+            {c.eyebrow}
           </span>
           <h2 className="font-heading text-3xl sm:text-4xl font-bold text-text-primary">
-            Favorites right now
+            {c.title}
           </h2>
         </div>
         <Link
           href="/products"
           className="text-xs sm:text-sm font-heading font-semibold text-action-primary hover:text-action-primary-hover transition-colors flex items-center gap-1 self-start sm:self-auto"
         >
-          <span>Shop all products</span>
+          <span>{c.ctaLabel}</span>
           <span aria-hidden="true">→</span>
         </Link>
       </div>

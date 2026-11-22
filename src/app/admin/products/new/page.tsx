@@ -34,6 +34,10 @@ export default function NewProductPage() {
   const [costPrice, setCostPrice] = useState<number | ''>('');
   const [requiresCustomization, setRequiresCustomization] = useState(false);
   const [isFeatured, setIsFeatured] = useState(false);
+  const [paperGsm, setPaperGsm] = useState('');
+  const [binding, setBinding] = useState('');
+  const [pageCount, setPageCount] = useState<string>('');
+  const [dimensions, setDimensions] = useState('');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [media, setMedia] = useState<AdminMediaItem[]>([]);
 
@@ -200,6 +204,10 @@ export default function NewProductPage() {
         requires_customization: requiresCustomization,
         supports_theme_customization: supportsThemeCustomization,
         is_featured: isFeatured,
+        paper_gsm: paperGsm.trim() || null,
+        binding: binding.trim() || null,
+        page_count: pageCount.trim() ? Number(pageCount) : null,
+        dimensions: dimensions.trim() || null,
         status,
         category_ids: selectedCategoryIds,
         media: media.map((m, idx) => ({
@@ -408,6 +416,56 @@ export default function NewProductPage() {
                 />
               </div>
               <span className="text-[11px] text-slate-400">Internal bookkeeping (never shown to customers)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 2B: Product Specifications */}
+        <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
+          <h3 className="font-heading font-bold text-base text-slate-900 border-b border-slate-100 pb-3">
+            Product Specifications
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-700 block">Paper Weight (GSM)</label>
+              <input
+                type="text"
+                value={paperGsm}
+                onChange={(e) => setPaperGsm(e.target.value)}
+                placeholder="e.g. 120gsm uncoated"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-hidden focus:border-rose-400"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-700 block">Binding</label>
+              <input
+                type="text"
+                value={binding}
+                onChange={(e) => setBinding(e.target.value)}
+                placeholder="e.g. Spiral-bound, Perfect-bound"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-hidden focus:border-rose-400"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-700 block">Page Count</label>
+              <input
+                type="number"
+                min="1"
+                value={pageCount}
+                onChange={(e) => setPageCount(e.target.value)}
+                placeholder="e.g. 40"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-hidden focus:border-rose-400"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-700 block">Dimensions</label>
+              <input
+                type="text"
+                value={dimensions}
+                onChange={(e) => setDimensions(e.target.value)}
+                placeholder="e.g. 21 × 21 cm (Square)"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-hidden focus:border-rose-400"
+              />
             </div>
           </div>
         </div>

@@ -13,6 +13,13 @@ interface SettingsTile {
 
 const SETTINGS_SECTIONS: SettingsTile[] = [
   {
+    title: 'Homepage Layout & Copy',
+    description: 'Reorder or toggle homepage sections and edit hero and section copy without a deploy.',
+    href: '/admin/settings/homepage',
+    icon: '🏠',
+    badge: 'New',
+  },
+  {
     title: 'Storefront Pages',
     description: 'Edit About Us, Delivery, Returns, FAQ, and Contact page content with immediate updates.',
     href: '/admin/settings/pages',
