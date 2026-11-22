@@ -10,11 +10,19 @@ import { getEnabledPaymentMethods, getBankTransferSettings } from './payment-set
 import { publishDomainEvent } from './events.service';
 import { validateThemeCustomization, persistThemeCustomizationSnapshot } from './theme.service';
 import { ORDER_STATUS, PAYMENT_STATUS, DOMAIN_EVENT_TYPES, CURRENCY, DEFAULT_ORGANIZATION_ID } from '../lib/constants';
+import {
+  classifyCheckoutReasonCode,
+  logCheckoutError,
+  logCheckoutEvent,
+  logCheckoutWarning,
+  resolveRequestId,
+} from '../lib/observability/checkout-logger';
 
 export interface ProcessCheckoutOptions {
   supabase: SupabaseClient<Database>;
   request: CheckoutRequest;
   paymentProvider?: PaymentProvider;
+  requestId?: string;
 }
 
 /**
@@ -32,6 +40,7 @@ export interface ProcessCheckoutOptions {
  */
 export async function processCheckout(options: ProcessCheckoutOptions): Promise<CheckoutResult> {
   const { supabase, request } = options;
+  const requestId = options.requestId || resolveRequestId();
 
   // 1. Resolve or create customer & address
   const { customerId } = await resolveOrCreateCustomer(
@@ -47,6 +56,17 @@ export async function processCheckout(options: ProcessCheckoutOptions): Promise<
   // 3. Find a warehouse that serves the location and has sufficient stock
   const warehouseResult = await findCapableWarehouse(supabase, request.locationId, requiredProductItems);
   if (!warehouseResult.capable || !warehouseResult.warehouseId) {
+    logCheckoutWarning({
+      requestId,
+      stage: 'checkout',
+      event: 'checkout.warehouse_unavailable',
+      reasonCode: 'WAREHOUSE_UNAVAILABLE',
+      metadata: {
+        locationId: request.locationId,
+        itemCount: request.items.length,
+        warehouseError: warehouseResult.error,
+      },
+    });
     throw new Error(
       warehouseResult.error || 'No single warehouse can fulfill all items for your location'
     );
@@ -85,6 +105,14 @@ export async function processCheckout(options: ProcessCheckoutOptions): Promise<
   const enabledMethods = await getEnabledPaymentMethods(supabase, orgId);
 
   if (!enabledMethods.includes(requestedPaymentMethod)) {
+    logCheckoutWarning({
+      requestId,
+      stage: 'checkout',
+      event: 'checkout.payment_method_disabled',
+      reasonCode: 'PAYMENT_METHOD_DISABLED',
+      provider: requestedPaymentMethod,
+      metadata: { enabledMethods },
+    });
     throw new Error(
       `Payment method '${requestedPaymentMethod}' is not currently available for this store.`
     );
@@ -314,21 +342,49 @@ export async function processCheckout(options: ProcessCheckoutOptions): Promise<
     });
 
     // 12. Initialize transaction with PaymentProvider
-    const paymentData = await paymentProvider.initializeTransaction({
+    let paymentData;
+    try {
+      paymentData = await paymentProvider.initializeTransaction({
+        reference: paymentReference,
+        amount: pricing.total,
+        currency: CURRENCY.NGN,
+        customer: {
+          email: request.customer.email,
+          name: `${request.customer.firstName} ${request.customer.lastName}`.trim(),
+          phone: request.customer.phone,
+        },
+        redirectUrl: request.callbackUrl,
+        metadata: {
+          order_id: order.id,
+          payment_id: paymentRecord.id,
+          request_id: requestId,
+        },
+        description: `Payment for Order ${order.order_number}`,
+      });
+    } catch (initError) {
+      logCheckoutError(initError, {
+        requestId,
+        stage: 'payment_init',
+        event: 'payment.initialize_failed',
+        reasonCode: 'PAYMENT_INIT_FAILED',
+        orderId: order.id,
+        orderNumber: order.order_number,
+        paymentId: paymentRecord.id,
+        provider: paymentProvider.name,
+        reference: paymentReference,
+      });
+      throw initError;
+    }
+
+    logCheckoutEvent({
+      requestId,
+      stage: 'payment_init',
+      event: 'payment.initialized',
+      orderId: order.id,
+      orderNumber: order.order_number,
+      paymentId: paymentRecord.id,
+      provider: paymentProvider.name,
       reference: paymentReference,
-      amount: pricing.total,
-      currency: CURRENCY.NGN,
-      customer: {
-        email: request.customer.email,
-        name: `${request.customer.firstName} ${request.customer.lastName}`.trim(),
-        phone: request.customer.phone,
-      },
-      redirectUrl: request.callbackUrl,
-      metadata: {
-        order_id: order.id,
-        payment_id: paymentRecord.id,
-      },
-      description: `Payment for Order ${order.order_number}`,
     });
 
     return {
@@ -352,8 +408,24 @@ export async function processCheckout(options: ProcessCheckoutOptions): Promise<
         .from('orders')
         .update({ status: ORDER_STATUS.CANCELLED, updated_at: new Date().toISOString() })
         .eq('id', order.id);
+      logCheckoutWarning({
+        requestId,
+        stage: 'order_creation',
+        event: 'checkout.order_rolled_back',
+        reasonCode: classifyCheckoutReasonCode(error, 'ORDER_CREATION_FAILED'),
+        orderId: order.id,
+        orderNumber: order.order_number,
+        provider: paymentProvider.name,
+      });
     } catch (cleanupErr) {
-      console.error('Failed to cleanup order after checkout failure:', cleanupErr);
+      logCheckoutError(cleanupErr, {
+        requestId,
+        stage: 'order_creation',
+        event: 'checkout.cleanup_failed',
+        reasonCode: 'ORDER_CREATION_FAILED',
+        orderId: order.id,
+        orderNumber: order.order_number,
+      });
     }
     throw error;
   }

@@ -666,7 +666,7 @@ describe('Step 14: Event Cancellation & Multi-Step Marketing Journeys', () => {
 
       const domainEvent = {
         id: 'evt-orch-welcome-1',
-        event_type: 'customer.created',
+        event_type: 'marketing.subscribed',
         organization_id: orgAlpha,
         payload: {
           customerId,

@@ -637,8 +637,27 @@ export function initializeNotificationEventHandlers(): void {
     const effectiveOrderNumber = orderNumber || event.aggregateId;
     const reviewUrl = `${appUrl}/account/orders/${effectiveOrderNumber}`;
 
+    // EML-AUTO-4: Ensure review request fires at most once per order (DB-backed idempotency)
+    let alreadyReviewRequested = false;
+    try {
+      const supabase = getServiceSupabaseClient();
+      const orderIdToLookup = (payload.orderId as string) || (event.aggregateType === 'order' ? event.aggregateId : null);
+      if (orderIdToLookup) {
+        const { data: existingOrder } = await supabase
+          .from('orders')
+          .select('review_requested_at')
+          .eq('id', orderIdToLookup)
+          .maybeSingle();
+        if ((existingOrder as any)?.review_requested_at) {
+          alreadyReviewRequested = true;
+        }
+      }
+    } catch {
+      // Non-blocking fallback to in-memory idempotency key
+    }
+
     // Customer review request email
-    if (customerEmail) {
+    if (customerEmail && !alreadyReviewRequested) {
       try {
         await dispatchTransactionalEmail(
           {
@@ -653,7 +672,7 @@ export function initializeNotificationEventHandlers(): void {
             },
             organizationId: orgId,
           },
-          `notif_review_request_${effectiveOrderNumber}_${customerEmail}_${event.id}`
+          `notif_review_request_${effectiveOrderNumber}_${customerEmail}`
         );
 
         // Update review_requested_at on order

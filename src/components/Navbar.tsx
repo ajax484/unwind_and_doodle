@@ -121,7 +121,7 @@ const defaultNavLinks: NavLinkItem[] = [
   { label: 'Shop', href: '/products' },
   { label: 'Customized Books', href: '/products?category=customized-books' },
   { label: 'Kits', href: '/products?category=kits' },
-  { label: 'About', href: '/#about' },
+  { label: 'About', href: '/about' },
 ];
 
 /**

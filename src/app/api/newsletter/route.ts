@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { getServiceSupabaseClient } from '@/lib/supabase/client';
+import { subscribeCustomerToMarketing } from '@/services/marketing-subscription.service';
 
 const newsletterSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
+  firstName: z.string().trim().max(100).optional(),
+  lastName: z.string().trim().max(100).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -17,15 +21,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { email } = result.data;
-    // In this phase, we acknowledge the subscription gracefully.
-    // Marketing automation and provider synchronization will follow in a subsequent phase.
+    const { email, firstName, lastName } = result.data;
+    const supabase = getServiceSupabaseClient();
+
+    const sub = await subscribeCustomerToMarketing(supabase, {
+      email,
+      firstName,
+      lastName,
+      source: 'newsletter',
+    });
 
     return NextResponse.json(
       {
         success: true,
-        message: 'Thank you for subscribing to Unwind & Doodle!',
-        email,
+        message: sub.alreadySubscribed
+          ? 'You are already subscribed to Unwind & Doodle!'
+          : 'Thank you for subscribing to Unwind & Doodle!',
+        email: sub.email,
+        alreadySubscribed: sub.alreadySubscribed,
       },
       { status: 200 }
     );

@@ -11,6 +11,12 @@ import {
 import { getServiceSupabaseClient } from '@/lib/supabase/client';
 import { AddToCartSchema, UpdateCartItemSchema } from '@/types/cart';
 import { getAuthenticatedUserContext } from '@/services/user-context.service';
+import {
+  classifyCheckoutReasonCode,
+  logCheckoutError,
+  logCheckoutWarning,
+  resolveRequestId,
+} from '@/lib/observability/checkout-logger';
 
 const CART_COOKIE_NAME = 'uad_cart_session';
 
@@ -53,38 +59,64 @@ function attachCartCookie(res: NextResponse, sessionId: string) {
 }
 
 export async function GET(req: NextRequest) {
+  const requestId = resolveRequestId(req.headers);
+  let sessionId: string | undefined;
   try {
     const supabase = getServiceSupabaseClient();
-    const { sessionId, isNew } = getOrCreateSessionId(req);
+    const resolved = getOrCreateSessionId(req);
+    sessionId = resolved.sessionId;
     const customerId = await resolveCustomerId(req);
 
     const cart = await getCartDetails(supabase, sessionId, customerId);
     const res = NextResponse.json({ success: true, data: cart }, { status: 200 });
+    res.headers.set('x-request-id', requestId);
 
-    if (isNew) {
+    if (resolved.isNew) {
       attachCartCookie(res, sessionId);
     }
     return res;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Error fetching cart';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    logCheckoutError(error, {
+      requestId,
+      stage: 'cart',
+      event: 'cart.get_failed',
+      reasonCode: classifyCheckoutReasonCode(error, 'CART_ERROR'),
+      sessionId,
+      statusCode: 500,
+    });
+    const res = NextResponse.json({ success: false, error: message, requestId }, { status: 500 });
+    res.headers.set('x-request-id', requestId);
+    return res;
   }
 }
 
 export async function POST(req: NextRequest) {
+  const requestId = resolveRequestId(req.headers);
+  let sessionId: string | undefined;
   try {
     const supabase = getServiceSupabaseClient();
-    const { sessionId } = getOrCreateSessionId(req);
+    sessionId = getOrCreateSessionId(req).sessionId;
     const customerId = await resolveCustomerId(req);
     const body = await req.json();
 
     const parseResult = AddToCartSchema.safeParse(body);
     if (!parseResult.success) {
       const firstError = parseResult.error.issues[0]?.message || 'Invalid request payload';
-      return NextResponse.json(
-        { success: false, error: firstError, details: parseResult.error.flatten().fieldErrors },
+      logCheckoutWarning({
+        requestId,
+        stage: 'cart',
+        event: 'cart.add_validation_failed',
+        reasonCode: 'VALIDATION_ERROR',
+        sessionId,
+        statusCode: 400,
+      });
+      const res = NextResponse.json(
+        { success: false, error: firstError, requestId, details: parseResult.error.flatten().fieldErrors },
         { status: 400 }
       );
+      res.headers.set('x-request-id', requestId);
+      return res;
     }
 
     const { productId, quantity, addons, customization, themeCustomization } = parseResult.data;
@@ -103,28 +135,51 @@ export async function POST(req: NextRequest) {
     );
 
     const res = NextResponse.json({ success: true, data: updatedCart }, { status: 200 });
+    res.headers.set('x-request-id', requestId);
     attachCartCookie(res, sessionId);
     return res;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Error adding item to cart';
-    return NextResponse.json({ success: false, error: message }, { status: 400 });
+    logCheckoutError(error, {
+      requestId,
+      stage: 'cart',
+      event: 'cart.add_failed',
+      reasonCode: classifyCheckoutReasonCode(error, 'CART_ERROR'),
+      sessionId,
+      statusCode: 400,
+    });
+    const res = NextResponse.json({ success: false, error: message, requestId }, { status: 400 });
+    res.headers.set('x-request-id', requestId);
+    return res;
   }
 }
 
 export async function PATCH(req: NextRequest) {
+  const requestId = resolveRequestId(req.headers);
+  let sessionId: string | undefined;
   try {
     const supabase = getServiceSupabaseClient();
-    const { sessionId } = getOrCreateSessionId(req);
+    sessionId = getOrCreateSessionId(req).sessionId;
     const customerId = await resolveCustomerId(req);
     const body = await req.json();
 
     const parseResult = UpdateCartItemSchema.safeParse(body);
     if (!parseResult.success) {
       const firstError = parseResult.error.issues[0]?.message || 'Invalid request payload';
-      return NextResponse.json(
-        { success: false, error: firstError, details: parseResult.error.flatten().fieldErrors },
+      logCheckoutWarning({
+        requestId,
+        stage: 'cart',
+        event: 'cart.update_validation_failed',
+        reasonCode: 'VALIDATION_ERROR',
+        sessionId,
+        statusCode: 400,
+      });
+      const res = NextResponse.json(
+        { success: false, error: firstError, requestId, details: parseResult.error.flatten().fieldErrors },
         { status: 400 }
       );
+      res.headers.set('x-request-id', requestId);
+      return res;
     }
 
     const { cartItemId, quantity, customization, themeCustomization } = parseResult.data;
@@ -152,28 +207,43 @@ export async function PATCH(req: NextRequest) {
     }
 
     const res = NextResponse.json({ success: true, data: updatedCart }, { status: 200 });
+    res.headers.set('x-request-id', requestId);
     attachCartCookie(res, sessionId);
     return res;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Error updating cart item';
-    return NextResponse.json({ success: false, error: message }, { status: 400 });
+    logCheckoutError(error, {
+      requestId,
+      stage: 'cart',
+      event: 'cart.update_failed',
+      reasonCode: classifyCheckoutReasonCode(error, 'CART_ERROR'),
+      sessionId,
+      statusCode: 400,
+    });
+    const res = NextResponse.json({ success: false, error: message, requestId }, { status: 400 });
+    res.headers.set('x-request-id', requestId);
+    return res;
   }
 }
 
 export async function DELETE(req: NextRequest) {
+  const requestId = resolveRequestId(req.headers);
+  let sessionId: string | undefined;
   try {
     const supabase = getServiceSupabaseClient();
-    const { sessionId } = getOrCreateSessionId(req);
+    sessionId = getOrCreateSessionId(req).sessionId;
     const customerId = await resolveCustomerId(req);
     const url = new URL(req.url);
     const cartItemId = url.searchParams.get('cartItemId');
     const clearAll = url.searchParams.get('all') === 'true' || url.searchParams.get('clear') === 'true';
 
     if (!cartItemId && !clearAll) {
-      return NextResponse.json(
-        { success: false, error: 'cartItemId query parameter is required' },
+      const res = NextResponse.json(
+        { success: false, error: 'cartItemId query parameter is required', requestId },
         { status: 400 }
       );
+      res.headers.set('x-request-id', requestId);
+      return res;
     }
 
     let updatedCart;
@@ -184,11 +254,22 @@ export async function DELETE(req: NextRequest) {
     }
 
     const res = NextResponse.json({ success: true, data: updatedCart }, { status: 200 });
+    res.headers.set('x-request-id', requestId);
     attachCartCookie(res, sessionId);
     return res;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Error removing cart item';
-    return NextResponse.json({ success: false, error: message }, { status: 400 });
+    logCheckoutError(error, {
+      requestId,
+      stage: 'cart',
+      event: 'cart.delete_failed',
+      reasonCode: classifyCheckoutReasonCode(error, 'CART_ERROR'),
+      sessionId,
+      statusCode: 400,
+    });
+    const res = NextResponse.json({ success: false, error: message, requestId }, { status: 400 });
+    res.headers.set('x-request-id', requestId);
+    return res;
   }
 }
 

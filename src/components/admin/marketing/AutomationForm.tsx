@@ -48,9 +48,11 @@ export function AutomationForm({ initialAutomation }: AutomationFormProps) {
 
   // Trigger state
   const meta = AUTOMATION_TYPE_METADATA[type];
-  const defaultTrigger = meta?.compatibleEventTypes[0] || 'customer.created';
+  const defaultTrigger = meta?.compatibleEventTypes[0] || 'marketing.subscribed';
   const [triggerType, setTriggerType] = useState<AutomationTriggerEventType>(
-    existingConfig.trigger?.type || defaultTrigger
+    existingConfig.trigger?.type && meta?.compatibleEventTypes.includes(existingConfig.trigger.type)
+      ? existingConfig.trigger.type
+      : defaultTrigger
   );
 
   // Delay state

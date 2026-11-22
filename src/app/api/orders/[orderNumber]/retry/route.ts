@@ -3,20 +3,30 @@ import { getServiceSupabaseClient } from '@/lib/supabase/client';
 import { getAuthenticatedCustomer } from '@/lib/auth-helpers';
 import { verifyOrderAccessToken } from '@/lib/order-token';
 import { getPaymentRetryEligibility, retryPayment, PaymentProviderName } from '@/services/payment';
+import {
+  classifyCheckoutReasonCode,
+  logCheckoutError,
+  logCheckoutEvent,
+  logCheckoutWarning,
+  resolveRequestId,
+} from '@/lib/observability/checkout-logger';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ orderNumber: string }> }
 ) {
+  const requestId = resolveRequestId(req.headers);
   try {
     const supabase = getServiceSupabaseClient();
     const { orderNumber } = await params;
 
     if (!orderNumber) {
-      return NextResponse.json(
-        { success: false, error: 'Order number is required' },
+      const res = NextResponse.json(
+        { success: false, error: 'Order number is required', requestId },
         { status: 400 }
       );
+      res.headers.set('x-request-id', requestId);
+      return res;
     }
 
     const { searchParams } = new URL(req.url);
@@ -30,29 +40,46 @@ export async function GET(
     });
 
     if (!eligibility.eligible && eligibility.errorCode === 'ORDER_NOT_FOUND') {
-      return NextResponse.json(
-        { success: false, error: 'Order not found' },
+      const res = NextResponse.json(
+        { success: false, error: 'Order not found', reasonCode: 'NOT_FOUND', requestId },
         { status: 404 }
       );
+      res.headers.set('x-request-id', requestId);
+      return res;
     }
 
     if (!eligibility.eligible && eligibility.errorCode === 'UNAUTHORIZED') {
-      return NextResponse.json(
-        { success: false, error: eligibility.reason, requiresVerification: true },
+      const res = NextResponse.json(
+        { success: false, error: eligibility.reason, reasonCode: 'UNAUTHORIZED', requestId, requiresVerification: true },
         { status: 401 }
       );
+      res.headers.set('x-request-id', requestId);
+      return res;
     }
 
-    return NextResponse.json(
+    const res = NextResponse.json(
       {
         success: true,
+        requestId,
         data: eligibility,
       },
       { status: 200 }
     );
+    res.headers.set('x-request-id', requestId);
+    return res;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Error checking retry eligibility';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    const reasonCode = classifyCheckoutReasonCode(error, 'PAYMENT_VERIFICATION_FAILED');
+    logCheckoutError(error, {
+      requestId,
+      stage: 'payment_retry',
+      event: 'payment_retry.eligibility_failed',
+      reasonCode,
+      statusCode: 500,
+    });
+    const res = NextResponse.json({ success: false, error: message, reasonCode, requestId }, { status: 500 });
+    res.headers.set('x-request-id', requestId);
+    return res;
   }
 }
 
@@ -60,26 +87,43 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ orderNumber: string }> }
 ) {
+  const requestId = resolveRequestId(req.headers);
+  const startedAt = Date.now();
+  let orderNumber: string | undefined;
+  let paymentMethod: PaymentProviderName | undefined;
+
   try {
     const supabase = getServiceSupabaseClient();
-    const { orderNumber } = await params;
+    ({ orderNumber } = await params);
 
     if (!orderNumber) {
-      return NextResponse.json(
-        { success: false, error: 'Order number is required' },
+      const res = NextResponse.json(
+        { success: false, error: 'Order number is required', reasonCode: 'VALIDATION_ERROR', requestId },
         { status: 400 }
       );
+      res.headers.set('x-request-id', requestId);
+      return res;
     }
 
     const body = await req.json().catch(() => ({}));
-    const paymentMethod = body.paymentMethod as PaymentProviderName;
+    paymentMethod = body.paymentMethod as PaymentProviderName;
     const callbackUrl = body.callbackUrl as string | undefined;
 
     if (!paymentMethod || !['paystack', 'flutterwave', 'manual'].includes(paymentMethod)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid or missing payment method' },
+      logCheckoutWarning({
+        requestId,
+        stage: 'payment_retry',
+        event: 'payment_retry.invalid_method',
+        reasonCode: 'VALIDATION_ERROR',
+        orderNumber,
+        statusCode: 400,
+      });
+      const res = NextResponse.json(
+        { success: false, error: 'Invalid or missing payment method', reasonCode: 'VALIDATION_ERROR', requestId },
         { status: 400 }
       );
+      res.headers.set('x-request-id', requestId);
+      return res;
     }
 
     const { searchParams } = new URL(req.url);
@@ -90,10 +134,20 @@ export async function POST(
     if (token) {
       const verification = verifyOrderAccessToken(token, orderNumber);
       if (!verification.valid && !authContext) {
-        return NextResponse.json(
-          { success: false, error: 'Invalid order access token' },
+        logCheckoutWarning({
+          requestId,
+          stage: 'payment_retry',
+          event: 'payment_retry.invalid_token',
+          reasonCode: 'UNAUTHORIZED',
+          orderNumber,
+          statusCode: 401,
+        });
+        const res = NextResponse.json(
+          { success: false, error: 'Invalid order access token', reasonCode: 'UNAUTHORIZED', requestId },
           { status: 401 }
         );
+        res.headers.set('x-request-id', requestId);
+        return res;
       }
     }
 
@@ -109,13 +163,26 @@ export async function POST(
       },
     });
 
-    return NextResponse.json(
+    logCheckoutEvent({
+      requestId,
+      stage: 'payment_retry',
+      event: 'payment_retry.succeeded',
+      orderNumber,
+      provider: paymentMethod,
+      durationMs: Date.now() - startedAt,
+      statusCode: 200,
+    });
+
+    const res = NextResponse.json(
       {
         success: true,
+        requestId,
         data: result,
       },
       { status: 200 }
     );
+    res.headers.set('x-request-id', requestId);
+    return res;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Error retrying payment';
     const isClientError =
@@ -124,10 +191,28 @@ export async function POST(
       message.includes('cancelled') ||
       message.includes('eligible') ||
       message.includes('permission');
+    const reasonCode = classifyCheckoutReasonCode(error, 'PAYMENT_INIT_FAILED');
 
-    return NextResponse.json(
-      { success: false, error: message },
+    logCheckoutError(
+      error,
+      {
+        requestId,
+        stage: 'payment_retry',
+        event: 'payment_retry.failed',
+        reasonCode,
+        orderNumber,
+        provider: paymentMethod,
+        durationMs: Date.now() - startedAt,
+        statusCode: isClientError ? 400 : 500,
+      },
+      { level: isClientError ? 'warning' : 'error' }
+    );
+
+    const res = NextResponse.json(
+      { success: false, error: message, reasonCode, requestId },
       { status: isClientError ? 400 : 500 }
     );
+    res.headers.set('x-request-id', requestId);
+    return res;
   }
 }

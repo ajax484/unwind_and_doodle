@@ -277,7 +277,8 @@ export async function fulfillSuccessfulPayment(
         .update({ status: 'converted', updated_at: new Date().toISOString() })
         .eq('customer_id', order.customer_id)
         .eq('status', 'active');
-    } else if (cartSessionId) {
+    }
+    if (cartSessionId) {
       await supabase
         .from('carts')
         .update({ status: 'converted', updated_at: new Date().toISOString() })
@@ -285,6 +286,60 @@ export async function fulfillSuccessfulPayment(
     }
   } catch {
     // Non-blocking conversion tracking
+  }
+
+  // 11b. EML-AUTO-2 & EML-AUTO-3: Immediately exit active welcome & abandoned_checkout automations on verified payment
+  try {
+    const normalizedEmail = customerEmail?.trim().toLowerCase() || null;
+    if (order.customer_id || normalizedEmail) {
+      const { data: automationsToExit } = await (supabase as any)
+        .from('marketing_automations')
+        .select('id, type')
+        .eq('organization_id', orgId)
+        .in('type', ['welcome', 'abandoned_checkout']);
+
+      if (Array.isArray(automationsToExit) && automationsToExit.length > 0) {
+        const nowExitIso = new Date().toISOString();
+        const welcomeIds = automationsToExit
+          .filter((a: { type: string }) => a.type === 'welcome')
+          .map((a: { id: string }) => a.id);
+        const abandonedIds = automationsToExit
+          .filter((a: { type: string }) => a.type === 'abandoned_checkout')
+          .map((a: { id: string }) => a.id);
+
+        const cancelActiveForAutomationIds = async (autoIds: string[], skipReason: string) => {
+          if (autoIds.length === 0) return;
+          let q = (supabase as any)
+            .from('marketing_automation_executions')
+            .update({
+              status: 'skipped',
+              skip_reason: skipReason,
+              executed_at: nowExitIso,
+              updated_at: nowExitIso,
+            })
+            .eq('organization_id', orgId)
+            .in('automation_id', autoIds)
+            .in('status', ['pending', 'processing']);
+
+          if (order.customer_id && normalizedEmail) {
+            q = q.or(`customer_id.eq.${order.customer_id},customer_email.ilike.${normalizedEmail}`);
+          } else if (order.customer_id) {
+            q = q.eq('customer_id', order.customer_id);
+          } else if (normalizedEmail) {
+            q = q.ilike('customer_email', normalizedEmail);
+          }
+
+          await q;
+        };
+
+        await Promise.all([
+          cancelActiveForAutomationIds(abandonedIds, 'order_completed'),
+          cancelActiveForAutomationIds(welcomeIds, 'purchased_during_welcome'),
+        ]);
+      }
+    }
+  } catch (exitErr) {
+    console.warn('[payment-fulfillment.automation_exit_warning]', exitErr);
   }
 
   // 12. Dispatch Meta Conversions API Purchase event asynchronously

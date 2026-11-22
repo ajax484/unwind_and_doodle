@@ -13,6 +13,13 @@ interface SettingsTile {
 
 const SETTINGS_SECTIONS: SettingsTile[] = [
   {
+    title: 'Storefront Pages',
+    description: 'Edit About Us, Delivery, Returns, FAQ, and Contact page content with immediate updates.',
+    href: '/admin/settings/pages',
+    icon: '📄',
+    badge: 'New',
+  },
+  {
     title: 'Email & Deliverability',
     description: 'Set monitored Reply-To address, verify SMTP health, and inspect delivery logs.',
     href: '/admin/settings/email',

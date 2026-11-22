@@ -34,15 +34,17 @@ function CallbackContent() {
         const json = await res.json();
 
         if (res.ok && json.success && json.orderNumber) {
-          // Clear cart upon successful order payment
-          try {
-            await fetch('/api/cart?clear=true', {
-              method: 'DELETE',
-              headers: getCartHeaders(),
-            });
-            dispatchCartUpdated(undefined, false);
-          } catch {
-            // Non-blocking
+          // Clear cart only after verified payment so failed/abandoned attempts preserve the cart
+          if (json.verified) {
+            try {
+              await fetch('/api/cart?clear=true', {
+                method: 'DELETE',
+                headers: getCartHeaders(),
+              });
+              dispatchCartUpdated(undefined, false);
+            } catch {
+              // Non-blocking
+            }
           }
 
           // Redirect to confirmation page with signed order access token (canonical tracking occurs on confirmation page)

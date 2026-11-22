@@ -18,14 +18,26 @@ import {
 } from '@/types/marketing';
 
 /**
+ * Priority hierarchy for marketing automations (higher number = higher priority).
+ * Used for overlap suppression (EML-AUTO-5):
+ * abandoned_checkout > post_purchase > welcome > win_back
+ */
+export const AUTOMATION_PRIORITY: Record<MarketingAutomationType, number> = {
+  abandoned_checkout: 4,
+  post_purchase: 3,
+  welcome: 2,
+  win_back: 1,
+};
+
+/**
  * Metadata and compatible trigger definitions for each automation type.
  */
 export const AUTOMATION_TYPE_METADATA: Record<MarketingAutomationType, AutomationTypeMetadata> = {
   welcome: {
     type: 'welcome',
     label: 'Welcome Series',
-    description: 'Greet new customers after they register or subscribe to marketing.',
-    compatibleEventTypes: ['customer.created'],
+    description: 'Greet new subscribers after explicit marketing opt-in.',
+    compatibleEventTypes: ['marketing.subscribed'],
     defaultDelay: { amount: 0, unit: 'minutes' },
   },
   abandoned_checkout: {
@@ -67,6 +79,7 @@ export function getAutomationTypeMetadata(type: MarketingAutomationType): Automa
  */
 export function getAutomationTriggerTypes(): AutomationTriggerEventType[] {
   return [
+    'marketing.subscribed',
     'customer.created',
     'checkout.abandoned',
     'order.created',
@@ -279,6 +292,17 @@ export function matchesAutomationTrigger(
     return false;
   }
 
+  // EML-AUTO-1: Welcome automations NEVER trigger on customer.created (order placement / record creation).
+  // They trigger exclusively on explicit marketing.subscribed events.
+  if (automation.type === 'welcome' && event.event_type === 'customer.created') {
+    return false;
+  }
+
+  // EML-AUTO-4: Post-purchase follow-ups trigger on actual order.received (delivered), not shipped or estimated.
+  if (automation.type === 'post_purchase' && event.event_type === 'order.shipped') {
+    return false;
+  }
+
   // Map incoming commerce event to canonical marketing trigger event type
   const canonicalTriggerType: string =
     event.event_type === 'payment.completed'
@@ -299,6 +323,9 @@ export function matchesAutomationTrigger(
 
   const isTypeMatched =
     config.trigger.type === event.event_type ||
+    (automation.type === 'welcome' &&
+      event.event_type === 'marketing.subscribed' &&
+      config.trigger.type === 'customer.created') ||
     (config.trigger.type === 'order.paid' && event.event_type === 'payment.completed') ||
     (config.trigger.type === 'order.received' && event.event_type === 'order.delivery_estimated');
 
@@ -331,7 +358,11 @@ export function matchesAutomationTrigger(
     if (!hasCheckout && !hasEmail) {
       return false;
     }
-  } else if (event.event_type === 'customer.created' || event.event_type === 'customer.inactive') {
+  } else if (
+    event.event_type === 'marketing.subscribed' ||
+    event.event_type === 'customer.created' ||
+    event.event_type === 'customer.inactive'
+  ) {
     const hasIdentifier = Boolean(payload.customerId || payload.customer_id || payload.email || payload.id);
     if (!hasIdentifier) {
       return false;

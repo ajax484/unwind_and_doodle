@@ -57,8 +57,8 @@ export default function CheckoutPage() {
   const [state, setState] = useState('');
   const [lga, setLga] = useState('');
   const [selectedLocationId, setSelectedLocationId] = useState('');
-  const [emailConsent, setEmailConsent] = useState(true);
-  const [whatsappConsent, setWhatsappConsent] = useState(true);
+  const [emailConsent, setEmailConsent] = useState(false);
+  const [whatsappConsent, setWhatsappConsent] = useState(false);
   const [orderNotes, setOrderNotes] = useState('');
   const [discountCode, setDiscountCode] = useState('');
 
@@ -367,7 +367,9 @@ export default function CheckoutPage() {
         throw new Error(`Checkout failed: ${hint}. Please try again.`);
       }
       if (!res.ok || !json.success) {
-        throw new Error((json.error as string) || 'Checkout failed. Please try again.');
+        const reqId = (json.requestId as string | undefined) || res.headers.get('x-request-id');
+        const baseError = (json.error as string) || 'Checkout failed. Please try again.';
+        throw new Error(reqId ? `${baseError} (Ref: ${reqId})` : baseError);
       }
 
       // Handle Manual / Direct Bank Transfer order

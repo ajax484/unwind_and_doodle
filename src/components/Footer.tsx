@@ -126,26 +126,26 @@ export const CANONICAL_CATALOG_LINKS: FooterLinkItem[] = [
 ];
 
 export const CANONICAL_SUPPORT_LINKS: FooterLinkItem[] = [
-  { label: 'Contact Us', href: '/#contact' },
+  { label: 'Contact Us', href: '/contact' },
   { label: 'Track Order', href: '/order/callback' },
-  { label: 'FAQs', href: '/#faq' },
-  { label: 'Shipping & Delivery', href: '/checkout' },
-  { label: 'Quality Guarantee', href: '/#about' },
+  { label: 'FAQs', href: '/faq' },
+  { label: 'Shipping & Delivery', href: '/delivery' },
+  { label: 'Returns & Refunds', href: '/returns' },
 ];
 
 export const CANONICAL_ABOUT_LINKS: FooterLinkItem[] = [
-  { label: 'Our Story', href: '/#about' },
-  { label: 'Customization', href: '/#customization' },
+  { label: 'Our Story', href: '/about' },
+  { label: 'Customization', href: '/products?category=customized-books' },
   { label: 'Reviews', href: '/#reviews' },
-  { label: 'Sustainability', href: '/#sustainability' },
+  { label: 'Delivery Info', href: '/delivery' },
   { label: 'Instagram', href: 'https://instagram.com' },
 ];
 
 export const CANONICAL_LEGAL_LINKS: FooterLinkItem[] = [
-  { label: 'Privacy', href: '/#privacy' },
-  { label: 'Terms', href: '/#terms' },
-  { label: 'Shipping Policy', href: '/#shipping' },
-  { label: 'Secure Checkout', href: '/checkout' },
+  { label: 'Returns Policy', href: '/returns' },
+  { label: 'Delivery Policy', href: '/delivery' },
+  { label: 'FAQ', href: '/faq' },
+  { label: 'Contact', href: '/contact' },
 ];
 
 /**

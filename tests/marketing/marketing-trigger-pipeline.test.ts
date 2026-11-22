@@ -161,7 +161,6 @@ describe('Marketing Automation Trigger Pipeline & E-Commerce Integration', () =>
       );
 
       expect(result.customerId).toBe('cust-new-123');
-      expect(publishSpy).toHaveBeenCalledTimes(1);
       expect(publishSpy).toHaveBeenCalledWith(
         mockSupabase,
         expect.objectContaining({
@@ -177,6 +176,19 @@ describe('Marketing Automation Trigger Pipeline & E-Commerce Integration', () =>
           }),
         })
       );
+      expect(publishSpy).toHaveBeenCalledWith(
+        mockSupabase,
+        expect.objectContaining({
+          eventType: 'marketing.subscribed',
+          aggregateType: 'customer',
+          aggregateId: 'cust-new-123',
+          payload: expect.objectContaining({
+            customerId: 'cust-new-123',
+            email: 'new.shopper@example.com',
+            source: 'checkout',
+          }),
+        })
+      );
     });
 
     it('guest checkout: does NOT emit customer.created when updating an existing customer', async () => {
@@ -189,13 +201,13 @@ describe('Marketing Automation Trigger Pipeline & E-Commerce Integration', () =>
               select: () => ({
                 eq: () => ({
                   maybeSingle: async () => ({
-                    data: { id: 'cust-existing-456', email: 'existing@example.com' },
+                    data: { id: 'cust-existing-456', email: 'existing@example.com', email_marketing_consent: true },
                     error: null,
                   }),
                 }),
                 ilike: () => ({
                   maybeSingle: async () => ({
-                    data: { id: 'cust-existing-456', email: 'existing@example.com' },
+                    data: { id: 'cust-existing-456', email: 'existing@example.com', email_marketing_consent: true },
                     error: null,
                   }),
                 }),

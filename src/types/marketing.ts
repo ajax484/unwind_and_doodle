@@ -193,6 +193,7 @@ export type MarketingAutomationInsert = Database['public']['Tables']['marketing_
 export type MarketingAutomationUpdate = Database['public']['Tables']['marketing_automations']['Update'];
 
 export type AutomationTriggerEventType =
+  | 'marketing.subscribed'
   | 'customer.created'
   | 'checkout.abandoned'
   | 'order.created'
@@ -307,7 +308,9 @@ export interface MarketingAutomationExecution {
   id: string;
   organization_id: string;
   automation_id: string;
-  domain_event_id: string;
+  domain_event_id: string | null;
+  trigger_event_type?: string | null;
+  is_test_run?: boolean;
   order_id?: string | null;
   delivery_source?: 'actual' | 'estimated' | null;
   campaign_id: string;

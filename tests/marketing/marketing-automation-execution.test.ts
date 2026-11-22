@@ -111,7 +111,7 @@ describe('Step 2B: Marketing Automation Execution', () => {
           type: 'welcome',
           status: 'active',
           config: {
-            trigger: { type: 'customer.created' },
+            trigger: { type: 'marketing.subscribed' },
             delay: { amount: 0, unit: 'minutes' }, // Instant
             action: { type: 'email', campaignId: campaignIdAlpha },
           },
@@ -222,10 +222,10 @@ describe('Step 2B: Marketing Automation Execution', () => {
   // 2. TRIGGER EXECUTION & CUSTOMER RESOLUTION
   // ============================================================================
   describe('Event Trigger Ingestion & Immediate Execution', () => {
-    it('executes immediate welcome automation on customer.created event', async () => {
+    it('executes immediate welcome automation on marketing.subscribed event', async () => {
       const event = {
         id: 'evt-cust-1',
-        event_type: 'customer.created',
+        event_type: 'marketing.subscribed',
         organization_id: orgAlpha,
         payload: {
           customerId: customerOptedInId,
@@ -334,7 +334,7 @@ describe('Step 2B: Marketing Automation Execution', () => {
     it('prevents duplicate executions when same domain event is processed twice', async () => {
       const event = {
         id: 'evt-duplicate-1',
-        event_type: 'customer.created',
+        event_type: 'marketing.subscribed',
         organization_id: orgAlpha,
         payload: { customerId: customerOptedInId },
       };
@@ -391,7 +391,7 @@ describe('Step 2B: Marketing Automation Execution', () => {
     it('skips execution if customer lacks marketing consent', async () => {
       const event = {
         id: 'evt-cust-opted-out',
-        event_type: 'customer.created',
+        event_type: 'marketing.subscribed',
         organization_id: orgAlpha,
         payload: { customerId: customerOptedOutId },
       };
@@ -507,8 +507,8 @@ describe('Step 2B: Marketing Automation Execution', () => {
           automation_id: 'auto-delayed-cart',
           domain_event_id: 'evt-future-1',
           campaign_id: campaignIdAbandoned,
-          customer_id: customerOptedInId,
-          customer_email: 'alice@example.com',
+          customer_id: customerOptedOutId,
+          customer_email: 'bob@example.com',
           status: 'pending',
           scheduled_for: futureTime,
           created_at: pastTime,

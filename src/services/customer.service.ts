@@ -3,6 +3,7 @@ import { Database } from '../lib/supabase/types';
 import { CustomerInfo, ShippingAddress } from '../types/checkout';
 import { DEFAULT_ORGANIZATION_ID } from '../lib/constants';
 import { publishDomainEvent } from './events.service';
+import { hasPreviouslyEnteredWelcome } from './marketing-subscription.service';
 
 export interface CustomerResolutionResult {
   customerId: string;
@@ -23,56 +24,107 @@ export async function resolveOrCreateCustomer(
 
   // 1. Check if customer exists
   let customerId: string | null = null;
+  let wasAlreadySubscribed = false;
+  let existingOrgId: string = DEFAULT_ORGANIZATION_ID;
 
   if (customerInfo.userId) {
     const { data: existingUserCust } = await supabase
       .from('customers')
-      .select('id')
+      .select('id, email_marketing_consent, organization_id')
       .eq('user_id', customerInfo.userId)
       .maybeSingle();
 
     if (existingUserCust) {
       customerId = existingUserCust.id;
+      wasAlreadySubscribed = Boolean(existingUserCust.email_marketing_consent);
+      if (existingUserCust.organization_id) existingOrgId = existingUserCust.organization_id;
     }
   }
 
   if (!customerId) {
     const { data: existingEmailCust } = await supabase
       .from('customers')
-      .select('id')
+      .select('id, email_marketing_consent, organization_id')
       .ilike('email', email)
       .maybeSingle();
 
     if (existingEmailCust) {
       customerId = existingEmailCust.id;
+      wasAlreadySubscribed = Boolean(existingEmailCust.email_marketing_consent);
+      if (existingEmailCust.organization_id) existingOrgId = existingEmailCust.organization_id;
     }
   }
 
+  const nowIso = new Date().toISOString();
+  const optedInAtCheckout = customerInfo.marketingConsent === true;
+
   if (customerId) {
-    // Update customer metadata if changed
+    // Update customer metadata if changed — NEVER revoke existing marketing consent just because checkout box was unchecked
+    const updatePayload: Record<string, unknown> = {
+      first_name: customerInfo.firstName,
+      last_name: customerInfo.lastName,
+      phone: customerInfo.phone || null,
+      updated_at: nowIso,
+    };
+
+    if (optedInAtCheckout && !wasAlreadySubscribed) {
+      updatePayload.email_marketing_consent = true;
+      updatePayload.marketing_subscribed_at = nowIso;
+      updatePayload.marketing_subscription_source = 'checkout';
+    }
+
     await supabase
       .from('customers')
-      .update({
-        first_name: customerInfo.firstName,
-        last_name: customerInfo.lastName,
-        phone: customerInfo.phone || null,
-        email_marketing_consent: customerInfo.marketingConsent ?? false,
-        updated_at: new Date().toISOString(),
-      } as unknown as Database['public']['Tables']['customers']['Update'])
+      .update(updatePayload as unknown as Database['public']['Tables']['customers']['Update'])
       .eq('id', customerId);
+
+    // Emit explicit marketing.subscribed ONLY if newly opted in and never previously entered welcome
+    if (optedInAtCheckout && !wasAlreadySubscribed) {
+      const previouslyWelcomed = await hasPreviouslyEnteredWelcome(
+        supabase,
+        existingOrgId,
+        customerId,
+        email
+      );
+      if (!previouslyWelcomed) {
+        await publishDomainEvent(supabase, {
+          eventType: 'marketing.subscribed',
+          aggregateType: 'customer',
+          aggregateId: customerId,
+          organizationId: existingOrgId,
+          payload: {
+            customerId,
+            email,
+            firstName: customerInfo.firstName,
+            lastName: customerInfo.lastName,
+            marketingConsent: true,
+            subscribedAt: nowIso,
+            source: 'checkout',
+          },
+        });
+      }
+    }
   } else {
     // Create new customer
+    const insertPayload: Record<string, unknown> = {
+      organization_id: DEFAULT_ORGANIZATION_ID,
+      email,
+      first_name: customerInfo.firstName,
+      last_name: customerInfo.lastName,
+      phone: customerInfo.phone || null,
+      user_id: customerInfo.userId || null,
+      email_marketing_consent: optedInAtCheckout,
+      ...(optedInAtCheckout
+        ? {
+            marketing_subscribed_at: nowIso,
+            marketing_subscription_source: 'checkout',
+          }
+        : {}),
+    };
+
     const { data: newCust, error: createError } = await supabase
       .from('customers')
-      .insert({
-        organization_id: DEFAULT_ORGANIZATION_ID,
-        email,
-        first_name: customerInfo.firstName,
-        last_name: customerInfo.lastName,
-        phone: customerInfo.phone || null,
-        user_id: customerInfo.userId || null,
-        email_marketing_consent: customerInfo.marketingConsent ?? false,
-      } as unknown as Database['public']['Tables']['customers']['Insert'])
+      .insert(insertPayload as unknown as Database['public']['Tables']['customers']['Insert'])
       .select('id')
       .single();
 
@@ -82,7 +134,7 @@ export async function resolveOrCreateCustomer(
 
     customerId = newCust.id;
 
-    // Emit domain event for new customer creation
+    // Emit domain event for new customer creation (no longer triggers welcome marketing emails)
     await publishDomainEvent(supabase, {
       eventType: 'customer.created',
       aggregateType: 'customer',
@@ -95,9 +147,36 @@ export async function resolveOrCreateCustomer(
         lastName: customerInfo.lastName,
         phone: customerInfo.phone || null,
         userId: customerInfo.userId || null,
-        marketingConsent: customerInfo.marketingConsent ?? false,
+        marketingConsent: optedInAtCheckout,
       },
     });
+
+    // Emit explicit marketing.subscribed ONLY if the customer actively opted in at checkout
+    if (optedInAtCheckout) {
+      const previouslyWelcomed = await hasPreviouslyEnteredWelcome(
+        supabase,
+        DEFAULT_ORGANIZATION_ID,
+        newCust.id,
+        email
+      );
+      if (!previouslyWelcomed) {
+        await publishDomainEvent(supabase, {
+          eventType: 'marketing.subscribed',
+          aggregateType: 'customer',
+          aggregateId: newCust.id,
+          organizationId: DEFAULT_ORGANIZATION_ID,
+          payload: {
+            customerId: newCust.id,
+            email,
+            firstName: customerInfo.firstName,
+            lastName: customerInfo.lastName,
+            marketingConsent: true,
+            subscribedAt: nowIso,
+            source: 'checkout',
+          },
+        });
+      }
+    }
   }
 
   // 2. Create or find address record

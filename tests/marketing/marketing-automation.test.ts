@@ -127,7 +127,7 @@ describe('Step 2A: Marketing Automation Foundation', () => {
   describe('Configuration Validation', () => {
     it('validates and accepts a correct automation configuration', async () => {
       const config: MarketingAutomationConfig = {
-        trigger: { type: 'customer.created' },
+        trigger: { type: 'marketing.subscribed' },
         delay: { amount: 2, unit: 'hours' },
         action: { type: 'email', campaignId: validCampaignId },
       };
@@ -139,7 +139,7 @@ describe('Step 2A: Marketing Automation Foundation', () => {
         config
       );
 
-      expect(result.trigger.type).toBe('customer.created');
+      expect(result.trigger.type).toBe('marketing.subscribed');
       expect(result.delay?.amount).toBe(2);
       expect(result.delay?.unit).toBe('hours');
       expect(result.action?.campaignId).toBe(validCampaignId);
@@ -183,7 +183,7 @@ describe('Step 2A: Marketing Automation Foundation', () => {
     it('rejects negative or invalid delay amounts', async () => {
       await expect(
         validateAutomationConfig(mockSupabase as any, orgAlpha, 'welcome', {
-          trigger: { type: 'customer.created' },
+          trigger: { type: 'marketing.subscribed' },
           delay: { amount: -5, unit: 'hours' },
           action: { type: 'email', campaignId: validCampaignId },
         })
@@ -191,7 +191,7 @@ describe('Step 2A: Marketing Automation Foundation', () => {
 
       await expect(
         validateAutomationConfig(mockSupabase as any, orgAlpha, 'welcome', {
-          trigger: { type: 'customer.created' },
+          trigger: { type: 'marketing.subscribed' },
           delay: { amount: 10, unit: 'centuries' as any },
           action: { type: 'email', campaignId: validCampaignId },
         })
@@ -201,7 +201,7 @@ describe('Step 2A: Marketing Automation Foundation', () => {
     it('rejects delay exceeding maximum limit of 90 days', async () => {
       await expect(
         validateAutomationConfig(mockSupabase as any, orgAlpha, 'welcome', {
-          trigger: { type: 'customer.created' },
+          trigger: { type: 'marketing.subscribed' },
           delay: { amount: 95, unit: 'days' },
           action: { type: 'email', campaignId: validCampaignId },
         })
@@ -211,14 +211,14 @@ describe('Step 2A: Marketing Automation Foundation', () => {
     it('rejects non-email action or missing campaignId', async () => {
       await expect(
         validateAutomationConfig(mockSupabase as any, orgAlpha, 'welcome', {
-          trigger: { type: 'customer.created' },
+          trigger: { type: 'marketing.subscribed' },
           action: { type: 'sms' as any, campaignId: validCampaignId },
         })
       ).rejects.toThrow(/Only "email" action type is currently supported/);
 
       await expect(
         validateAutomationConfig(mockSupabase as any, orgAlpha, 'welcome', {
-          trigger: { type: 'customer.created' },
+          trigger: { type: 'marketing.subscribed' },
           action: { type: 'email', campaignId: '' },
         })
       ).rejects.toThrow(/valid campaign ID is required/);
@@ -227,7 +227,7 @@ describe('Step 2A: Marketing Automation Foundation', () => {
     it('rejects campaign that does not exist', async () => {
       await expect(
         validateAutomationConfig(mockSupabase as any, orgAlpha, 'welcome', {
-          trigger: { type: 'customer.created' },
+          trigger: { type: 'marketing.subscribed' },
           action: { type: 'email', campaignId: 'non-existent-campaign-id' },
         })
       ).rejects.toThrow(/Referenced campaign does not exist/);
@@ -236,7 +236,7 @@ describe('Step 2A: Marketing Automation Foundation', () => {
     it('rejects campaign belonging to a different organization', async () => {
       await expect(
         validateAutomationConfig(mockSupabase as any, orgAlpha, 'welcome', {
-          trigger: { type: 'customer.created' },
+          trigger: { type: 'marketing.subscribed' },
           action: { type: 'email', campaignId: otherOrgCampaignId },
         })
       ).rejects.toThrow(/does not belong to your organization/);
@@ -245,7 +245,7 @@ describe('Step 2A: Marketing Automation Foundation', () => {
     it('rejects campaign with missing subject line', async () => {
       await expect(
         validateAutomationConfig(mockSupabase as any, orgAlpha, 'welcome', {
-          trigger: { type: 'customer.created' },
+          trigger: { type: 'marketing.subscribed' },
           action: { type: 'email', campaignId: invalidCampaignId },
         })
       ).rejects.toThrow(/must have a valid subject line/);
@@ -349,14 +349,14 @@ describe('Step 2A: Marketing Automation Foundation', () => {
         ...activeAutomation,
         type: 'welcome',
         config: {
-          trigger: { type: 'customer.created' },
+          trigger: { type: 'marketing.subscribed' },
           action: { type: 'email', campaignId: validCampaignId },
         },
       };
 
       expect(
         matchesAutomationTrigger(welcomeAuto, {
-          event_type: 'customer.created',
+          event_type: 'marketing.subscribed',
           organization_id: orgAlpha,
           payload: { customerId: 'cust-99' },
         })
@@ -364,7 +364,7 @@ describe('Step 2A: Marketing Automation Foundation', () => {
 
       expect(
         matchesAutomationTrigger(welcomeAuto, {
-          event_type: 'customer.created',
+          event_type: 'marketing.subscribed',
           organization_id: orgAlpha,
           payload: {},
         })
@@ -404,9 +404,10 @@ describe('Step 2A: Marketing Automation Foundation', () => {
     it('returns type metadata and all valid trigger types', () => {
       const meta = getAutomationTypeMetadata('welcome');
       expect(meta.label).toBe('Welcome Series');
-      expect(meta.compatibleEventTypes).toContain('customer.created');
+      expect(meta.compatibleEventTypes).toContain('marketing.subscribed');
 
       const triggerTypes = getAutomationTriggerTypes();
+      expect(triggerTypes).toContain('marketing.subscribed');
       expect(triggerTypes).toContain('customer.created');
       expect(triggerTypes).toContain('order.paid');
       expect(triggerTypes).toContain('checkout.abandoned');
@@ -422,7 +423,7 @@ describe('Step 2A: Marketing Automation Foundation', () => {
         name: 'Alpha Welcome',
         type: 'welcome',
         config: {
-          trigger: { type: 'customer.created' },
+          trigger: { type: 'marketing.subscribed' },
           action: { type: 'email', campaignId: validCampaignId },
         },
       });
@@ -482,7 +483,7 @@ describe('Step 2A: Marketing Automation Foundation', () => {
         name: 'API Auto 1',
         type: 'welcome',
         config: {
-          trigger: { type: 'customer.created' },
+          trigger: { type: 'marketing.subscribed' },
           action: { type: 'email', campaignId: validCampaignId },
         },
       });
@@ -542,7 +543,7 @@ describe('Step 2A: Marketing Automation Foundation', () => {
         name: 'Route Detail Auto',
         type: 'welcome',
         config: {
-          trigger: { type: 'customer.created' },
+          trigger: { type: 'marketing.subscribed' },
           action: { type: 'email', campaignId: validCampaignId },
         },
       });

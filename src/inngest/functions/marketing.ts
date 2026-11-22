@@ -151,12 +151,13 @@ export const marketingEventOrchestrator = inngest.createFunction(
       const deliverySource = (payload.deliverySource || 'actual') as 'actual' | 'estimated';
 
       const createdExecution = await step.run(`prepare-execution-${auto.id}`, async () => {
-        // 1. Enforce idempotency on (automation_id, domain_event_id)
+        // 1. Enforce idempotency on (automation_id, customer_email, domain_event_id)
         const { data: existingByEvent } = await (supabase as any)
           .from('marketing_automation_executions')
           .select('id, status, delivery_source')
           .eq('automation_id', auto.id)
           .eq('domain_event_id', domainEvent.id)
+          .ilike('customer_email', customerContext.customerEmail!)
           .maybeSingle();
 
         if (existingByEvent) {
@@ -164,6 +165,23 @@ export const marketingEventOrchestrator = inngest.createFunction(
             `[inngest_marketing.idempotent_skip] automation_id=${auto.id} event_id=${domainEvent.id}`
           );
           return null;
+        }
+
+        // 1b. EML-AUTO-1: Ensure existing/returning subscribers never re-enter welcome automation
+        if (auto.type === 'welcome') {
+          const { data: priorWelcome } = await (supabase as any)
+            .from('marketing_automation_executions')
+            .select('id')
+            .eq('automation_id', auto.id)
+            .ilike('customer_email', customerContext.customerEmail!)
+            .limit(1);
+
+          if (Array.isArray(priorWelcome) && priorWelcome.length > 0) {
+            console.info(
+              `[inngest_marketing.welcome_already_entered] automation_id=${auto.id} email=${customerContext.customerEmail}`
+            );
+            return null;
+          }
         }
 
         // 2. Enforce order-level idempotency on (automation_id, order_id)
@@ -203,6 +221,8 @@ export const marketingEventOrchestrator = inngest.createFunction(
           organization_id: auto.organization_id,
           automation_id: auto.id,
           domain_event_id: domainEvent.id,
+          trigger_event_type: domainEvent.event_type,
+          is_test_run: false,
           order_id: orderId || null,
           delivery_source: deliverySource || 'actual',
           campaign_id: initialCampaignId,

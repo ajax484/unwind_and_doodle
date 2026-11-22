@@ -8,6 +8,7 @@ import {
   MarketingAutomationExecutionStatus,
 } from '@/types/marketing';
 import {
+  AUTOMATION_PRIORITY,
   matchesAutomationTrigger,
   normalizeAutomationSteps,
 } from './marketing-automation.service';
@@ -265,12 +266,13 @@ export async function handleMarketingAutomationEvent(
     const orderId = (eventPayload.orderId || eventPayload.order_id || (event.aggregate_type === 'order' ? event.aggregate_id : undefined)) as string | undefined;
     const deliverySource = (eventPayload.deliverySource || 'actual') as 'actual' | 'estimated';
 
-    // Enforce database-level and in-memory idempotency on (automation_id, domain_event_id)
+    // Enforce database-level and in-memory idempotency on (automation_id, customer_email, domain_event_id)
     const { data: existingExecution } = await (supabase as any)
       .from('marketing_automation_executions')
       .select('id, delivery_source')
       .eq('automation_id', auto.id)
       .eq('domain_event_id', event.id)
+      .ilike('customer_email', customerContext.customerEmail)
       .maybeSingle();
 
     if (existingExecution) {
@@ -278,6 +280,23 @@ export async function handleMarketingAutomationEvent(
         `[marketing_automation.idempotent_skip] automation_id=${auto.id} event_id=${event.id}`
       );
       continue;
+    }
+
+    // EML-AUTO-1: Ensure existing/returning subscribers never re-enter welcome automation
+    if (auto.type === 'welcome') {
+      const { data: priorWelcome } = await (supabase as any)
+        .from('marketing_automation_executions')
+        .select('id')
+        .eq('automation_id', auto.id)
+        .ilike('customer_email', customerContext.customerEmail)
+        .limit(1);
+
+      if (Array.isArray(priorWelcome) && priorWelcome.length > 0) {
+        console.info(
+          `[marketing_automation.welcome_already_entered] automation_id=${auto.id} email=${customerContext.customerEmail}`
+        );
+        continue;
+      }
     }
 
     // Enforce order-level idempotency on (automation_id, order_id)
@@ -316,6 +335,8 @@ export async function handleMarketingAutomationEvent(
       organization_id: auto.organization_id,
       automation_id: auto.id,
       domain_event_id: event.id,
+      trigger_event_type: event.event_type,
+      is_test_run: false,
       order_id: orderId || null,
       delivery_source: deliverySource || 'actual',
       campaign_id: config.action.campaignId,
@@ -548,23 +569,87 @@ export async function executeSingleAutomation(
     }
   }
 
-  // 4. Abandoned checkout safety check: Re-verify checkout is still abandoned
-  if (automation.type === 'abandoned_checkout') {
-    // If an order was completed/paid for this customer after the execution was created, skip
-    if (execution.customer_id) {
-      const { data: completedOrder } = await supabase
-        .from('orders')
-        .select('id, status, created_at')
-        .eq('customer_id', execution.customer_id)
-        .eq('organization_id', execution.organization_id)
-        .gte('created_at', execution.created_at)
-        .in('status', ['created', 'confirmed', 'paid', 'processing', 'shipped', 'delivered', 'received'] as any)
-        .limit(1)
-        .maybeSingle();
+  // 4. Abandoned checkout & Welcome purchase-exit safety checks (EML-AUTO-2 & EML-AUTO-3)
+  const PAID_ORDER_STATUSES = ['pending', 'confirmed', 'paid', 'processing', 'shipped', 'delivered', 'received'] as any;
 
-      if (completedOrder) {
-        return markSkipped('order_completed');
+  if (automation.type === 'abandoned_checkout') {
+    // If a paid/completed order was created for this customer (by ID or email) after the execution was created, skip
+    let orderQuery = supabase
+      .from('orders')
+      .select('id, status, created_at')
+      .eq('organization_id', execution.organization_id)
+      .gte('created_at', execution.created_at)
+      .in('status', PAID_ORDER_STATUSES)
+      .limit(1);
+
+    if (execution.customer_id) {
+      orderQuery = orderQuery.eq('customer_id', execution.customer_id);
+    } else if (execution.customer_email) {
+      orderQuery = orderQuery.ilike('email', execution.customer_email);
+    }
+
+    const { data: completedOrder } = await orderQuery.maybeSingle();
+    if (completedOrder) {
+      return markSkipped('order_completed');
+    }
+  }
+
+  if (automation.type === 'welcome') {
+    // EML-AUTO-2: Exit welcome sequence immediately if subscriber completed a paid order
+    let paidOrderQuery = supabase
+      .from('orders')
+      .select('id, status')
+      .eq('organization_id', execution.organization_id)
+      .in('status', PAID_ORDER_STATUSES)
+      .limit(1);
+
+    if (execution.customer_id) {
+      paidOrderQuery = paidOrderQuery.eq('customer_id', execution.customer_id);
+    } else if (execution.customer_email) {
+      paidOrderQuery = paidOrderQuery.ilike('email', execution.customer_email);
+    }
+
+    const { data: paidOrder } = await paidOrderQuery.maybeSingle();
+    if (paidOrder) {
+      return markSkipped('purchased_during_welcome');
+    }
+  }
+
+  // 4b. EML-AUTO-5: Priority overlap guard (abandoned_checkout > post_purchase > welcome > win_back)
+  if (!execution.is_test_run && execution.customer_email) {
+    try {
+      const currentPriority = AUTOMATION_PRIORITY[automation.type as keyof typeof AUTOMATION_PRIORITY] ?? 0;
+      const { data: activeOtherExecs } = await (supabase as any)
+        .from('marketing_automation_executions')
+        .select('id, automation_id')
+        .eq('organization_id', execution.organization_id)
+        .ilike('customer_email', execution.customer_email)
+        .in('status', ['pending', 'processing'])
+        .neq('id', executionId)
+        .limit(10);
+
+      if (Array.isArray(activeOtherExecs) && activeOtherExecs.length > 0) {
+        const otherAutoIds = Array.from(
+          new Set(activeOtherExecs.map((e: { automation_id: string }) => e.automation_id).filter(Boolean))
+        );
+        if (otherAutoIds.length > 0) {
+          const { data: otherAutos } = await (supabase as any)
+            .from('marketing_automations')
+            .select('id, type')
+            .in('id', otherAutoIds);
+
+          const higherPriorityAuto = (otherAutos || []).find((a: { type: string }) => {
+            const p = AUTOMATION_PRIORITY[a.type as keyof typeof AUTOMATION_PRIORITY] ?? 0;
+            return p > currentPriority;
+          });
+
+          if (higherPriorityAuto) {
+            return markSkipped(`suppressed_by_higher_priority:${higherPriorityAuto.type}`);
+          }
+        }
       }
+    } catch {
+      // Non-blocking fallback
     }
   }
 

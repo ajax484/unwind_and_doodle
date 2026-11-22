@@ -24,6 +24,40 @@ export default function AutomationDetailPage({
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Admin Test-Run state (EML-AUTO-6)
+  const [testEmail, setTestEmail] = useState('');
+  const [testFirstName, setTestFirstName] = useState('');
+  const [runningTest, setRunningTest] = useState(false);
+
+  const handleTestRun = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!automation || !testEmail.trim()) return;
+
+    try {
+      setRunningTest(true);
+      const res = await fetch(`/api/admin/marketing/automations/${automation.id}/test-run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientEmail: testEmail.trim(),
+          firstName: testFirstName.trim() || undefined,
+        }),
+      });
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Test run failed');
+      }
+
+      toast.success(`Test email sent to ${testEmail.trim()}`);
+      await fetchExecutions();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Test run failed');
+    } finally {
+      setRunningTest(false);
+    }
+  };
+
   const fetchAutomation = async () => {
     try {
       setLoading(true);
@@ -184,6 +218,43 @@ export default function AutomationDetailPage({
 
       <AutomationForm initialAutomation={automation} />
 
+      {/* Admin Test-Run Panel (EML-AUTO-6) */}
+      <div className="bg-bg-surface border border-border-default rounded-2xl p-6 shadow-xs space-y-4">
+        <h3 className="text-base font-semibold font-heading text-text-primary">
+          Test Run
+        </h3>
+        <form onSubmit={handleTestRun} className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
+          <div className="flex-1">
+            <label className="block text-xs font-medium text-text-secondary mb-1">
+              Recipient Email
+            </label>
+            <input
+              type="email"
+              required
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+              placeholder="test@example.com"
+              className="form-input text-xs w-full"
+            />
+          </div>
+          <div className="sm:w-48">
+            <label className="block text-xs font-medium text-text-secondary mb-1">
+              First Name (Optional)
+            </label>
+            <input
+              type="text"
+              value={testFirstName}
+              onChange={(e) => setTestFirstName(e.target.value)}
+              placeholder="Ada"
+              className="form-input text-xs w-full"
+            />
+          </div>
+          <Button type="submit" variant="secondary" size="sm" disabled={runningTest || !testEmail.trim()}>
+            {runningTest ? 'Sending...' : 'Send Test Run'}
+          </Button>
+        </form>
+      </div>
+
       {/* Execution History Table */}
       <div className="bg-bg-surface border border-border-default rounded-2xl p-6 shadow-xs space-y-4">
         <div className="flex items-center justify-between">
@@ -230,7 +301,12 @@ export default function AutomationDetailPage({
                 {executions.map((ex) => (
                   <tr key={ex.id} className="hover:bg-bg-subtle/40 transition-colors">
                     <td className="py-3 px-3 font-medium text-text-primary">
-                      {ex.customer_email}
+                      <div className="flex items-center gap-1.5">
+                        <span>{ex.customer_email}</span>
+                        {ex.is_test_run && (
+                          <Badge variant="status" statusType="info" size="sm">TEST</Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-1.5 flex-wrap">

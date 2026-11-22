@@ -3,6 +3,11 @@ import { Database } from '../lib/supabase/types';
 import { getPaymentProvider, PaymentProvider } from './payment';
 import { fulfillSuccessfulPayment } from './payment-fulfillment.service';
 import { PAYMENT_STATUS, CURRENCY } from '../lib/constants';
+import {
+  classifyPaymentStatusReason,
+  logCheckoutWarning,
+  resolveRequestId,
+} from '../lib/observability/checkout-logger';
 import './notification.service';
 
 export interface ProcessWebhookOptions {
@@ -10,6 +15,7 @@ export interface ProcessWebhookOptions {
   rawBody: string;
   headers: Headers | Record<string, string | null | undefined>;
   paymentProvider?: PaymentProvider;
+  requestId?: string;
 }
 
 export interface WebhookResult {
@@ -29,11 +35,19 @@ export async function processPaymentWebhook(
   options: ProcessWebhookOptions
 ): Promise<WebhookResult> {
   const { supabase, rawBody, headers } = options;
+  const requestId = options.requestId || resolveRequestId(headers);
   const paymentProvider = options.paymentProvider || getPaymentProvider('paystack');
 
   // 1. Validate webhook signature/hash BEFORE touching database or mutating any state
   const verification = await paymentProvider.verifyWebhook(rawBody, headers);
   if (!verification.isValid) {
+    logCheckoutWarning({
+      requestId,
+      stage: 'webhook',
+      event: 'webhook.signature_invalid',
+      reasonCode: 'WEBHOOK_SIGNATURE_INVALID',
+      provider: paymentProvider.name,
+    });
     throw new Error(`Invalid ${paymentProvider.name} webhook signature/hash`);
   }
 
@@ -128,6 +142,18 @@ export async function processPaymentWebhook(
   const verifiedTx = await paymentProvider.verifyTransaction(reference, verification.transactionId);
 
   if (verifiedTx.status !== 'successful') {
+    const reasonCode = classifyPaymentStatusReason(verifiedTx.status);
+    logCheckoutWarning({
+      requestId,
+      stage: 'webhook',
+      event: 'webhook.non_successful_payment',
+      reasonCode,
+      orderId: payment.order_id,
+      paymentId: payment.id,
+      provider: paymentProvider.name,
+      reference,
+      metadata: { providerStatus: verifiedTx.status },
+    });
     throw new Error(`Provider reported non-successful transaction status: ${verifiedTx.status}`);
   }
 

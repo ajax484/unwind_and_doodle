@@ -37,6 +37,42 @@ export default function AdminCustomerDetailPage({
   const [newNote, setNewNote] = useState('');
   const [noteSaving, setNoteSaving] = useState(false);
 
+  // Per-Customer Email Automation History (EML-AUTO-6)
+  const [automationHistory, setAutomationHistory] = useState<
+    Array<{
+      id: string;
+      automationId: string;
+      automationName: string;
+      automationType: string;
+      status: string;
+      currentStepId: string | null;
+      triggerEventType: string | null;
+      skipReason: string | null;
+      errorMessage: string | null;
+      scheduledFor: string;
+      executedAt: string | null;
+      createdAt: string;
+      isTestRun: boolean;
+      stepStates: Array<{ step_id: string; type: string; status: string }>;
+    }>
+  >([]);
+  const [loadingAutomations, setLoadingAutomations] = useState(true);
+
+  const fetchAutomationHistory = useCallback(async () => {
+    try {
+      setLoadingAutomations(true);
+      const res = await fetch(`/api/admin/customers/${customerId}/automations`);
+      const json = await res.json();
+      if (res.ok && json.success && Array.isArray(json.data)) {
+        setAutomationHistory(json.data);
+      }
+    } catch {
+      // Non-blocking
+    } finally {
+      setLoadingAutomations(false);
+    }
+  }, [customerId]);
+
   const fetchCustomer = useCallback(async () => {
     try {
       setLoading(true);
@@ -64,7 +100,8 @@ export default function AdminCustomerDetailPage({
 
   useEffect(() => {
     fetchCustomer();
-  }, [fetchCustomer]);
+    fetchAutomationHistory();
+  }, [fetchCustomer, fetchAutomationHistory]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -647,6 +684,87 @@ export default function AdminCustomerDetailPage({
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Email Automation History (EML-AUTO-6) */}
+          <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-heading font-bold text-base text-slate-900">
+                Email Automations ({automationHistory.length})
+              </h3>
+              <button
+                type="button"
+                onClick={fetchAutomationHistory}
+                disabled={loadingAutomations}
+                className="text-xs font-semibold text-slate-600 hover:text-slate-900 disabled:opacity-40"
+              >
+                {loadingAutomations ? 'Refreshing...' : 'Refresh'}
+              </button>
+            </div>
+
+            {loadingAutomations ? (
+              <div className="text-xs text-slate-400 py-4 text-center">Loading automation history...</div>
+            ) : automationHistory.length === 0 ? (
+              <div className="text-xs text-slate-400 py-4 text-center">
+                No email automations recorded for this customer yet.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {automationHistory.map((item) => (
+                  <div key={item.id} className="py-3 space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <Link
+                        href={`/admin/marketing/automations/${item.automationId}`}
+                        className="font-bold text-slate-800 hover:text-rose-600 transition-colors"
+                      >
+                        {item.automationName}
+                      </Link>
+                      <div className="flex items-center gap-1.5">
+                        {item.isTestRun && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            TEST
+                          </span>
+                        )}
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            item.status === 'completed'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : item.status === 'failed'
+                              ? 'bg-red-50 text-red-700 border border-red-200'
+                              : item.status === 'skipped'
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {item.status}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
+                      <span>Type: {item.automationType}</span>
+                      {item.triggerEventType && <span>Trigger: {item.triggerEventType}</span>}
+                      {item.currentStepId && <span>Step: {item.currentStepId}</span>}
+                      {item.stepStates.length > 0 && (
+                        <span>
+                          Steps: {item.stepStates.filter((s) => s.status === 'completed').length}/
+                          {item.stepStates.length}
+                        </span>
+                      )}
+                    </div>
+                    {item.skipReason && (
+                      <div className="text-[11px] text-amber-700">Skip reason: {item.skipReason}</div>
+                    )}
+                    {item.errorMessage && (
+                      <div className="text-[11px] text-red-600">Error: {item.errorMessage}</div>
+                    )}
+                    <div className="text-[10px] text-slate-400">
+                      Entered {new Date(item.createdAt).toLocaleString()}
+                      {item.executedAt ? ` · Executed ${new Date(item.executedAt).toLocaleString()}` : ''}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Activity Timeline */}
