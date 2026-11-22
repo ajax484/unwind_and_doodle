@@ -16,6 +16,7 @@ export interface AppConfig {
     user: string;
     pass: string;
     from: string;
+    replyTo?: string;
     service?: string;
   };
   adminEmails: string[];
@@ -45,6 +46,7 @@ export function getConfig(): AppConfig {
   const smtpUser = process.env.SMTP_USER || '';
   const smtpPass = process.env.SMTP_PASS || '';
   const smtpFrom = process.env.SMTP_FROM || 'Unwind and Doodle <no-reply@unwindanddoodle.com>';
+  const smtpReplyTo = (process.env.SMTP_REPLY_TO || process.env.EMAIL_REPLY_TO || '').trim();
 
   const rawAdminEmails =
     process.env.ADMIN_NOTIFICATION_EMAILS || process.env.ADMIN_EMAILS || '';
@@ -72,6 +74,7 @@ export function getConfig(): AppConfig {
       user: smtpUser,
       pass: smtpPass,
       from: smtpFrom,
+      replyTo: smtpReplyTo || undefined,
       service: smtpService || undefined,
     },
     adminEmails,

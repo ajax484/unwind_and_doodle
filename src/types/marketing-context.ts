@@ -35,9 +35,20 @@ export interface MarketingRecommendation {
   recommendationText?: string;
 }
 
+export interface DynamicLineItem {
+  productId?: string | null;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice?: number;
+  imageUrl?: string | null;
+  productUrl?: string | null;
+  slug?: string | null;
+}
+
 /**
  * Fully-resolved marketing context passed to email renderers.
- * Contains sanitized scalar values and structured recommendations.
+ * Contains sanitized scalar values, dynamic cart/order items, and structured recommendations.
  */
 export interface MarketingContext {
   firstName?: string | null;
@@ -47,6 +58,14 @@ export interface MarketingContext {
   orderNumber?: string | null;
   productName?: string | null;
   lastProduct?: string | null;
+
+  cartItems?: DynamicLineItem[];
+  cartSubtotal?: number | null;
+  cartUrl?: string | null;
+
+  orderItems?: DynamicLineItem[];
+  orderSubtotal?: number | null;
+  orderUrl?: string | null;
 
   productRecommendation?: MarketingRecommendation | null;
   personalizedRecommendation?: MarketingRecommendation | null;

@@ -23,6 +23,7 @@ import Spinner from "@/components/Spinner";
 import { PersonalizationChipInserter } from "../modals/PersonalizationChipInserter";
 import { ProductPickerModal } from "../modals/ProductPickerModal";
 import { MediaLibraryModal } from "../modals/MediaLibraryModal";
+import { ReviewPickerModal } from "../modals/ReviewPickerModal";
 import { ProductPresentationInspector } from "./ProductPresentationInspector";
 import { formatPrice } from "@/lib/format-utils";
 import { stripHtml } from "@/lib/rich-text";
@@ -35,6 +36,8 @@ export interface ContextualSettingsProps {
   previewText: string;
   senderName: string;
   senderEmail: string;
+  replyToEmail?: string;
+  defaultReplyToEmail?: string;
   segmentId: string;
   segments: MarketingSegment[];
   loadingSegments: boolean;
@@ -56,6 +59,8 @@ export function ContextualSettings({
   previewText,
   senderName,
   senderEmail,
+  replyToEmail,
+  defaultReplyToEmail,
   segmentId,
   segments,
   loadingSegments,
@@ -67,6 +72,7 @@ export function ContextualSettings({
   onDeleteBlock,
 }: ContextualSettingsProps) {
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [activeGridIndex, setActiveGridIndex] = useState<number | null>(null);
   const [productPickerState, setProductPickerState] = useState<{
     isOpen: boolean;
@@ -201,6 +207,24 @@ export function ContextualSettings({
                   onUpdateMetadata("senderEmail", e.target.value)
                 }
               />
+            </div>
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-medium text-text-secondary">
+                Reply-To Email
+              </span>
+              <TextInput
+                type="email"
+                placeholder={defaultReplyToEmail || "Store default (Email Settings)"}
+                value={replyToEmail || ""}
+                onChange={(e) =>
+                  onUpdateMetadata("replyToEmail", e.target.value)
+                }
+              />
+              {defaultReplyToEmail && !replyToEmail && (
+                <p className="text-[11px] text-emerald-700">
+                  Using store default: {defaultReplyToEmail}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -796,6 +820,232 @@ export function ContextualSettings({
           </>
         )}
 
+        {/* REVIEW BLOCK SETTINGS */}
+        {blockType === "review" && (
+          <div className="space-y-4">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsReviewModalOpen(true)}
+              className="w-full"
+            >
+              ⭐ Pick Approved Review
+            </Button>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-text-primary">
+                Star Rating
+              </label>
+              <Select
+                value={String(blockData.rating ?? 5)}
+                onChange={(e) =>
+                  onUpdateBlock(selectedBlock.id, { rating: Number(e.target.value) } as any)
+                }
+              >
+                <option value="5">★★★★★ (5 Stars)</option>
+                <option value="4">★★★★☆ (4 Stars)</option>
+                <option value="3">★★★☆☆ (3 Stars)</option>
+                <option value="2">★★☆☆☆ (2 Stars)</option>
+                <option value="1">★☆☆☆☆ (1 Star)</option>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-text-primary">
+                Headline (Optional)
+              </label>
+              <TextInput
+                placeholder="e.g. Best way to unwind after work"
+                value={blockData.title || ""}
+                onChange={(e) =>
+                  onUpdateBlock(selectedBlock.id, { title: e.target.value } as any)
+                }
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-text-primary">
+                Review Quote
+              </label>
+              <textarea
+                rows={4}
+                className="w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-brand-rose"
+                placeholder="Customer review text..."
+                value={blockData.quote || ""}
+                onChange={(e) =>
+                  onUpdateBlock(selectedBlock.id, { quote: e.target.value } as any)
+                }
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-text-primary">
+                Customer Name
+              </label>
+              <TextInput
+                placeholder="e.g. Amina B."
+                value={blockData.authorName || ""}
+                onChange={(e) =>
+                  onUpdateBlock(selectedBlock.id, { authorName: e.target.value } as any)
+                }
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-text-primary">
+                Product Name (Optional)
+              </label>
+              <TextInput
+                placeholder="e.g. The Unwind Kit"
+                value={blockData.productName || ""}
+                onChange={(e) =>
+                  onUpdateBlock(selectedBlock.id, { productName: e.target.value } as any)
+                }
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-text-primary">
+                Card Style
+              </label>
+              <Select
+                value={blockData.style || "card"}
+                onChange={(e) =>
+                  onUpdateBlock(selectedBlock.id, { style: e.target.value } as any)
+                }
+              >
+                <option value="card">Warm Cream Card</option>
+                <option value="rose">Soft Rose Highlight</option>
+                <option value="minimal">Clean White</option>
+              </Select>
+            </div>
+
+            <label className="flex items-center gap-2 text-xs text-text-primary cursor-pointer">
+              <input
+                type="checkbox"
+                checked={blockData.verifiedBuyer !== false}
+                onChange={(e) =>
+                  onUpdateBlock(selectedBlock.id, { verifiedBuyer: e.target.checked } as any)
+                }
+                className="rounded border-border-default"
+              />
+              <span>Show Verified Buyer badge</span>
+            </label>
+          </div>
+        )}
+
+        {/* DYNAMIC CART / ORDER ITEMS BLOCK SETTINGS */}
+        {blockType === "dynamic_items" && (
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-text-primary">
+                Data Source
+              </label>
+              <Select
+                value={blockData.source || "abandoned_cart"}
+                onChange={(e) => {
+                  const nextSource = e.target.value as "abandoned_cart" | "order_items";
+                  onUpdateBlock(selectedBlock.id, {
+                    source: nextSource,
+                    heading:
+                      nextSource === "abandoned_cart"
+                        ? "Items you left behind"
+                        : "What you ordered",
+                    ctaText:
+                      nextSource === "abandoned_cart"
+                        ? "Return to your cart"
+                        : "View your order",
+                  } as any);
+                }}
+              >
+                <option value="abandoned_cart">Abandoned Cart Items</option>
+                <option value="order_items">Order Items (Post-Purchase)</option>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-text-primary">
+                Section Heading
+              </label>
+              <TextInput
+                placeholder="Items you left behind"
+                value={blockData.heading || ""}
+                onChange={(e) =>
+                  onUpdateBlock(selectedBlock.id, { heading: e.target.value } as any)
+                }
+              />
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <span className="text-xs font-semibold text-text-primary block">
+                Visible Fields
+              </span>
+              {[
+                { key: "showImage", label: "Product photos" },
+                { key: "showQuantity", label: "Quantities" },
+                { key: "showPrice", label: "Prices" },
+                { key: "showSubtotal", label: "Subtotal row" },
+                { key: "showCta", label: "Action button" },
+              ].map((opt) => (
+                <label key={opt.key} className="flex items-center gap-2 text-xs text-text-primary cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={blockData[opt.key] !== false}
+                    onChange={(e) =>
+                      onUpdateBlock(selectedBlock.id, { [opt.key]: e.target.checked } as any)
+                    }
+                    className="rounded border-border-default"
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              ))}
+            </div>
+
+            {blockData.showCta !== false && (
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-text-primary">
+                    Button Label
+                  </label>
+                  <TextInput
+                    placeholder="Return to your cart"
+                    value={blockData.ctaText || ""}
+                    onChange={(e) =>
+                      onUpdateBlock(selectedBlock.id, { ctaText: e.target.value } as any)
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-text-primary">
+                    Custom Button URL (Optional)
+                  </label>
+                  <TextInput
+                    placeholder="Leave blank for automatic cart/order link"
+                    value={blockData.ctaUrl || ""}
+                    onChange={(e) =>
+                      onUpdateBlock(selectedBlock.id, { ctaUrl: e.target.value } as any)
+                    }
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-text-primary">
+                Empty Fallback Text (Optional)
+              </label>
+              <TextInput
+                placeholder="Hide block if customer has no items"
+                value={blockData.emptyFallbackText || ""}
+                onChange={(e) =>
+                  onUpdateBlock(selectedBlock.id, { emptyFallbackText: e.target.value } as any)
+                }
+              />
+            </div>
+          </div>
+        )}
+
         {/* DIVIDER BLOCK SETTINGS */}
         {blockType === "divider" && (
           <div className="space-y-1.5">
@@ -964,6 +1214,28 @@ export function ContextualSettings({
             }
           }}
           onClose={() => setIsMediaModalOpen(false)}
+        />
+      )}
+
+      {/* Approved Review Picker Modal */}
+      {isReviewModalOpen && (
+        <ReviewPickerModal
+          isOpen={isReviewModalOpen}
+          onSelect={(review) => {
+            if (selectedBlock) {
+              onUpdateBlock(selectedBlock.id, {
+                reviewId: review.id,
+                rating: review.rating,
+                title: review.title || "",
+                quote: review.body || "",
+                authorName: review.authorName,
+                productName: review.productName || "",
+                productUrl: review.productSlug ? `/products/${review.productSlug}` : "",
+                verifiedBuyer: review.verifiedBuyer,
+              } as any);
+            }
+          }}
+          onClose={() => setIsReviewModalOpen(false)}
         />
       )}
     </aside>

@@ -1,6 +1,6 @@
 import nodemailer, { Transporter } from 'nodemailer';
 import { getConfig } from '@/lib/config';
-import { getTransporter } from '@/lib/email-transporter';
+import { getTransporter, getTransportMode } from '@/lib/email-transporter';
 import {
   MarketingEmailProvider,
   SendMarketingEmailInput,
@@ -36,10 +36,14 @@ export class NodemailerMarketingEmailProvider implements MarketingEmailProvider 
         : input.senderEmail.trim()
       : smtp?.from || 'Unwind and Doodle <no-reply@unwindanddoodle.com>';
 
+    const replyToAddress = input.replyTo?.trim() || smtp?.replyTo?.trim() || undefined;
+    const transportMode = getTransportMode();
+
     try {
       const info = await this.transporter.sendMail({
         from: fromAddress,
         to: input.to.trim(),
+        replyTo: replyToAddress,
         subject: input.subject.trim(),
         html: input.html,
         text: input.text || undefined,
@@ -53,6 +57,7 @@ export class NodemailerMarketingEmailProvider implements MarketingEmailProvider 
       return {
         success: true,
         providerMessageId: messageId,
+        transportMode,
       };
     } catch (err: unknown) {
       const rawMessage = err instanceof Error ? err.message : String(err);
@@ -63,6 +68,7 @@ export class NodemailerMarketingEmailProvider implements MarketingEmailProvider 
 
       return {
         success: false,
+        transportMode,
         error: safeError,
       };
     }

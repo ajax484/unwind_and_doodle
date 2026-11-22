@@ -6,10 +6,14 @@ import {
   V1ImageBlock,
   V1ProductBlock,
   V1ProductGridBlock,
+  V1ReviewBlock,
+  V1DynamicItemsBlock,
   V1ButtonBlock,
   V1CalloutBlock,
   V1DividerBlock,
   normalizeProductPresentation,
+  SAMPLE_DYNAMIC_CART_ITEMS,
+  SAMPLE_DYNAMIC_ORDER_ITEMS,
 } from '@/types/marketing-builder';
 import { formatPrice } from '@/lib/format-utils';
 
@@ -335,7 +339,129 @@ export function CanvasCalloutBlock({ block }: { block: V1CalloutBlock }) {
   );
 }
 
-// 7. Divider Block
+// 7. Customer Review Block
+export function CanvasReviewBlock({ block }: { block: V1ReviewBlock }) {
+  const {
+    rating = 5,
+    title,
+    quote = '',
+    authorName = 'Verified Customer',
+    productName,
+    verifiedBuyer = true,
+    style = 'card',
+  } = block.data || {};
+
+  const clamped = Math.max(1, Math.min(5, Math.round(rating)));
+  const stars = '★'.repeat(clamped) + '☆'.repeat(5 - clamped);
+
+  let cardClasses = 'bg-[#FFFDF7] border-border-default';
+  if (style === 'rose') {
+    cardClasses = 'bg-brand-rose/10 border-brand-rose/30';
+  } else if (style === 'minimal') {
+    cardClasses = 'bg-white border-slate-200';
+  }
+
+  return (
+    <div className={`rounded-xl border p-4 my-2 space-y-2 ${cardClasses}`}>
+      <div className="text-amber-500 text-base tracking-widest leading-none">{stars}</div>
+      {title && <div className="font-bold text-sm text-text-primary">{title}</div>}
+      <p className="text-sm text-text-primary italic leading-relaxed">
+        {quote ? <>&ldquo;{quote}&rdquo;</> : <span className="text-text-placeholder">Pick a review or enter a customer quote...</span>}
+      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
+        <div className="flex items-center gap-1.5">
+          <span className="font-bold text-text-primary">— {authorName}</span>
+          {verifiedBuyer && (
+            <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">
+              Verified Buyer
+            </span>
+          )}
+        </div>
+        {productName && (
+          <span className="font-semibold text-brand-rose-deep">{productName} →</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// 8. Dynamic Cart / Order Items Block
+export function CanvasDynamicItemsBlock({ block }: { block: V1DynamicItemsBlock }) {
+  const {
+    source = 'abandoned_cart',
+    heading,
+    showImage = true,
+    showPrice = true,
+    showQuantity = true,
+    showSubtotal = true,
+    showCta = true,
+    ctaText,
+  } = block.data || {};
+
+  const isCart = source === 'abandoned_cart';
+  const sampleItems = isCart ? SAMPLE_DYNAMIC_CART_ITEMS : SAMPLE_DYNAMIC_ORDER_ITEMS;
+  const displayHeading = heading || (isCart ? 'Items you left behind' : 'What you ordered');
+  const displayCta = ctaText || (isCart ? 'Return to your cart' : 'View your order');
+  const subtotal = sampleItems.reduce((sum, item) => sum + (item.totalPrice ?? item.unitPrice * item.quantity), 0);
+
+  return (
+    <div className="rounded-xl border border-border-default bg-[#FFFDF7] p-4 my-2 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="font-bold text-sm text-text-primary">{displayHeading}</div>
+        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand-rose/15 text-brand-rose-deep">
+          {isCart ? 'Dynamic • Cart' : 'Dynamic • Order'}
+        </span>
+      </div>
+
+      <div className="divide-y divide-border-default">
+        {sampleItems.map((item, idx) => (
+          <div key={idx} className="py-2.5 flex items-center gap-3">
+            {showImage && (
+              <div className="w-14 h-14 rounded-lg border border-border-default bg-white overflow-hidden flex-shrink-0 flex items-center justify-center">
+                {item.imageUrl ? (
+                  <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-lg">🎨</span>
+                )}
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-bold text-text-primary truncate">{item.name}</div>
+              {showQuantity && (
+                <div className="text-[11px] text-text-secondary mt-0.5">
+                  Qty: {item.quantity}
+                  {showPrice && item.quantity > 1 ? ` (${formatPrice(item.unitPrice)} each)` : ''}
+                </div>
+              )}
+            </div>
+            {showPrice && (
+              <div className="text-xs font-bold text-brand-rose-deep whitespace-nowrap">
+                {formatPrice(item.totalPrice ?? item.unitPrice * item.quantity)}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {showSubtotal && showPrice && (
+        <div className="pt-2 border-t border-border-default flex items-center justify-between text-xs">
+          <span className="font-bold text-text-secondary">Subtotal</span>
+          <span className="font-extrabold text-sm text-text-primary">{formatPrice(subtotal)}</span>
+        </div>
+      )}
+
+      {showCta && (
+        <div className="pt-1 text-center">
+          <span className="inline-block px-5 py-2 rounded-full bg-brand-rose text-white text-xs font-bold">
+            {displayCta}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 9. Divider Block
 export function CanvasDividerBlock({ block }: { block: V1DividerBlock }) {
   const spacing = block.data?.spacing || 'md';
   const pyClass = spacing === 'sm' ? 'py-2' : spacing === 'lg' ? 'py-6' : 'py-4';

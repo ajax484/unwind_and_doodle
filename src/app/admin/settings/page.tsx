@@ -13,6 +13,13 @@ interface SettingsTile {
 
 const SETTINGS_SECTIONS: SettingsTile[] = [
   {
+    title: 'Email & Deliverability',
+    description: 'Set monitored Reply-To address, verify SMTP health, and inspect delivery logs.',
+    href: '/admin/settings/email',
+    icon: '✉️',
+    badge: 'New',
+  },
+  {
     title: 'Payment Methods',
     description: 'Configure active checkout payment providers (Paystack, Flutterwave) and direct bank transfer details.',
     href: '/admin/settings/payments',

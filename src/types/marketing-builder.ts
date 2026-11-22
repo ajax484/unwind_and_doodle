@@ -1,8 +1,9 @@
 import { Database, Json } from '@/lib/supabase/types';
 import { stripHtml } from '@/lib/rich-text';
+import { DynamicLineItem } from '@/types/marketing-context';
 
 // ============================================================================
-// 1. DISCRIMINATED CAMPAIGN BLOCK TYPES (7 V1 BLOCKS)
+// 1. DISCRIMINATED CAMPAIGN BLOCK TYPES (9 V1 BLOCKS)
 // ============================================================================
 
 export type V1CampaignBlockType =
@@ -10,6 +11,8 @@ export type V1CampaignBlockType =
   | 'image'
   | 'product'
   | 'product_grid'
+  | 'review'
+  | 'dynamic_items'
   | 'button'
   | 'callout'
   | 'divider';
@@ -158,6 +161,43 @@ export interface V1CalloutBlock {
   };
 }
 
+export type ReviewBlockStyle = 'card' | 'rose' | 'minimal';
+
+export interface V1ReviewBlock {
+  id: string;
+  type: 'review';
+  data: {
+    reviewId?: string;
+    rating: number; // 1 - 5
+    title?: string;
+    quote: string;
+    authorName: string;
+    productName?: string;
+    productUrl?: string;
+    verifiedBuyer?: boolean;
+    style?: ReviewBlockStyle;
+  };
+}
+
+export type DynamicItemsSource = 'abandoned_cart' | 'order_items';
+
+export interface V1DynamicItemsBlock {
+  id: string;
+  type: 'dynamic_items';
+  data: {
+    source: DynamicItemsSource;
+    heading?: string;
+    showImage?: boolean;
+    showPrice?: boolean;
+    showQuantity?: boolean;
+    showSubtotal?: boolean;
+    showCta?: boolean;
+    ctaText?: string;
+    ctaUrl?: string;
+    emptyFallbackText?: string;
+  };
+}
+
 export interface V1DividerBlock {
   id: string;
   type: 'divider';
@@ -166,12 +206,14 @@ export interface V1DividerBlock {
   };
 }
 
-// Discriminated union of all 7 V1 blocks
+// Discriminated union of all V1 blocks
 export type V1CampaignBlock =
   | V1TextBlock
   | V1ImageBlock
   | V1ProductBlock
   | V1ProductGridBlock
+  | V1ReviewBlock
+  | V1DynamicItemsBlock
   | V1ButtonBlock
   | V1CalloutBlock
   | V1DividerBlock;
@@ -235,8 +277,60 @@ export interface TestPersona {
     email: string;
     orderNumber: string;
     productName: string;
+    cartItems: DynamicLineItem[];
+    cartSubtotal: number;
+    cartUrl: string;
+    orderItems: DynamicLineItem[];
+    orderSubtotal: number;
+    orderUrl: string;
   };
 }
+
+export const SAMPLE_DYNAMIC_CART_ITEMS: DynamicLineItem[] = [
+  {
+    productId: 'sample-unwind-kit',
+    name: 'The Unwind Kit (Colouring Book + Markers)',
+    quantity: 1,
+    unitPrice: 18500,
+    totalPrice: 18500,
+    imageUrl: 'https://unwind-api.ubah484.dev/storage/v1/object/public/assets/logo.svg',
+    productUrl: '/products/unwind-kit',
+    slug: 'unwind-kit',
+  },
+  {
+    productId: 'sample-vent-journal',
+    name: 'Vent to Me — Guided Journal',
+    quantity: 1,
+    unitPrice: 12000,
+    totalPrice: 12000,
+    imageUrl: 'https://unwind-api.ubah484.dev/storage/v1/object/public/assets/logo.svg',
+    productUrl: '/products/vent-to-me',
+    slug: 'vent-to-me',
+  },
+];
+
+export const SAMPLE_DYNAMIC_ORDER_ITEMS: DynamicLineItem[] = [
+  {
+    productId: 'sample-ftg',
+    name: 'For the Girls — A6 Custom Colouring Book',
+    quantity: 2,
+    unitPrice: 5500,
+    totalPrice: 11000,
+    imageUrl: 'https://unwind-api.ubah484.dev/storage/v1/object/public/assets/logo.svg',
+    productUrl: '/products/for-the-girls',
+    slug: 'for-the-girls',
+  },
+  {
+    productId: 'sample-game-book',
+    name: 'The Ultimate Game Book',
+    quantity: 1,
+    unitPrice: 9500,
+    totalPrice: 9500,
+    imageUrl: 'https://unwind-api.ubah484.dev/storage/v1/object/public/assets/logo.svg',
+    productUrl: '/products/ultimate-game-book',
+    slug: 'ultimate-game-book',
+  },
+];
 
 export const TEST_PERSONAS: TestPersona[] = [
   {
@@ -248,6 +342,12 @@ export const TEST_PERSONAS: TestPersona[] = [
       email: 'aisha.bello@example.com',
       orderNumber: 'ORD-5521',
       productName: 'For the Girls A6 Edition',
+      cartItems: SAMPLE_DYNAMIC_CART_ITEMS,
+      cartSubtotal: 30500,
+      cartUrl: '/cart',
+      orderItems: SAMPLE_DYNAMIC_ORDER_ITEMS,
+      orderSubtotal: 20500,
+      orderUrl: '/account/orders/ORD-5521',
     },
   },
   {
@@ -259,6 +359,12 @@ export const TEST_PERSONAS: TestPersona[] = [
       email: 'chioma.o@example.com',
       orderNumber: 'ORD-1092',
       productName: 'General Colouring Book',
+      cartItems: [SAMPLE_DYNAMIC_CART_ITEMS[0]],
+      cartSubtotal: 18500,
+      cartUrl: '/cart',
+      orderItems: [SAMPLE_DYNAMIC_ORDER_ITEMS[0]],
+      orderSubtotal: 11000,
+      orderUrl: '/account/orders/ORD-1092',
     },
   },
   {
@@ -270,6 +376,12 @@ export const TEST_PERSONAS: TestPersona[] = [
       email: 'zainab.ahmed@example.com',
       orderNumber: 'ORD-7743',
       productName: 'Vent to Me Journal',
+      cartItems: [SAMPLE_DYNAMIC_CART_ITEMS[1]],
+      cartSubtotal: 12000,
+      cartUrl: '/cart',
+      orderItems: SAMPLE_DYNAMIC_ORDER_ITEMS,
+      orderSubtotal: 20500,
+      orderUrl: '/account/orders/ORD-7743',
     },
   },
 ];

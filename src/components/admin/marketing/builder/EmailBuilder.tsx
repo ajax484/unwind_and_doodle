@@ -10,6 +10,8 @@ import {
   V1ImageBlock,
   V1ProductBlock,
   V1ProductGridBlock,
+  V1ReviewBlock,
+  V1DynamicItemsBlock,
   V1ButtonBlock,
   V1CalloutBlock,
   V1DividerBlock,
@@ -102,6 +104,39 @@ function createDefaultBlock(type: V1CampaignBlockType): V1CampaignBlock {
         },
       } as V1ProductGridBlock;
 
+    case 'review':
+      return {
+        id,
+        type: 'review',
+        data: {
+          rating: 5,
+          title: 'Such a calming break from my phone',
+          quote: 'The paper quality is amazing and the pages are so relaxing to colour after a long week.',
+          authorName: 'Amina B.',
+          productName: 'The Unwind Kit',
+          verifiedBuyer: true,
+          style: 'card',
+        },
+      } as V1ReviewBlock;
+
+    case 'dynamic_items':
+      return {
+        id,
+        type: 'dynamic_items',
+        data: {
+          source: 'abandoned_cart',
+          heading: 'Items you left behind',
+          showImage: true,
+          showPrice: true,
+          showQuantity: true,
+          showSubtotal: true,
+          showCta: true,
+          ctaText: 'Return to your cart',
+          ctaUrl: '',
+          emptyFallbackText: '',
+        },
+      } as V1DynamicItemsBlock;
+
     case 'button':
       return {
         id,
@@ -150,6 +185,10 @@ export function EmailBuilder({ initialCampaign }: EmailBuilderProps) {
   const [senderEmail, setSenderEmail] = useState<string>(
     initialCampaign?.sender_email || 'no-reply@unwindanddoodle.com'
   );
+  const [replyToEmail, setReplyToEmail] = useState<string>(
+    (initialCampaign as any)?.reply_to_email || ''
+  );
+  const [defaultReplyToEmail, setDefaultReplyToEmail] = useState<string>('');
   const [segmentId, setSegmentId] = useState<string>(initialCampaign?.segment_id || '');
   const [status, setStatus] = useState<string>(initialCampaign?.status || 'draft');
 
@@ -201,6 +240,19 @@ export function EmailBuilder({ initialCampaign }: EmailBuilderProps) {
       }
     }
     loadSegments();
+
+    async function loadEmailDefaults() {
+      try {
+        const res = await fetch('/api/admin/settings/email?limit=1');
+        const json = await res.json();
+        if (json.success && json.data?.settings?.replyToEmail) {
+          setDefaultReplyToEmail(json.data.settings.replyToEmail);
+        }
+      } catch {
+        // Non-critical
+      }
+    }
+    loadEmailDefaults();
   }, []);
 
   // 2. Fetch audience count on segment change
@@ -248,6 +300,7 @@ export function EmailBuilder({ initialCampaign }: EmailBuilderProps) {
           preview_text: previewText.trim() || null,
           sender_name: senderName.trim() || null,
           sender_email: senderEmail.trim() || null,
+          reply_to_email: replyToEmail.trim() || null,
           segment_id: segmentId || null,
           status: overrideStatus || status,
           content: {
@@ -299,7 +352,7 @@ export function EmailBuilder({ initialCampaign }: EmailBuilderProps) {
         setIsSaving(false);
       }
     },
-    [campaignId, name, subject, previewText, senderName, senderEmail, segmentId, status, blocks]
+    [campaignId, name, subject, previewText, senderName, senderEmail, replyToEmail, segmentId, status, blocks]
   );
 
   // 4. Autosave Debounce (every 4 seconds after changes)
@@ -320,6 +373,7 @@ export function EmailBuilder({ initialCampaign }: EmailBuilderProps) {
     if (field === 'previewText') setPreviewText(value);
     if (field === 'senderName') setSenderName(value);
     if (field === 'senderEmail') setSenderEmail(value);
+    if (field === 'replyToEmail') setReplyToEmail(value);
     if (field === 'segmentId') setSegmentId(value);
     markDirty();
   };
@@ -459,6 +513,7 @@ export function EmailBuilder({ initialCampaign }: EmailBuilderProps) {
           viewport={viewport}
           senderName={senderName}
           senderEmail={senderEmail}
+          replyToEmail={replyToEmail || defaultReplyToEmail || undefined}
           subject={subject}
           previewText={previewText}
           onSelectBlock={setSelectedBlockId}
@@ -476,6 +531,8 @@ export function EmailBuilder({ initialCampaign }: EmailBuilderProps) {
           previewText={previewText}
           senderName={senderName}
           senderEmail={senderEmail}
+          replyToEmail={replyToEmail}
+          defaultReplyToEmail={defaultReplyToEmail}
           segmentId={segmentId}
           segments={segments}
           loadingSegments={loadingSegments}
@@ -497,6 +554,7 @@ export function EmailBuilder({ initialCampaign }: EmailBuilderProps) {
         previewText={previewText}
         senderName={senderName}
         senderEmail={senderEmail}
+        replyToEmail={replyToEmail || defaultReplyToEmail || undefined}
         onClose={() => setIsPreviewOpen(false)}
       />
 

@@ -13,6 +13,8 @@ const BLOCK_OPTIONS: { type: V1CampaignBlockType; label: string; icon: string; d
   { type: 'image', label: 'Image', icon: '🖼️', desc: 'Banner or illustration with link' },
   { type: 'product', label: 'Product', icon: '🎨', desc: 'Featured item from catalog' },
   { type: 'product_grid', label: 'Product Grid', icon: '🛍️', desc: '2-column catalog showcase' },
+  { type: 'dynamic_items', label: 'Cart / Order Items', icon: '🛒', desc: 'Dynamic customer cart or order items' },
+  { type: 'review', label: 'Customer Review', icon: '⭐', desc: 'Star rating & verified customer quote' },
   { type: 'button', label: 'Button', icon: '🔘', desc: 'Brand call-to-action button' },
   { type: 'callout', label: 'Callout', icon: '💬', desc: 'Highlighted notice or quote' },
   { type: 'divider', label: 'Divider', icon: '➖', desc: 'Clean horizontal spacing rule' },

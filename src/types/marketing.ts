@@ -55,9 +55,15 @@ export interface MarketingSegmentFilter {
 // ============================================================================
 // 2. MARKETING CAMPAIGNS
 // ============================================================================
-export type MarketingCampaign = Database['public']['Tables']['marketing_campaigns']['Row'];
-export type MarketingCampaignInsert = Database['public']['Tables']['marketing_campaigns']['Insert'];
-export type MarketingCampaignUpdate = Database['public']['Tables']['marketing_campaigns']['Update'];
+export type MarketingCampaign = Database['public']['Tables']['marketing_campaigns']['Row'] & {
+  reply_to_email?: string | null;
+};
+export type MarketingCampaignInsert = Database['public']['Tables']['marketing_campaigns']['Insert'] & {
+  reply_to_email?: string | null;
+};
+export type MarketingCampaignUpdate = Database['public']['Tables']['marketing_campaigns']['Update'] & {
+  reply_to_email?: string | null;
+};
 
 export type MarketingCampaignListItem = Pick<
   MarketingCampaign,
@@ -84,6 +90,7 @@ export interface CreateMarketingCampaignInput {
   preview_text?: string | null;
   sender_name?: string | null;
   sender_email?: string | null;
+  reply_to_email?: string | null;
   content?: Json;
   segment_id?: string | null;
   scheduled_at?: string | null;
@@ -98,6 +105,7 @@ export interface UpdateMarketingCampaignInput {
   preview_text?: string | null;
   sender_name?: string | null;
   sender_email?: string | null;
+  reply_to_email?: string | null;
   content?: Json;
   segment_id?: string | null;
   scheduled_at?: string | null;

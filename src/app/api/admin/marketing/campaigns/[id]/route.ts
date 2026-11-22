@@ -58,6 +58,7 @@ export async function PATCH(
         preview_text: body.preview_text,
         sender_name: body.sender_name,
         sender_email: body.sender_email,
+        reply_to_email: body.reply_to_email,
         content: body.content,
         segment_id: body.segment_id,
         scheduled_at: body.scheduled_at,

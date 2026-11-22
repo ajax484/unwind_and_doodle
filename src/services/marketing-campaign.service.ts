@@ -141,17 +141,32 @@ export async function createCampaign(
     preview_text: input.preview_text?.trim() || null,
     sender_name: input.sender_name?.trim() || null,
     sender_email: input.sender_email?.trim() || null,
+    ...(input.reply_to_email !== undefined
+      ? { reply_to_email: input.reply_to_email?.trim() || null }
+      : {}),
     content: input.content ?? {},
     segment_id: input.segment_id || null,
     scheduled_at: input.scheduled_at || null,
     created_by: input.created_by || null,
   };
 
-  const { data, error } = await supabase
+  let { data, error } = await (supabase as any)
     .from('marketing_campaigns')
     .insert(payload)
     .select()
     .single();
+
+  // Graceful fallback if reply_to_email migration hasn't been applied yet
+  if (error && error.message?.includes('reply_to_email')) {
+    const { reply_to_email: _omit, ...fallbackPayload } = payload as Record<string, unknown>;
+    const retry = await (supabase as any)
+      .from('marketing_campaigns')
+      .insert(fallbackPayload)
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     throw new Error(`Failed to create marketing campaign: ${error.message}`);
@@ -206,19 +221,34 @@ export async function updateCampaign(
   if (input.preview_text !== undefined) updates.preview_text = input.preview_text ? input.preview_text.trim() : null;
   if (input.sender_name !== undefined) updates.sender_name = input.sender_name ? input.sender_name.trim() : null;
   if (input.sender_email !== undefined) updates.sender_email = input.sender_email ? input.sender_email.trim() : null;
+  if (input.reply_to_email !== undefined) updates.reply_to_email = input.reply_to_email ? input.reply_to_email.trim() : null;
   if (input.content !== undefined) updates.content = input.content;
   if (input.segment_id !== undefined) updates.segment_id = input.segment_id;
   if (input.scheduled_at !== undefined) updates.scheduled_at = input.scheduled_at;
   if (input.started_at !== undefined) updates.started_at = input.started_at;
   if (input.completed_at !== undefined) updates.completed_at = input.completed_at;
 
-  const { data, error } = await supabase
+  let { data, error } = await (supabase as any)
     .from('marketing_campaigns')
     .update(updates)
     .eq('id', id)
     .eq('organization_id', organizationId)
     .select()
     .single();
+
+  // Graceful fallback if reply_to_email migration hasn't been applied yet
+  if (error && error.message?.includes('reply_to_email')) {
+    const { reply_to_email: _omit, ...fallbackUpdates } = updates as Record<string, unknown>;
+    const retry = await (supabase as any)
+      .from('marketing_campaigns')
+      .update(fallbackUpdates)
+      .eq('id', id)
+      .eq('organization_id', organizationId)
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     throw new Error(`Failed to update marketing campaign: ${error.message}`);

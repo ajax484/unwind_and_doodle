@@ -46,6 +46,20 @@ const PALETTE_BLOCKS: {
     category: 'Commerce',
   },
   {
+    type: 'dynamic_items',
+    label: 'Cart / Order Items',
+    icon: '🛒',
+    description: 'Dynamic customer cart or order products with photos & prices',
+    category: 'Commerce',
+  },
+  {
+    type: 'review',
+    label: 'Customer Review',
+    icon: '⭐',
+    description: 'Star rating & verified testimonial from your reviews',
+    category: 'Social Proof',
+  },
+  {
     type: 'button',
     label: 'Button',
     icon: '🔘',

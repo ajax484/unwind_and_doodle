@@ -11,6 +11,7 @@ export interface SendMarketingEmailInput {
   previewText?: string;
   senderName: string;
   senderEmail: string;
+  replyTo?: string;
   html: string;
   text?: string;
   headers?: Record<string, string>;
@@ -21,6 +22,7 @@ export interface SendMarketingEmailResult {
   success: boolean;
   providerMessageId?: string;
   messageId?: string;
+  transportMode?: 'smtp' | 'json_fallback';
   error?: string;
 }
 

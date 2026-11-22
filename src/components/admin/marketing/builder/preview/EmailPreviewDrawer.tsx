@@ -14,6 +14,7 @@ export interface EmailPreviewDrawerProps {
   previewText?: string;
   senderName: string;
   senderEmail: string;
+  replyToEmail?: string;
   onClose: () => void;
 }
 
@@ -24,6 +25,7 @@ export function EmailPreviewDrawer({
   previewText,
   senderName,
   senderEmail,
+  replyToEmail,
   onClose,
 }: EmailPreviewDrawerProps) {
   const [viewport, setViewport] = useState<'desktop' | 'mobile'>('desktop');
@@ -130,6 +132,15 @@ export function EmailPreviewDrawer({
                   </span>
                 </div>
               </div>
+
+              {replyToEmail && (
+                <div className="flex items-baseline justify-between border-b border-slate-200/50 pb-2">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="font-semibold text-text-secondary">Reply-To:</span>
+                    <span className="text-emerald-700 font-medium truncate">{replyToEmail}</span>
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-baseline justify-between border-b border-slate-200/50 pb-2">
                 <div className="flex items-center gap-1.5">

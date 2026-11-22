@@ -15,6 +15,14 @@ import { resolveMarketingContext } from './marketing-context.service';
 import { renderMarketingTemplate, compileCampaignBlocksToHtml } from './marketing-renderer.service';
 import { MarketingContext } from '@/types/marketing-context';
 import {
+  SAMPLE_DYNAMIC_CART_ITEMS,
+  SAMPLE_DYNAMIC_ORDER_ITEMS,
+} from '@/types/marketing-builder';
+import {
+  resolveEffectiveReplyTo,
+  recordEmailDeliveryLog,
+} from './email-settings.service';
+import {
   generateMarketingUnsubscribeToken,
   generateMarketingTrackingToken,
 } from '@/lib/marketing-token';
@@ -117,12 +125,12 @@ export async function sendTestEmail(
   }
 
   const content = campaign.content as { blocks?: unknown[]; html?: string; text?: string } | null;
-  const rawHtml =
-    content?.html ||
-    (Array.isArray(content?.blocks) && content.blocks.length > 0
-      ? compileCampaignBlocksToHtml(content.blocks)
-      : '');
+  const hasBlocks = Array.isArray(content?.blocks) && content.blocks.length > 0;
+  const templateInput: string | { blocks?: any[]; html?: string } = hasBlocks
+    ? { blocks: content!.blocks as any[] }
+    : content?.html || '';
 
+  const appUrl = getConfig().appUrl;
   const sampleContext: MarketingContext = {
     firstName: 'Test',
     lastName: 'Recipient',
@@ -130,11 +138,17 @@ export async function sendTestEmail(
     orderNumber: 'ORD-TEST-1001',
     productName: 'General-Themed Colouring Book',
     lastProduct: 'General-Themed Colouring Book',
+    cartItems: SAMPLE_DYNAMIC_CART_ITEMS,
+    cartSubtotal: 30500,
+    cartUrl: `${appUrl}/cart`,
+    orderItems: SAMPLE_DYNAMIC_ORDER_ITEMS,
+    orderSubtotal: 20500,
+    orderUrl: `${appUrl}/account/orders/ORD-TEST-1001`,
     productRecommendation: {
       productId: 'sample-rec',
       productFamily: 'ultimate_game_book',
       title: 'Ultimate Game Book',
-      url: `${getConfig().appUrl}/products/ultimate-game-book`,
+      url: `${appUrl}/products/ultimate-game-book`,
       recommendationText:
         'If you enjoyed colouring but want more variety, try the Ultimate Game Book. It gives you puzzles, word games, brain teasers and other screen-free activities for the days you do not feel like colouring.',
     },
@@ -142,13 +156,13 @@ export async function sendTestEmail(
       productId: 'sample-rec',
       productFamily: 'ultimate_game_book',
       title: 'Ultimate Game Book',
-      url: `${getConfig().appUrl}/products/ultimate-game-book`,
+      url: `${appUrl}/products/ultimate-game-book`,
       recommendationText:
         'Try the Ultimate Game Book or Play and Color Kit when you want puzzles and games alongside colouring.',
     },
   };
 
-  let renderedHtml = renderMarketingTemplate(rawHtml, sampleContext, { isHtml: true });
+  let renderedHtml = renderMarketingTemplate(templateInput, sampleContext, { isHtml: true });
 
   // Append sample unsubscribe text for completeness
   if (!renderedHtml.includes('unsubscribe') && !renderedHtml.includes('Unsubscribe')) {
@@ -160,15 +174,44 @@ export async function sendTestEmail(
     `;
   }
 
+  const replyTo = await resolveEffectiveReplyTo(
+    supabase,
+    organizationId,
+    (campaign as any).reply_to_email
+  );
+  const renderedSubject = `[Test] ${renderMarketingTemplate(campaign.subject || '', sampleContext, { isHtml: false })}`;
+
   const provider = getMarketingEmailProvider();
   const result = await provider.sendEmail({
     to: recipientEmail,
-    subject: `[Test] ${renderMarketingTemplate(campaign.subject || '', sampleContext, { isHtml: false })}`,
+    subject: renderedSubject,
     senderName: campaign.sender_name || 'Unwind & Doodle',
     senderEmail: campaign.sender_email || 'no-reply@unwindanddoodle.com',
+    replyTo,
     html: renderedHtml,
     text: content?.text ? renderMarketingTemplate(content.text, sampleContext, { isHtml: false }) : undefined,
   });
+
+  const isTestEnv = process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST);
+  if (!isTestEnv) {
+    await recordEmailDeliveryLog(supabase, {
+      organizationId,
+      channel: 'test',
+      campaignId,
+      toEmail: recipientEmail,
+      fromEmail: campaign.sender_email || 'no-reply@unwindanddoodle.com',
+      replyToEmail: replyTo || null,
+      subject: renderedSubject,
+      status: !result.success
+        ? 'failed'
+        : result.transportMode === 'json_fallback'
+        ? 'simulated'
+        : 'sent',
+      providerMessageId: result.providerMessageId || null,
+      transportMode: result.transportMode || 'smtp',
+      errorMessage: result.error || null,
+    });
+  }
 
   return result;
 }
@@ -288,12 +331,16 @@ export async function dispatchCampaign(
   const { appUrl } = getConfig();
   const provider = getMarketingEmailProvider();
   const content = campaign.content as { blocks?: unknown[]; html?: string; text?: string } | null;
-  const baseHtml =
-    content?.html ||
-    (Array.isArray(content?.blocks) && content.blocks.length > 0
-      ? compileCampaignBlocksToHtml(content.blocks)
-      : '');
+  const hasBlocks = Array.isArray(content?.blocks) && content.blocks.length > 0;
+  const templateInput: string | { blocks?: any[]; html?: string } = hasBlocks
+    ? { blocks: content!.blocks as any[] }
+    : content?.html || '';
   const baseText = content?.text || '';
+  const effectiveReplyTo = await resolveEffectiveReplyTo(
+    supabase,
+    organizationId,
+    (campaign as any).reply_to_email
+  );
 
   let sentCount = 0;
   let failedCount = 0;
@@ -338,8 +385,8 @@ export async function dispatchCampaign(
         );
         const unsubscribeUrl = `${appUrl}/unsubscribe?token=${unsubscribeToken}`;
 
-        // Personalize and sanitize HTML
-        let personalizedHtml = renderMarketingTemplate(baseHtml, marketingContext, { isHtml: true });
+        // Personalize and sanitize HTML (compiling dynamic blocks per recipient when blocks exist)
+        let personalizedHtml = renderMarketingTemplate(templateInput, marketingContext, { isHtml: true });
 
         // Append unsubscribe footer
         const unsubscribeFooter = `
@@ -373,6 +420,7 @@ export async function dispatchCampaign(
           subject: renderMarketingTemplate(campaign.subject || '', marketingContext, { isHtml: false }),
           senderName: campaign.sender_name || 'Unwind & Doodle',
           senderEmail: campaign.sender_email || 'no-reply@unwindanddoodle.com',
+          replyTo: effectiveReplyTo,
           html: personalizedHtml,
           text: personalizedText,
           headers: {

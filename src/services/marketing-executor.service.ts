@@ -15,6 +15,7 @@ import { getMarketingEmailProvider } from './marketing-provider/nodemailer-marke
 import { sanitizeHtml, replacePersonalizationTags } from '@/lib/sanitize-html';
 import { resolveMarketingContext } from './marketing-context.service';
 import { renderMarketingTemplate } from './marketing-renderer.service';
+import { resolveEffectiveReplyTo } from './email-settings.service';
 import {
   generateMarketingUnsubscribeToken,
   generateMarketingTrackingToken,
@@ -569,9 +570,9 @@ export async function executeSingleAutomation(
 
   // 5. Verify Campaign template and tenant boundary
   const targetCampaignId = options?.campaignId || execution.campaign_id;
-  const { data: campaign } = await supabase
+  const { data: campaign } = await (supabase as any)
     .from('marketing_campaigns')
-    .select('id, organization_id, name, subject, preview_text, sender_name, sender_email, content')
+    .select('id, organization_id, name, subject, preview_text, sender_name, sender_email, reply_to_email, content')
     .eq('id', targetCampaignId)
     .maybeSingle();
 
@@ -646,6 +647,14 @@ export async function executeSingleAutomation(
     organizationId: execution.organization_id,
     customerId: execution.customer_id,
     customerEmail: execution.customer_email,
+    orderId: execution.order_id || undefined,
+    cartId:
+      (domainEventPayload && typeof domainEventPayload.cartId === 'string'
+        ? domainEventPayload.cartId
+        : undefined) ||
+      (domainEventPayload && typeof domainEventPayload.checkoutId === 'string'
+        ? domainEventPayload.checkoutId
+        : undefined),
     campaignId: campaign.id,
     automationType: automation.type,
     domainEventPayload,
@@ -653,9 +662,17 @@ export async function executeSingleAutomation(
 
   const { appUrl } = getConfig();
   const provider = getMarketingEmailProvider();
-  const content = campaign.content as { html?: string; text?: string } | null;
-  const baseHtml = content?.html || '';
+  const content = campaign.content as { blocks?: unknown[]; html?: string; text?: string } | null;
+  const hasBlocks = Array.isArray(content?.blocks) && content.blocks.length > 0;
+  const templateInput: string | { blocks?: any[]; html?: string } = hasBlocks
+    ? { blocks: content!.blocks as any[] }
+    : content?.html || '';
   const baseText = content?.text || '';
+  const effectiveReplyTo = await resolveEffectiveReplyTo(
+    supabase,
+    execution.organization_id,
+    campaign.reply_to_email
+  );
 
   // 7. Insert or resolve recipient record
   let recipientId = `rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -682,7 +699,7 @@ export async function executeSingleAutomation(
   );
   const unsubscribeUrl = `${appUrl}/unsubscribe?token=${unsubscribeToken}`;
 
-  let personalizedHtml = renderMarketingTemplate(baseHtml, marketingContext, { isHtml: true });
+  let personalizedHtml = renderMarketingTemplate(templateInput, marketingContext, { isHtml: true });
 
   const unsubscribeFooter = `
     <div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; text-align: center; font-family: sans-serif;">
@@ -712,6 +729,7 @@ export async function executeSingleAutomation(
       subject: renderMarketingTemplate(campaign.subject || '', marketingContext, { isHtml: false }),
       senderName: campaign.sender_name || 'Unwind & Doodle',
       senderEmail: campaign.sender_email,
+      replyTo: effectiveReplyTo,
       html: personalizedHtml,
       text: personalizedText,
       headers: {

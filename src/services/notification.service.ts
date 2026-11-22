@@ -15,6 +15,11 @@ import {
   baseHtmlWrapper,
 } from './service-email.service';
 import { ServiceEmailTemplateOverride } from '../types/service-email';
+import {
+  resolveEffectiveReplyTo,
+  recordEmailDeliveryLog,
+} from './email-settings.service';
+import { getTransportMode } from '../lib/email-transporter';
 export { baseHtmlWrapper };
 
 export interface EmailNotificationPayload {
@@ -24,6 +29,7 @@ export interface EmailNotificationPayload {
   data: Record<string, unknown>;
   html?: string;
   text?: string;
+  replyTo?: string;
   organizationId?: string;
 }
 
@@ -165,10 +171,27 @@ export async function dispatchTransactionalEmail(
       ? renderedSubject
       : (payload.subject || renderedSubject);
 
+  const fromAddress = smtp?.from || 'Unwind and Doodle <no-reply@unwindanddoodle.com>';
+  const transportMode = getTransportMode();
+
+  let supabaseForSettings: SupabaseClient<Database> | null = null;
+  try {
+    supabaseForSettings = getServiceSupabaseClient(customSupabase);
+  } catch {
+    supabaseForSettings = null;
+  }
+
+  const replyToAddress = await resolveEffectiveReplyTo(
+    supabaseForSettings,
+    orgId,
+    payload.replyTo
+  );
+
   try {
     const info = await transporter.sendMail({
-      from: smtp?.from || 'Unwind and Doodle <no-reply@unwindanddoodle.com>',
+      from: fromAddress,
       to: payload.to,
+      replyTo: replyToAddress,
       subject: finalSubject,
       text: payload.text || text,
       html: payload.html || html,
@@ -177,20 +200,54 @@ export async function dispatchTransactionalEmail(
     const messageId = info.messageId || `msg_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
     console.info(
-      `[notification.email_dispatched] to=${payload.to} template=${payload.template} subject="${finalSubject}" messageId=${messageId}`
+      `[notification.email_dispatched] to=${payload.to} template=${payload.template} subject="${finalSubject}" messageId=${messageId} transport=${transportMode} replyTo=${replyToAddress || 'none'}`
     );
 
     if (idempotencyKey) {
       sentNotifications.add(idempotencyKey);
     }
 
+    const isTestEnv = process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST);
+    if (!isTestEnv && supabaseForSettings) {
+      await recordEmailDeliveryLog(supabaseForSettings, {
+        organizationId: orgId || null,
+        channel: 'transactional',
+        templateKey: payload.template,
+        toEmail: payload.to,
+        fromEmail: fromAddress,
+        replyToEmail: replyToAddress || null,
+        subject: finalSubject,
+        status: transportMode === 'json_fallback' ? 'simulated' : 'sent',
+        providerMessageId: messageId,
+        transportMode,
+      });
+    }
+
     return { success: true, messageId };
   } catch (error: any) {
-    console.error(`[notification.email_failed] to=${payload.to} template=${payload.template} error=${error?.message || error}`);
+    const errorMsg = error?.message || 'Failed to dispatch email';
+    console.error(`[notification.email_failed] to=${payload.to} template=${payload.template} error=${errorMsg}`);
+
+    const isTestEnv = process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST);
+    if (!isTestEnv && supabaseForSettings) {
+      await recordEmailDeliveryLog(supabaseForSettings, {
+        organizationId: orgId || null,
+        channel: 'transactional',
+        templateKey: payload.template,
+        toEmail: payload.to,
+        fromEmail: fromAddress,
+        replyToEmail: replyToAddress || null,
+        subject: finalSubject,
+        status: 'failed',
+        transportMode,
+        errorMessage: errorMsg,
+      });
+    }
+
     return {
       success: false,
       messageId: '',
-      error: error?.message || 'Failed to dispatch email',
+      error: errorMsg,
     };
   }
 }

@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
       preview_text: body.preview_text?.trim() || null,
       sender_name: body.sender_name?.trim() || null,
       sender_email: body.sender_email?.trim() || null,
+      reply_to_email: body.reply_to_email?.trim() || null,
       content: body.content ?? {},
       segment_id: body.segment_id || null,
       scheduled_at: body.scheduled_at || null,

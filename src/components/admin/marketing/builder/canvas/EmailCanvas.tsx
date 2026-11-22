@@ -8,6 +8,8 @@ import {
   V1ImageBlock,
   V1ProductBlock,
   V1ProductGridBlock,
+  V1ReviewBlock,
+  V1DynamicItemsBlock,
   V1ButtonBlock,
   V1CalloutBlock,
   V1DividerBlock,
@@ -19,6 +21,8 @@ import {
   CanvasImageBlock,
   CanvasProductBlock,
   CanvasProductGridBlock,
+  CanvasReviewBlock,
+  CanvasDynamicItemsBlock,
   CanvasButtonBlock,
   CanvasCalloutBlock,
   CanvasDividerBlock,
@@ -30,6 +34,7 @@ export interface EmailCanvasProps {
   viewport: 'desktop' | 'mobile';
   senderName: string;
   senderEmail: string;
+  replyToEmail?: string;
   subject: string;
   previewText?: string;
   onSelectBlock: (id: string | null) => void;
@@ -45,6 +50,7 @@ export function EmailCanvas({
   viewport,
   senderName,
   senderEmail,
+  replyToEmail,
   subject,
   previewText,
   onSelectBlock,
@@ -65,6 +71,10 @@ export function EmailCanvas({
         return <CanvasProductBlock block={block as V1ProductBlock} />;
       case 'product_grid':
         return <CanvasProductGridBlock block={block as V1ProductGridBlock} />;
+      case 'review':
+        return <CanvasReviewBlock block={block as V1ReviewBlock} />;
+      case 'dynamic_items':
+        return <CanvasDynamicItemsBlock block={block as V1DynamicItemsBlock} />;
       case 'button':
         return <CanvasButtonBlock block={block as V1ButtonBlock} />;
       case 'callout':
@@ -98,6 +108,12 @@ export function EmailCanvas({
               </span>
             </div>
           </div>
+          {replyToEmail && (
+            <div className="text-text-secondary">
+              <span className="font-semibold text-text-tertiary mr-1.5">Reply-To:</span>
+              <span className="font-medium text-emerald-700">{replyToEmail}</span>
+            </div>
+          )}
 
           <div className="pt-1">
             <div className="font-bold text-sm text-text-primary font-heading break-words">

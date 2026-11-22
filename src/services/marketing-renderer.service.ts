@@ -1,8 +1,13 @@
-import { MarketingContext, MarketingRecommendation } from '@/types/marketing-context';
+import { DynamicLineItem, MarketingContext, MarketingRecommendation } from '@/types/marketing-context';
 import { sanitizeHtml } from '@/lib/sanitize-html';
 import { stripHtml } from '@/lib/rich-text';
 import { CampaignBlock } from '@/types/marketing';
-import { V1CampaignBlock, normalizeProductPresentation } from '@/types/marketing-builder';
+import {
+  V1CampaignBlock,
+  normalizeProductPresentation,
+  SAMPLE_DYNAMIC_CART_ITEMS,
+  SAMPLE_DYNAMIC_ORDER_ITEMS,
+} from '@/types/marketing-builder';
 import { formatPrice } from '@/lib/format-utils';
 
 /**
@@ -89,7 +94,7 @@ export function formatRecommendationBlock(
  */
 export function compileCampaignBlocksToHtml(
   blocks: (CampaignBlock | V1CampaignBlock | any)[],
-  options?: { isPreview?: boolean }
+  options?: { isPreview?: boolean; context?: MarketingContext }
 ): string {
   if (!Array.isArray(blocks) || blocks.length === 0) {
     return '<p style="color: #52657A; font-family: sans-serif; text-align: center; margin: 20px 0;">No content written yet.</p>';
@@ -407,7 +412,187 @@ export function compileCampaignBlocksToHtml(
         break;
       }
 
-      // 7. Divider Block
+      // 7. Customer Review Block
+      case 'review': {
+        const rating = Math.max(1, Math.min(5, Math.round(Number(data.rating ?? 5))));
+        const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+        const quote = data.quote ? escapeHtml(String(data.quote).trim()) : '';
+        const title = data.title ? escapeHtml(String(data.title).trim()) : '';
+        const author = escapeHtml(String(data.authorName || 'Verified Customer').trim());
+        const productName = data.productName ? escapeHtml(String(data.productName).trim()) : '';
+        const productUrl = data.productUrl ? toAbsoluteUrl(String(data.productUrl)) : '';
+        const verified = data.verifiedBuyer !== false;
+        const styleVariant = data.style || 'card';
+
+        let bg = '#FFFDF7';
+        let border = borderSoft;
+        if (styleVariant === 'rose') {
+          bg = '#FBF0F2';
+          border = '#E9C5CA';
+        } else if (styleVariant === 'minimal') {
+          bg = '#FFFFFF';
+          border = '#E5E7EB';
+        }
+
+        if (quote || title) {
+          renderedBlocks.push(`
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: ${bg}; border: 1px solid ${border}; border-radius: 14px; margin: 20px 0;">
+              <tr>
+                <td style="padding: 20px 22px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                  <div style="font-size: 16px; color: #F59E0B; letter-spacing: 2px; margin-bottom: 8px;">${stars}</div>
+                  ${title ? `<div style="font-size: 15px; font-weight: 700; color: ${textCharcoal}; margin-bottom: 6px;">${title}</div>` : ''}
+                  ${quote ? `<p style="font-size: 14px; line-height: 1.6; color: ${textCharcoal}; font-style: italic; margin: 0 0 12px 0;">&ldquo;${quote}&rdquo;</p>` : ''}
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td style="font-size: 12px; color: ${textSlate};">
+                        <strong style="color: ${textCharcoal};">— ${author}</strong>
+                        ${verified ? `<span style="display: inline-block; margin-left: 6px; padding: 2px 7px; background-color: #ECFDF5; color: #047857; border-radius: 9999px; font-size: 10px; font-weight: 700;">Verified Buyer</span>` : ''}
+                      </td>
+                      ${productName ? `
+                        <td align="right" style="font-size: 12px; text-align: right;">
+                          ${productUrl && productUrl !== '#'
+                            ? `<a href="${escapeHtml(productUrl)}" target="_blank" rel="noopener noreferrer" style="color: ${brandRoseDeep}; font-weight: 600; text-decoration: none;">${productName} →</a>`
+                            : `<span style="color: ${brandRoseDeep}; font-weight: 600;">${productName}</span>`
+                          }
+                        </td>
+                      ` : ''}
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          `);
+        }
+        break;
+      }
+
+      // 8. Dynamic Cart / Order Items Block
+      case 'dynamic_items': {
+        const source = data.source === 'order_items' ? 'order_items' : 'abandoned_cart';
+        const showImage = data.showImage !== false;
+        const showPrice = data.showPrice !== false;
+        const showQuantity = data.showQuantity !== false;
+        const showSubtotal = data.showSubtotal !== false;
+        const showCta = data.showCta !== false;
+
+        const headingText =
+          data.heading ||
+          (source === 'abandoned_cart' ? 'Items you left behind' : 'What you ordered');
+        const defaultCtaText =
+          source === 'abandoned_cart' ? 'Return to your cart' : 'View your order';
+        const ctaText = escapeHtml(data.ctaText || defaultCtaText);
+
+        const ctx = options?.context;
+        let items: DynamicLineItem[] = [];
+        let subtotal: number | null = null;
+        let defaultCtaUrl = source === 'abandoned_cart' ? '/cart' : '/account/orders';
+
+        if (source === 'abandoned_cart') {
+          items = ctx?.cartItems || (options?.isPreview ? SAMPLE_DYNAMIC_CART_ITEMS : []);
+          subtotal = ctx?.cartSubtotal ?? null;
+          if (ctx?.cartUrl) defaultCtaUrl = ctx.cartUrl;
+        } else {
+          items = ctx?.orderItems || (options?.isPreview ? SAMPLE_DYNAMIC_ORDER_ITEMS : []);
+          subtotal = ctx?.orderSubtotal ?? null;
+          if (ctx?.orderUrl) defaultCtaUrl = ctx.orderUrl;
+        }
+
+        if (items.length === 0) {
+          if (data.emptyFallbackText) {
+            renderedBlocks.push(`
+              <div style="background-color: #FFFDF7; border: 1px solid ${borderSoft}; border-radius: 12px; padding: 16px 20px; margin: 16px 0; color: ${textSlate}; font-size: 13px; text-align: center;">
+                ${escapeHtml(data.emptyFallbackText)}
+              </div>
+            `);
+          }
+          break;
+        }
+
+        const computedSubtotal =
+          subtotal !== null
+            ? subtotal
+            : items.reduce(
+                (acc, item) => acc + Number(item.totalPrice ?? item.unitPrice * item.quantity),
+                0
+              );
+
+        const itemRows = items
+          .map((item) => {
+            const itemName = escapeHtml(item.name || 'Product');
+            const itemImg = item.imageUrl ? toAbsoluteUrl(item.imageUrl) : '';
+            const itemLink = item.productUrl
+              ? toAbsoluteUrl(item.productUrl)
+              : item.slug
+              ? toAbsoluteUrl(`/products/${item.slug}`)
+              : '';
+            const linePrice = Number(item.totalPrice ?? item.unitPrice * item.quantity);
+            const priceLabel = formatPrice(linePrice);
+            const unitLabel = item.quantity > 1 ? ` (${formatPrice(item.unitPrice)} each)` : '';
+
+            return `
+              <tr>
+                ${showImage ? `
+                  <td width="76" valign="middle" style="padding: 12px 12px 12px 0; width: 76px; border-bottom: 1px solid ${borderSoft};">
+                    ${itemImg
+                      ? `<img src="${escapeHtml(itemImg)}" alt="${itemName}" width="64" height="64" style="width: 64px; height: 64px; object-fit: cover; border-radius: 10px; border: 1px solid ${borderSoft}; display: block;" />`
+                      : `<div style="width: 64px; height: 64px; border-radius: 10px; background-color: #FBF0F2; text-align: center; line-height: 64px; font-size: 20px;">🎨</div>`
+                    }
+                  </td>
+                ` : ''}
+                <td valign="middle" style="padding: 12px 8px 12px 0; border-bottom: 1px solid ${borderSoft}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                  <div style="font-size: 14px; font-weight: 700; color: ${textCharcoal}; margin-bottom: 3px;">
+                    ${itemLink
+                      ? `<a href="${escapeHtml(itemLink)}" target="_blank" rel="noopener noreferrer" style="color: ${textCharcoal}; text-decoration: none;">${itemName}</a>`
+                      : itemName
+                    }
+                  </div>
+                  ${showQuantity ? `<div style="font-size: 12px; color: ${textSlate};">Qty: ${item.quantity}${showPrice ? escapeHtml(unitLabel) : ''}</div>` : ''}
+                </td>
+                ${showPrice ? `
+                  <td align="right" valign="middle" style="padding: 12px 0; border-bottom: 1px solid ${borderSoft}; text-align: right; white-space: nowrap; font-size: 14px; font-weight: 700; color: ${brandRoseDeep}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                    ${priceLabel}
+                  </td>
+                ` : ''}
+              </tr>
+            `;
+          })
+          .join('');
+
+        const finalCtaUrl = escapeHtml(toAbsoluteUrl(data.ctaUrl || defaultCtaUrl));
+
+        renderedBlocks.push(`
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #FFFDF7; border: 1px solid ${borderSoft}; border-radius: 14px; margin: 20px 0;">
+            <tr>
+              <td style="padding: 18px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                ${headingText ? `<div style="font-size: 15px; font-weight: 700; color: ${textCharcoal}; margin-bottom: 8px;">${escapeHtml(headingText)}</div>` : ''}
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  ${itemRows}
+                  ${showSubtotal && showPrice ? `
+                    <tr>
+                      <td colspan="${showImage ? 2 : 1}" style="padding: 12px 8px 4px 0; font-size: 13px; font-weight: 700; color: ${textSlate};">
+                        Subtotal
+                      </td>
+                      <td align="right" style="padding: 12px 0 4px 0; text-align: right; font-size: 15px; font-weight: 800; color: ${textCharcoal};">
+                        ${formatPrice(computedSubtotal)}
+                      </td>
+                    </tr>
+                  ` : ''}
+                </table>
+                ${showCta ? `
+                  <div style="text-align: center; margin-top: 16px;">
+                    <a href="${finalCtaUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: ${brandRose}; color: #ffffff !important; text-decoration: none; padding: 11px 24px; border-radius: 9999px; font-size: 13px; font-weight: 700;">
+                      ${ctaText}
+                    </a>
+                  </div>
+                ` : ''}
+              </td>
+            </tr>
+          </table>
+        `);
+        break;
+      }
+
+      // 9. Divider Block
       case 'divider': {
         const spacing = data?.spacing || 'md';
         const marginY = spacing === 'sm' ? '16px' : spacing === 'lg' ? '36px' : '24px';
@@ -480,7 +665,7 @@ export function renderMarketingTemplate(
 
   if (typeof template === 'object') {
     if (Array.isArray(template.blocks) && template.blocks.length > 0) {
-      rawTemplateString = compileCampaignBlocksToHtml(template.blocks);
+      rawTemplateString = compileCampaignBlocksToHtml(template.blocks, { context });
     } else if (template.html) {
       rawTemplateString = template.html;
     }
@@ -490,7 +675,7 @@ export function renderMarketingTemplate(
       try {
         const parsed = JSON.parse(template);
         if (Array.isArray(parsed.blocks) && parsed.blocks.length > 0) {
-          rawTemplateString = compileCampaignBlocksToHtml(parsed.blocks);
+          rawTemplateString = compileCampaignBlocksToHtml(parsed.blocks, { context });
         } else if (parsed.html) {
           rawTemplateString = parsed.html;
         } else {
